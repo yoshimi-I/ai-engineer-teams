@@ -73,7 +73,7 @@ allocate_roles() {
 
   # Remaining 11 slots to fill (12 - dev-server)
   local remaining=11
-  local impl=0 review=0 fix=0 watch=0 e2e=0 improve=0
+  local impl=0 fix=0 watch=0 e2e=0 improve=0
 
   # 1) Fix-review: 1 per 2 CHANGES_REQUESTED PRs (min 0, max 2)
   if [[ "$changes_req" -gt 0 ]]; then
@@ -81,12 +81,8 @@ allocate_roles() {
     [[ $fix -gt 2 ]] && fix=2
   fi
 
-  # 2) Review: 1 per 2 PRs needing review + 1 per 3 approved (for merge duty), min 1 if any PRs, max 3
-  if [[ "$need_review" -gt 0 || "$approved" -gt 0 ]]; then
-    review=$(( (need_review + 1) / 2 + (approved + 2) / 3 ))
-    [[ $review -lt 1 ]] && review=1
-    [[ $review -gt 3 ]] && review=3
-  fi
+  # Review is handled by CI (kiro-cli-review-action) — no local review agents needed
+  # Merge is handled by auto-merge.yml workflow
 
   # 3) Watch-main + E2E: 1 each if merges exist
   if $has_merges; then
@@ -100,23 +96,21 @@ allocate_roles() {
   fi
 
   # 5) Impl: fill the rest (at least 1 if issues > 0)
-  local used=$((fix + review + watch + e2e + improve))
+  local used=$((fix + watch + e2e + improve))
   impl=$((remaining - used))
   [[ $impl -lt 0 ]] && impl=0
 
-  # If no issues, redistribute impl slots to review
+  # If no issues, keep slots idle
   if [[ "$issues" -eq 0 && "$impl" -gt 0 ]]; then
-    review=$((review + impl))
     impl=0
   fi
 
   # If nothing to do at all, keep slots idle
-  local total=$((impl + review + fix + watch + e2e + improve))
+  local total=$((impl + fix + watch + e2e + improve))
   local idle=$((remaining - total))
 
   # Build role list
   for ((i=0; i<impl; i++));    do roles+=(implement); done
-  for ((i=0; i<review; i++));  do roles+=(review); done
   for ((i=0; i<fix; i++));     do roles+=(fix-review); done
   [[ $watch -gt 0 ]]   && roles+=(watch-main)
   [[ $e2e -gt 0 ]]     && roles+=(e2e-bug-hunt)
