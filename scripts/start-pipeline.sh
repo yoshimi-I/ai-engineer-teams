@@ -16,6 +16,27 @@ for cmd in kiro-cli zellij gh; do
   fi
 done
 
+# ── KIRO_API_KEY Secret check ──
+echo "🔑 KIRO_API_KEY チェック..."
+if gh secret list 2>/dev/null | grep -q "KIRO_API_KEY"; then
+  echo "✅ KIRO_API_KEY 設定済み"
+else
+  echo ""
+  echo "  ⚠️  KIRO_API_KEY が GitHub Secrets に未設定です。"
+  echo "  CI の Kiro Review (konippi/kiro-cli-review-action) に必要です。"
+  echo ""
+  echo "  取得先: https://app.kiro.dev → API Keys"
+  echo ""
+  read -p "  KIRO_API_KEY を入力 (空でスキップ): " KIRO_KEY
+  if [[ -n "$KIRO_KEY" ]]; then
+    echo "$KIRO_KEY" | gh secret set KIRO_API_KEY
+    echo "  ✔ KIRO_API_KEY を設定しました。"
+  else
+    echo "  ⏭️  スキップ。後で設定: gh secret set KIRO_API_KEY"
+  fi
+  echo ""
+fi
+
 if [[ ! -d ".kiro/prompts" ]]; then
   echo "❌ Run from project root (no .kiro/prompts/ found)"
   exit 1
@@ -45,6 +66,16 @@ if echo "$REMOTE_URL" | grep -q "kiro-engineer-teams"; then
 
     echo ""
     echo "  📦 リポジトリを作成中: ${REPO_NAME}"
+
+    # Remove template-only files before pushing
+    rm -f LICENSE
+    rm -rf docs
+    for f in README.md AGENTS.md; do
+      grep -q "kiro-engineer-teams" "$f" 2>/dev/null && rm -f "$f"
+    done
+    git add -A
+    git commit -m "init: scaffold from kiro-engineer-teams" --allow-empty 2>/dev/null || true
+
     gh repo create "$REPO_NAME" $VIS_FLAG --source=. --push
     echo "  ✔ リポジトリを作成しました: $(gh repo view --json url --jq '.url')"
     echo ""
