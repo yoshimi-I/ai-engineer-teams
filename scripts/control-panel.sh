@@ -118,6 +118,45 @@ show_panel() {
   echo -e "  ${CYAN}[s]${R} Stop agent    ${CYAN}[r]${R} Restart agent    ${CYAN}[a]${R} Stop all"
   echo -e "  ${CYAN}[l]${R} View log      ${CYAN}[o]${R} Orchestrator     ${CYAN}[q]${R} Quit panel"
   echo ""
+
+  # Current work (cached)
+  local cache_file="${STATUS_DIR}/.cache/work_summary"
+  local cache_ttl=15
+  if [[ ! -f "$cache_file" ]] || [[ $(($(date +%s) - $(stat -f%m "$cache_file" 2>/dev/null || echo 0))) -ge $cache_ttl ]]; then
+    mkdir -p "${STATUS_DIR}/.cache"
+    {
+      echo "issues:"
+      gh issue list --state open --json number,title,assignees --jq '.[] | select(.assignees | length > 0) | "  #\(.number) \(.title[:40]) ← \(.assignees[0].login)"' 2>/dev/null || true
+      echo "prs:"
+      gh pr list --json number,title,headRefName,author,reviewDecision --jq '.[] | "  #\(.number) [\(.reviewDecision // "PENDING")] \(.title[:40]) ← \(.author.login)"' 2>/dev/null || true
+    } > "$cache_file" 2>/dev/null
+  fi
+
+  echo -e "  ${BOLD}📋 Current Work${R}"
+  echo -e "  ${DIM}─────────────────────────────────────────────────────────────────────${R}"
+  if [[ -f "$cache_file" ]]; then
+    local section=""
+    while IFS= read -r line; do
+      case "$line" in
+        "issues:") section="issues"; echo -e "  ${YELLOW}Issues (in progress):${R}" ;;
+        "prs:")    section="prs";    echo -e "  ${CYAN}Pull Requests:${R}" ;;
+        "  #"*)
+          if [[ "$section" == "issues" ]]; then
+            echo -e "    ${GREEN}${line}${R}"
+          else
+            if [[ "$line" == *"APPROVED"* ]]; then
+              echo -e "    ${GREEN}${line}${R}"
+            elif [[ "$line" == *"CHANGES_REQUESTED"* ]]; then
+              echo -e "    ${RED}${line}${R}"
+            else
+              echo -e "    ${YELLOW}${line}${R}"
+            fi
+          fi
+          ;;
+      esac
+    done < "$cache_file"
+  fi
+  echo ""
 }
 
 stop_agent() {
