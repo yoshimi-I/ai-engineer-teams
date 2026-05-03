@@ -4,10 +4,6 @@
 #   or:  bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/kiro-engineer-teams/main/scripts/update.sh)
 set -euo pipefail
 
-# Wrap in a function so bash reads the entire script before executing.
-# This prevents breakage when update.sh overwrites itself mid-run.
-_main() {
-
 REPO="yoshimi-I/kiro-engineer-teams"
 BRANCH="main"
 TMP=$(mktemp -d)
@@ -20,7 +16,7 @@ echo ""
 curl -fsSL "https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz" | tar xz -C "$TMP"
 SRC="${TMP}/kiro-engineer-teams-${BRANCH}"
 
-# Files to update (overwrite)
+# Files to update (overwrite) — update.sh is excluded and handled last
 TARGETS=(
   "scripts/agent.sh"
   "scripts/orchestrator.sh"
@@ -29,7 +25,6 @@ TARGETS=(
   "scripts/start-pipeline.sh"
   "scripts/pipeline.kdl"
   "scripts/setup.sh"
-  "scripts/update.sh"
   ".github/workflows/kiro-review.yml"
   ".kiro/agents/code-reviewer.json"
   "justfile"
@@ -49,7 +44,7 @@ for f in "${TARGETS[@]}"; do
   fi
 done
 
-# Update skills (symlinks — only add new ones)
+# Update skills (only add new ones)
 if [ -d "${SRC}/.kiro/skills" ]; then
   for skill in "${SRC}"/.kiro/skills/*/; do
     name=$(basename "$skill")
@@ -79,5 +74,12 @@ else
     fi
   fi
 fi
-}
-_main "$@"
+
+# Self-update: copy update.sh LAST, after all logic has finished.
+# This is safe because bash has already read and parsed everything above.
+if [ -f "${SRC}/scripts/update.sh" ]; then
+  if ! diff -q "scripts/update.sh" "${SRC}/scripts/update.sh" >/dev/null 2>&1; then
+    cp "${SRC}/scripts/update.sh" "scripts/update.sh"
+    echo "  ✅ scripts/update.sh (self-updated — run again to pick up changes)"
+  fi
+fi
