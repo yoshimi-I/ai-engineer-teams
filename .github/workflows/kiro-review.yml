@@ -1,20 +1,26 @@
-name: Kiro Review
+name: Kiro Review + Auto Merge
 
 on:
   pull_request:
-    types: [opened, ready_for_review, synchronize]
+    types: [opened, ready_for_review]
   issue_comment:
     types: [created]
+  pull_request_review:
+    types: [submitted]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: write
 
 jobs:
+  # Review: only on PR open or /review comment
   review:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/review'))
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,3 +31,19 @@ jobs:
           trigger_phrase: /review
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
+  # Auto-merge: only when a review is submitted as APPROVED
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request_review' &&
+      github.event.review.state == 'approved'
+    steps:
+      - name: Squash merge approved PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pr=${{ github.event.pull_request.number }}
+          echo "Merging PR #$pr"
+          gh pr merge "$pr" --repo ${{ github.repository }} --squash --delete-branch \
+            || echo "Cannot merge PR #$pr yet (conflicts or pending checks)"
