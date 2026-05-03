@@ -50,25 +50,28 @@ just setup && just start
 ## 🔄 Full Flow
 
 ```
-./scripts/start-pipeline.sh
+just start (./scripts/start-pipeline.sh)
 │
-├── フェーズ 1: INCEPTION (you + AI)
+├── Step 0: Preflight
+│   ├── テンプレートリポ検出 → 新リポ作成（origin差し替え）
+│   └── KIRO_API_KEY 設定（GitHub Secrets）
+│
+├── Phase 1: INCEPTION (you + AI)
 │   ├── 1. ワークスペース検出
 │   ├── 2. 要件分析
 │   ├── 3. ユーザーストーリー
 │   ├── 4. アーキテクチャ設計
 │   └── 5. Issue 自動生成 → GitHub issues
 │
-└── フェーズ 2: 自律パイプライン
+└── Phase 2: 自律パイプライン (tmux)
     │
     └── オーケストレーター（最小構成で開始 → 必要に応じてスケール）
         │
-        ├── 起動時: implement-1 のみ
-        ├── issue増加 → implement-2, 3, ... を追加 (3issue/1agent, max 8)
+        ├── 起動時: issue数に応じてimplement-1, 2, ... を即座に起動
+        ├── issue増加 → implement追加 (2issue/1agent, max 4)
         ├── dev-server必要 → dev-server を追加
         ├── レビュー指摘 → fix-review を追加
-        ├── 初回マージ後 → watch-main, e2e-hunt, improve を追加
-        └── 完了したpane → 自動クリーンアップ
+        └── 初回マージ後 → watch-main, e2e-hunt, improve を追加
 ```
 
 ---
@@ -115,7 +118,7 @@ PRs are automatically reviewed by [kiro-cli-review-action](https://github.com/ko
 
 **Setup:**
 1. Get a `KIRO_API_KEY` from [app.kiro.dev](https://app.kiro.dev)
-2. Add it to your repo: `gh secret set KIRO_API_KEY`
+2. `just start` will prompt you to set it, or manually: `gh secret set KIRO_API_KEY`
 3. The workflow runs automatically on PR creation
 
 ```yaml
