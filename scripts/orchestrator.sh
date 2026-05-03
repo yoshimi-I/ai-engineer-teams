@@ -181,6 +181,13 @@ record_registry_entry() {
   echo "${name}|${role}|${pane}|${status}" >> "$PANE_REGISTRY"
 }
 
+rename_zellij_pane() {
+  local pane="$1" name="$2"
+  [ -n "$pane" ] || return 0
+  [ -n "$name" ] || return 0
+  zellij action rename-pane --pane-id "$pane" "$name" 2>/dev/null || true
+}
+
 adopt_existing_panes() {
   local panes name id role pane reg_name existing_pane
   panes=$(zellij_panes_json)
@@ -195,6 +202,7 @@ adopt_existing_panes() {
     if [ -n "$existing_pane" ] && [ "$existing_pane" != "$pane" ]; then
       reg_name="${name}-${id}"
     fi
+    rename_zellij_pane "$pane" "$reg_name"
     record_registry_entry "$reg_name" "$role" "$pane" "alive"
   done < <(jq -r '.[] | select(.exited | not) | [('"$pane_name_expr"'), (.id | tostring)] | @tsv' <<< "$panes" 2>/dev/null)
 }
@@ -290,6 +298,7 @@ JSON
     pane=$(zellij action new-pane --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
       -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT=${context_env} AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   fi
+  rename_zellij_pane "$pane" "$name"
   record_registry_entry "$name" "$role" "$pane" "alive"
 }
 
