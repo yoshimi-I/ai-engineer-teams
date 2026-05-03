@@ -15,6 +15,43 @@ INCEPTIONと8エージェントパイプラインの橋渡し。
 - 単一のPRで実装可能
 - 独立（issue間の依存を最小化）
 - テスト可能（明確な受け入れ基準）
+- 変更対象ファイル・ディレクトリが明確
+- 並列paneで他issueと同時実行しても競合しにくい
+
+#### Pane運用を前提にした分割方針
+
+`kiro-engineer-teams` は8つのpaneを常時起動する前提ではなく、
+Orchestratorが必要な役割paneを短命に起動する前提でissueを供給する。
+
+issue生成時は、pane数を増やすことよりも「実装paneが迷わず1PRで完了できる粒度」を優先する。
+
+基本運用:
+- `implement` はデフォルト同時1pane。issueを小さく、順序付きで流す
+- `fix-review` は `CHANGES_REQUESTED` のPRがある場合のみ起動される
+- `e2e-bug-hunt` はmerge後の検証として起動される
+- `watch-main` / `improve` は任意自動化。初期issue生成ではノイズを増やさない
+
+issue分割ルール:
+- 1 issue = 1 PR = 1つのユーザー価値または1つの技術的前提
+- UI / API / DB / E2E を大きく混ぜない。必要なら依存issueに分ける
+- 複数issueが同じファイルを触る場合は、本文に `depends-on: #<番号>` を書き `blocked` ラベルを付ける
+- 並列化できるissueには、本文の「変更対象」に重複しないファイルパスを明記する
+- scaffold / domain / API contract / implementation / UI / integration / E2E の順に、上流から下流へ作る
+- `improve` が拾うような曖昧な改善はINCEPTION直後に大量生成しない。実装issueが枯れてから扱う
+
+良い分割例:
+- `chore: scaffold frontend app`
+- `chore: scaffold backend app`
+- `feat: add user domain model and validation`
+- `feat: add auth API contract`
+- `feat: implement login API`
+- `feat: implement login screen`
+- `test: add login E2E flow`
+
+悪い分割例:
+- `feat: implement authentication`
+- `feat: build dashboard`
+- `feat: connect frontend and backend and add tests`
 
 ### 3. 優先順位付け
 1. プロジェクトセットアップ / スキャフォールディング（最初に必須）
@@ -42,6 +79,13 @@ gh issue create \
 
 ## 技術メモ
 <関連するアーキテクチャ決定、ファイルパス、依存関係>
+
+## 変更対象
+- <主に変更するファイル/ディレクトリ>
+- <触らないファイル/境界があれば明記>
+
+## 依存関係
+- depends-on: #<番号>（必要な場合のみ）
 
 ## 参照
 - 要件: aidlc-docs/inception/requirements/requirements.md
