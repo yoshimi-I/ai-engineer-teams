@@ -4,6 +4,10 @@
 #   or:  bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/kiro-engineer-teams/main/scripts/update.sh)
 set -euo pipefail
 
+# Wrap in a function so bash reads the entire script before executing.
+# This prevents breakage when update.sh overwrites itself mid-run.
+_main() {
+
 REPO="yoshimi-I/kiro-engineer-teams"
 BRANCH="main"
 TMP=$(mktemp -d)
@@ -75,3 +79,5 @@ else
     fi
   fi
 fi
+}
+_main "$@"
