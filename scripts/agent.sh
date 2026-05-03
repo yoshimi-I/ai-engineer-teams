@@ -119,6 +119,7 @@ while true; do
   if kiro-cli chat \
     --no-interactive \
     --trust-all-tools \
+    --resume \
     "$(cat "$PROMPT_FILE")" 2>&1; then
     error_count=0
     update_status "✅ done" "cycle #${cycle}"
