@@ -26,9 +26,9 @@ layout {
             }
         }
     }
-    tab name="Status" {
-        pane command="bash" name="Dashboard" {
-            args "-c" "./scripts/dashboard.sh"
+    tab name="Control" {
+        pane command="bash" name="Control Panel" {
+            args "-c" "./scripts/control-panel.sh"
         }
     }
     tab name="Kiro" {
