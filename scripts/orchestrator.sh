@@ -201,24 +201,25 @@ while true; do
   echo ""
 
   # Allocate roles
-  new_roles=$(allocate_roles "$issues" "$need_review" "$changes_req" "$approved" "$has_merges")
+  ROLES_TMP="${STATUS_DIR}/.new_roles"
+  allocate_roles "$issues" "$need_review" "$changes_req" "$approved" "$has_merges" > "$ROLES_TMP"
 
   # Show allocation
   echo "  🎭 Allocation:"
   i=0
-  echo "$new_roles" | while IFS= read -r role; do
+  while IFS= read -r role; do
     role="${role:-idle}"
     prev=$(get_pane_role $((i + 1)))
     changed=""
     [ "$role" != "$prev" ] && changed=" ← was ${prev:-none}"
     echo "    Pane ${i}: ${role}${changed}"
     i=$((i + 1))
-  done
+  done < "$ROLES_TMP"
   echo ""
 
   # Check which panes are free (finished or idle)
   i=0
-  echo "$new_roles" | while IFS= read -r role; do
+  while IFS= read -r role; do
     role="${role:-idle}"
     line=$((i + 1))
     pid=$(get_pane_pid "$line")
@@ -232,7 +233,7 @@ while true; do
     # Pane is free — dispatch new role
     dispatch_pane "$i" "$role"
     i=$((i + 1))
-  done
+  done < "$ROLES_TMP"
 
   echo "  ⏳ Next check in ${POLL_INTERVAL}s..."
   echo ""
