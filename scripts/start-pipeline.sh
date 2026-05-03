@@ -17,25 +17,27 @@ for cmd in kiro-cli tmux gh; do
 done
 
 # ── KIRO_API_KEY Secret check ──
-echo "🔑 KIRO_API_KEY チェック..."
-if gh secret list 2>/dev/null | grep -q "KIRO_API_KEY"; then
-  echo "✅ KIRO_API_KEY 設定済み"
-else
-  echo ""
-  echo "  ⚠️  KIRO_API_KEY が GitHub Secrets に未設定です。"
-  echo "  CI の Kiro Review (konippi/kiro-cli-review-action) に必要です。"
-  echo ""
-  echo "  取得先: https://app.kiro.dev → API Keys"
-  echo ""
-  read -r -p "  KIRO_API_KEY を入力 (空でスキップ): " KIRO_KEY
-  if [[ -n "$KIRO_KEY" ]]; then
-    echo "$KIRO_KEY" | gh secret set KIRO_API_KEY
-    echo "  ✔ KIRO_API_KEY を設定しました。"
+check_kiro_api_key() {
+  echo "🔑 KIRO_API_KEY チェック..."
+  if gh secret list 2>/dev/null | grep -q "KIRO_API_KEY"; then
+    echo "✅ KIRO_API_KEY 設定済み"
   else
-    echo "  ⏭️  スキップ。後で設定: gh secret set KIRO_API_KEY"
+    echo ""
+    echo "  ⚠️  KIRO_API_KEY が GitHub Secrets に未設定です。"
+    echo "  CI の Kiro Review (konippi/kiro-cli-review-action) に必要です。"
+    echo ""
+    echo "  取得先: https://app.kiro.dev → API Keys"
+    echo ""
+    read -r -p "  KIRO_API_KEY を入力 (空でスキップ): " KIRO_KEY
+    if [[ -n "$KIRO_KEY" ]]; then
+      echo "$KIRO_KEY" | gh secret set KIRO_API_KEY
+      echo "  ✔ KIRO_API_KEY を設定しました。"
+    else
+      echo "  ⏭️  スキップ。後で設定: gh secret set KIRO_API_KEY"
+    fi
+    echo ""
   fi
-  echo ""
-fi
+}
 
 if [[ ! -d ".kiro/prompts" ]]; then
   echo "❌ Run from project root (no .kiro/prompts/ found)"
@@ -91,6 +93,9 @@ if ! gh auth status &>/dev/null; then
   echo "   Run: gh auth login"
   exit 1
 fi
+
+# Check API key on the actual target repo (after potential repo creation)
+check_kiro_api_key
 
 # ── Ensure directories ──
 mkdir -p issue aidlc-docs/inception
