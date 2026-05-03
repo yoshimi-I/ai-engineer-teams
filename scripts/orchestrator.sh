@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Orchestrator   : event-driven, reacts to agent status changes in real-time
+# Orchestrator: manages all agent panes, displays status, scales as needed
 set -uo pipefail
 
 export GIT_EDITOR=true
@@ -10,27 +10,25 @@ STATUS_DIR=".agent-status"
 CACHE_DIR="${STATUS_DIR}/.cache"
 CACHE_TTL=25
 PANE_REGISTRY="${STATUS_DIR}/.panes"
-GH_REFRESH=60  # GitHub API refresh interval (seconds)
+GH_REFRESH=60
 
 mkdir -p "$STATUS_DIR" "$CACHE_DIR"
 : > "$PANE_REGISTRY"
 
-# ── GitHub API (cached) ──
+# ── GitHub API ──
 
 gh_cached() {
   local key="$1"; shift
   local cache_file="${CACHE_DIR}/${key}"
   if [ -f "$cache_file" ]; then
     local age=$(( $(date +%s) - $(stat -f%m "$cache_file" 2>/dev/null || stat -c%Y "$cache_file" 2>/dev/null || echo 0) ))
-    if [ $age -lt $CACHE_TTL ]; then
-      cat "$cache_file"; return
-    fi
+    [ $age -lt $CACHE_TTL ] && cat "$cache_file" && return
   fi
-  local result; result=$("$@" 2>/dev/null || echo "")
+  local result; result=$("$@" 2>/dev/null || echo "0")
   echo "$result" > "$cache_file"; echo "$result"
 }
 
-refresh_github_state() {
+refresh_github() {
   ISSUES=$(gh_cached issues gh issue list --state open --json number,assignees \
     --jq "[.[] | select(.assignees | length == 0)] | length")
   CHANGES_REQ=$(gh_cached prs_changes gh pr list --json number,reviewDecision \
@@ -42,166 +40,165 @@ refresh_github_state() {
 
 # ── Pane management ──
 
-count_role() { grep "|${1}|" "$PANE_REGISTRY" 2>/dev/null | wc -l | tr -d ' '; }
-
-add_pane() {
-  local name="$1" role="$2"
-  # Skip if already exists
-  grep -q "^${name}|" "$PANE_REGISTRY" 2>/dev/null && return
-
-  cat > "${STATUS_DIR}/${name}.json" <<JSON
-{"agent":"${name}","prompt":"${role}","state":"🚀 starting","detail":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
-JSON
-  zellij run --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
-    -- bash -c "AGENT_ID='${name}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${role}'" &
-  echo "${name}|${role}|$!" >> "$PANE_REGISTRY"
-  log "➕ ${name} (${role})"
+count_alive() {
+  local role="$1" count=0
+  while IFS='|' read -r name r pid status; do
+    [ -z "$name" ] && continue
+    [ "$r" = "$role" ] && [ "$status" = "alive" ] && count=$((count + 1))
+  done < "$PANE_REGISTRY"
+  echo $count
 }
 
-cleanup_dead() {
+update_pane_status() {
   local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
-  while IFS='|' read -r name role pid; do
+  while IFS='|' read -r name role pid status; do
     [ -z "$name" ] && continue
     if kill -0 "$pid" 2>/dev/null; then
-      echo "${name}|${role}|${pid}" >> "$tmp"
+      echo "${name}|${role}|${pid}|alive" >> "$tmp"
     else
-      log "♻️  ${name} 完了"
-      rm -f "${STATUS_DIR}/${name}.json"
+      echo "${name}|${role}|${pid}|stopped" >> "$tmp"
     fi
   done < "$PANE_REGISTRY"
   mv "$tmp" "$PANE_REGISTRY"
 }
 
-# ── Display ──
+add_pane() {
+  local name="$1" role="$2"
+  # Skip if already exists and alive
+  while IFS='|' read -r n r p s; do
+    [ "$n" = "$name" ] && [ "$s" = "alive" ] && return
+  done < "$PANE_REGISTRY"
 
-log() { echo -e "  \033[2m$(date '+%H:%M:%S')\033[0m $1"; }
+  # Remove old stopped entry with same name
+  grep -v "^${name}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
+  mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
+
+  cat > "${STATUS_DIR}/${name}.json" <<JSON
+{"agent":"${name}","prompt":"${role}","state":"🚀 starting","detail":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
+JSON
+  zellij run --name "$name" --cwd "$PROJECT_CWD" \
+    -- bash -c "AGENT_ID='${name}' AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'" &
+  echo "${name}|${role}|$!|alive" >> "$PANE_REGISTRY"
+}
+
+total_alive() {
+  grep "|alive$" "$PANE_REGISTRY" 2>/dev/null | wc -l | tr -d ' '
+}
+
+# ── Display ──
 
 render() {
   clear
   echo -e "\033[1m\033[36m"
   echo "  ╔══════════════════════════════════════════════════════════════╗"
-  echo "  ║        🎭  O R C H E S T R A T O R        🎭              ║"
-  echo "  ║              イベント駆動 · リアルタイム                    ║"
+  echo "  ║            🎭  O R C H E S T R A T O R  🎭                ║"
   echo "  ╚══════════════════════════════════════════════════════════════╝"
   echo -e "\033[0m"
 
+  local alive; alive=$(total_alive)
   local total; total=$(wc -l < "$PANE_REGISTRY" | tr -d ' ')
-  echo -e "  \033[2m$(date '+%H:%M:%S')\033[0m  \033[36m▶ ${total} panes\033[0m  📋 issue: \033[33m${ISSUES:-?}\033[0m  🔧 要修正: \033[31m${CHANGES_REQ:-?}\033[0m  🔀 merge: $(if ${HAS_MERGES:-false}; then echo -e '\033[32m✓\033[0m'; else echo -e '\033[2m-\033[0m'; fi)"
+  echo -e "  \033[2m$(date '+%H:%M:%S')\033[0m  \033[32m▶ ${alive} 稼働\033[0m / ${total} 合計  📋 issue: \033[33m${ISSUES:-?}\033[0m  🔧 要修正: \033[31m${CHANGES_REQ:-?}\033[0m  🔀 merge: $(if ${HAS_MERGES:-false}; then echo -e '\033[32m✓\033[0m'; else echo -e '\033[2m-\033[0m'; fi)"
   echo ""
 
-  # Pane table
-  echo -e "  \033[2m┌──────────────────────┬──────────────┬──────────────────────────────┐\033[0m"
-  printf "  \033[2m│\033[0m \033[1m%-20s\033[0m \033[2m│\033[0m \033[1m%-12s\033[0m \033[2m│\033[0m \033[1m%-28s\033[0m \033[2m│\033[0m\n" "Name" "Role" "Status"
-  echo -e "  \033[2m├──────────────────────┼──────────────┼──────────────────────────────┤\033[0m"
+  echo -e "  \033[2m┌──────────────────────┬──────────────┬────────┬──────────────────────────────┐\033[0m"
+  printf "  \033[2m│\033[0m \033[1m%-20s\033[0m \033[2m│\033[0m \033[1m%-12s\033[0m \033[2m│\033[0m \033[1m%-6s\033[0m \033[2m│\033[0m \033[1m%-28s\033[0m \033[2m│\033[0m\n" "Name" "Role" "State" "Detail"
+  echo -e "  \033[2m├──────────────────────┼──────────────┼────────┼──────────────────────────────┤\033[0m"
 
-  while IFS='|' read -r name role pid; do
+  while IFS='|' read -r name role pid status; do
     [ -z "$name" ] && continue
-    local st="" dt=""
+
+    local detail=""
     if [ -f "${STATUS_DIR}/${name}.json" ]; then
-      st=$(jq -r '.state // "?"' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "?")
-      dt=$(jq -r '.detail // ""' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
+      detail=$(jq -r '"\(.state) \(.detail // "")"' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
     fi
-    [ ${#dt} -gt 16 ] && dt="${dt:0:15}…"
-    local c
+    [ ${#detail} -gt 26 ] && detail="${detail:0:25}…"
+
+    local color state_icon
+    if [ "$status" = "alive" ]; then
+      state_icon="\033[32m● 稼働\033[0m"
+    else
+      state_icon="\033[31m○ 停止\033[0m"
+    fi
+
     case "$role" in
-      implement)    c="\033[33m" ;;
-      fix-review)   c="\033[31m" ;;
-      dev-server)   c="\033[32m" ;;
-      watch-main)   c="\033[35m" ;;
-      e2e-bug-hunt) c="\033[36m" ;;
-      improve)      c="\033[34m" ;;
-      *)            c="\033[2m" ;;
+      implement)    color="\033[33m" ;;
+      fix-review)   color="\033[31m" ;;
+      dev-server)   color="\033[32m" ;;
+      watch-main)   color="\033[35m" ;;
+      e2e-bug-hunt) color="\033[36m" ;;
+      improve)      color="\033[34m" ;;
+      *)            color="\033[2m" ;;
     esac
-    printf "  \033[2m│\033[0m ${c}%-20s\033[0m \033[2m│\033[0m %-12s \033[2m│\033[0m %-28s \033[2m│\033[0m\n" "$name" "$role" "${st} ${dt}"
+
+    printf "  \033[2m│\033[0m ${color}%-20s\033[0m \033[2m│\033[0m %-12s \033[2m│\033[0m ${state_icon} \033[2m│\033[0m %-28s \033[2m│\033[0m\n" "$name" "$role" "" "$detail"
   done < "$PANE_REGISTRY"
 
   if [ "$(wc -l < "$PANE_REGISTRY" | tr -d ' ')" -eq 0 ]; then
-    printf "  \033[2m│ %-20s │ %-12s │ %-28s │\033[0m\n" "(起動中...)" "" ""
+    printf "  \033[2m│ %-20s │ %-12s │ %-6s │ %-28s │\033[0m\n" "(起動中...)" "" "" ""
   fi
-  echo -e "  \033[2m└──────────────────────┴──────────────┴──────────────────────────────┘\033[0m"
+  echo -e "  \033[2m└──────────────────────┴──────────────┴────────┴──────────────────────────────┘\033[0m"
   echo ""
 }
 
-# ── Scaling logic ──
+# ── Scaling ──
 
 scale() {
-  cleanup_dead
+  update_pane_status
+  local alive; alive=$(total_alive)
 
-  local cur_impl; cur_impl=$(count_role "implement")
-  local cur_fix;  cur_fix=$(count_role "fix-review")
-  local cur_dev;  cur_dev=$(count_role "dev-server")
-  local cur_watch; cur_watch=$(count_role "watch-main")
-  local cur_e2e;  cur_e2e=$(count_role "e2e-bug-hunt")
-  local cur_imp;  cur_imp=$(count_role "improve")
-  local total; total=$(wc -l < "$PANE_REGISTRY" | tr -d ' ')
+  # Hard cap
+  [ "$alive" -ge 8 ] && return
 
-  # Hard cap: never exceed 8 total panes
-  if [ "$total" -ge 8 ]; then return; fi
+  local cur_impl; cur_impl=$(count_alive "implement")
+  local cur_fix;  cur_fix=$(count_alive "fix-review")
+  local cur_dev;  cur_dev=$(count_alive "dev-server")
+  local cur_watch; cur_watch=$(count_alive "watch-main")
+  local cur_e2e;  cur_e2e=$(count_alive "e2e-bug-hunt")
+  local cur_imp;  cur_imp=$(count_alive "improve")
 
-  # Implement: 1 per 5 issues, min 1 if issues > 0, max 4
-  # Only add if there are MORE unassigned issues than running impl agents
+  # Implement: 1 per 5 issues, max 4, add one at a time
   local desired=0
-  if [ "${ISSUES:-0}" -gt 0 ]; then
-    desired=$(( (ISSUES + 4) / 5 ))
-    [ $desired -gt 4 ] && desired=4
-    [ $desired -lt 1 ] && desired=1
-  fi
-  # Only add ONE at a time to prevent explosion
-  if [ "$cur_impl" -lt "$desired" ] && [ "$total" -lt 8 ]; then
+  [ "${ISSUES:-0}" -gt 0 ] && desired=$(( (ISSUES + 4) / 5 ))
+  [ $desired -gt 4 ] && desired=4
+  [ $desired -lt 1 ] && [ "${ISSUES:-0}" -gt 0 ] && desired=1
+  if [ "$cur_impl" -lt "$desired" ]; then
     IMPL_SEQ=$((IMPL_SEQ + 1))
     add_pane "implement-${IMPL_SEQ}" "implement"
   fi
 
-  # Fix-review: max 1
-  if [ "${CHANGES_REQ:-0}" -gt 0 ] && [ "$cur_fix" -eq 0 ] && [ "$total" -lt 8 ]; then
-    add_pane "fix-review" "fix-review"
+  # Fix-review
+  [ "${CHANGES_REQ:-0}" -gt 0 ] && [ "$cur_fix" -eq 0 ] && add_pane "fix-review" "fix-review"
+
+  # Dev-server
+  if [ "$cur_impl" -gt 0 ] && [ "$cur_dev" -eq 0 ]; then
+    [ -f "package.json" ] || [ -f "pyproject.toml" ] || [ -f "Cargo.toml" ] && add_pane "dev-server" "dev-server"
   fi
 
-  # Dev-server: only if project needs it and not already running
-  if [ "$cur_impl" -gt 0 ] && [ "$cur_dev" -eq 0 ] && [ "$total" -lt 8 ]; then
-    if [ -f "package.json" ] || [ -f "pyproject.toml" ] || [ -f "Cargo.toml" ]; then
-      add_pane "dev-server" "dev-server"
-    fi
-  fi
-
-  # Post-merge agents: one each, only after merge
+  # Post-merge
   if ${HAS_MERGES:-false}; then
-    [ "$cur_watch" -eq 0 ] && [ "$total" -lt 8 ] && add_pane "watch-main" "watch-main"
-    [ "$cur_e2e" -eq 0 ]   && [ "$total" -lt 8 ] && add_pane "e2e-hunt" "e2e-bug-hunt"
-    [ "$cur_imp" -eq 0 ]   && [ "$total" -lt 8 ] && add_pane "improve" "improve"
+    [ "$cur_watch" -eq 0 ] && add_pane "watch-main" "watch-main"
+    [ "$cur_e2e" -eq 0 ]   && add_pane "e2e-hunt" "e2e-bug-hunt"
+    [ "$cur_imp" -eq 0 ]   && add_pane "improve" "improve"
   fi
 }
 
 # ── Main ──
 
-echo -e "\033[1m\033[36m  🎭 Orchestrator    起動\033[0m"
-echo ""
+IMPL_SEQ=0; ISSUES=0; CHANGES_REQ=0; HAS_MERGES=false; last_gh=0
 
-IMPL_SEQ=0
-ISSUES=0; CHANGES_REQ=0; HAS_MERGES=false
-last_gh_refresh=0
-
-# Initial GitHub state + first agent
-refresh_github_state
-IMPL_SEQ=1
-add_pane "implement-1" "implement"
+refresh_github
+IMPL_SEQ=1; add_pane "implement-1" "implement"
 render
 
-# Watch for status file changes + periodic GitHub refresh
 while true; do
-  # Wait for file change (2s timeout)
   if command -v fswatch >/dev/null 2>&1; then
-    fswatch -1 --latency 2 "$STATUS_DIR" 2>/dev/null || sleep 3
+    fswatch -1 --latency 3 "$STATUS_DIR" 2>/dev/null || sleep 5
   else
-    sleep 3
+    sleep 5
   fi
 
-  # Refresh GitHub state periodically
   now=$(date +%s)
-  if [ $((now - last_gh_refresh)) -ge $GH_REFRESH ]; then
-    refresh_github_state
-    last_gh_refresh=$now
-  fi
+  [ $((now - last_gh)) -ge $GH_REFRESH ] && refresh_github && last_gh=$now
 
   scale
   render
