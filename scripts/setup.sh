@@ -115,3 +115,15 @@ echo "Next steps:"
 echo "  git init                                    # if not already"
 echo "  gh repo create <name> --private --source=. --push"
 echo "  ./scripts/start-pipeline.sh"
+
+# ── fswatch (for event-driven orchestrator) ──
+if command -v fswatch &>/dev/null; then
+  info "fswatch already installed"
+else
+  install_msg "fswatch"
+  case "$PKG" in
+    brew) brew install fswatch ;;
+    apt)  sudo apt-get install -y fswatch 2>/dev/null || warn "Install fswatch manually" ;;
+    *)    warn "Install fswatch manually (optional, falls back to polling)" ;;
+  esac
+fi
