@@ -22,5 +22,6 @@ jobs:
       - uses: konippi/kiro-cli-review-action@v1
         with:
           kiro_api_key: ${{ secrets.KIRO_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           debug: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
