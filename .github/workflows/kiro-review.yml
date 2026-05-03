@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || '' }}
-      - uses: yoshimi-I/kiro-cli-review-action@main
+      - uses: konippi/kiro-cli-review-action@v1
         with:
           kiro_api_key: ${{ secrets.KIRO_API_KEY }}
         env:
