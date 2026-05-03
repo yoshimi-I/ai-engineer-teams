@@ -152,10 +152,68 @@ while true; do
   current_e2e=$(count_panes_by_role "e2e-bug-hunt")
   current_improve=$(count_panes_by_role "improve")
 
-  echo "━━━ cycle #${cycle} [$(date '+%H:%M:%S')] ━━━"
-  echo "  📋 未着手issue: ${issues}  🔧 要修正PR: ${changes_req}"
-  echo "  🔨 impl: ${current_impl}  🔧 fix: ${current_fix}  🖥️ dev: ${current_dev}"
-  echo "  👀 watch: ${current_watch}  🧪 e2e: ${current_e2e}  💡 improve: ${current_improve}"
+  echo ""
+  clear
+
+  # Header
+  echo -e "\033[1m\033[36m"
+  echo "  ╔══════════════════════════════════════════════════════════════╗"
+  echo "  ║          🎭  O R C H E S T R A T O R   v 2  🎭            ║"
+  echo "  ╚══════════════════════════════════════════════════════════════╝"
+  echo -e "\033[0m"
+
+  # Status bar
+  total_panes=$(wc -l < "$PANE_REGISTRY" | tr -d ' ')
+  echo -e "  \033[2m$(date '+%H:%M:%S')\033[0m  cycle #${cycle}  \033[36m▶ ${total_panes} panes\033[0m"
+  echo ""
+
+  # GitHub state
+  echo -e "  \033[1m📊 GitHub\033[0m"
+  echo -e "  \033[2m─────────────────────────────────────────────────────\033[0m"
+  echo -e "  📋 未着手issue: \033[33m${issues}\033[0m    🔧 要修正PR: \033[31m${changes_req}\033[0m    🔀 マージ済み: $(if $has_merges; then echo -e '\033[32mあり\033[0m'; else echo -e '\033[2mなし\033[0m'; fi)"
+  echo ""
+
+  # Active panes table
+  echo -e "  \033[1m🖥️  アクティブ pane\033[0m"
+  echo -e "  \033[2m┌──────────────────────┬──────────────┬────────┬──────────────────────────┐\033[0m"
+  printf "  \033[2m│\033[0m \033[1m%-20s\033[0m \033[2m│\033[0m \033[1m%-12s\033[0m \033[2m│\033[0m \033[1m%-6s\033[0m \033[2m│\033[0m \033[1m%-24s\033[0m \033[2m│\033[0m\n" "Name" "Role" "PID" "Status"
+  echo -e "  \033[2m├──────────────────────┼──────────────┼────────┼──────────────────────────┤\033[0m"
+
+  while IFS='|' read -r name role pid; do
+    [ -z "$name" ] && continue
+    # Get status from json
+    local_state=""
+    local_detail=""
+    if [ -f "${STATUS_DIR}/${name}.json" ]; then
+      local_state=$(jq -r '.state // "?"' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "?")
+      local_detail=$(jq -r '.detail // ""' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
+    fi
+    [ ${#local_detail} -gt 22 ] && local_detail="${local_detail:0:21}…"
+
+    # Color by role
+    case "$role" in
+      implement)    color="\033[33m" ;;
+      fix-review)   color="\033[31m" ;;
+      dev-server)   color="\033[32m" ;;
+      watch-main)   color="\033[35m" ;;
+      e2e-bug-hunt) color="\033[36m" ;;
+      improve)      color="\033[34m" ;;
+      *)            color="\033[2m" ;;
+    esac
+
+    printf "  \033[2m│\033[0m ${color}%-20s\033[0m \033[2m│\033[0m %-12s \033[2m│\033[0m %-6s \033[2m│\033[0m %-24s \033[2m│\033[0m\n" \
+      "$name" "$role" "$pid" "${local_state} ${local_detail}"
+  done < "$PANE_REGISTRY"
+
+  if [ "$total_panes" -eq 0 ]; then
+    printf "  \033[2m│\033[0m \033[2m%-20s   %-12s   %-6s   %-24s\033[0m \033[2m│\033[0m\n" "(no panes)" "" "" ""
+  fi
+  echo -e "  \033[2m└──────────────────────┴──────────────┴────────┴──────────────────────────┘\033[0m"
+  echo ""
+
+  # Scaling decisions
+  echo -e "  \033[1m⚡ スケーリング\033[0m"
+  echo -e "  \033[2m─────────────────────────────────────────────────────\033[0m"
 
   # ── Scale implement agents ──
   # 1 impl per 3 issues, min 1, max 8
@@ -167,6 +225,9 @@ while true; do
     desired_impl=0
   fi
 
+  if [ "$current_impl" -lt "$desired_impl" ]; then
+    echo -e "  \033[33m🔨 implement: ${current_impl} → ${desired_impl} (${issues} issues)\033[0m"
+  fi
   while [ "$current_impl" -lt "$desired_impl" ]; do
     impl_counter=$((impl_counter + 1))
     add_pane "implement-${impl_counter}" "implement"
@@ -175,15 +236,17 @@ while true; do
 
   # ── Add fix-review if needed ──
   if [ "$changes_req" -gt 0 ] && [ "$current_fix" -eq 0 ]; then
+    echo -e "  \033[31m🔧 fix-review: 0 → 1 (${changes_req} CHANGES_REQUESTED)\033[0m"
     add_pane "fix-review-1" "fix-review"
   elif [ "$changes_req" -gt 2 ] && [ "$current_fix" -lt 2 ]; then
+    echo -e "  \033[31m🔧 fix-review: 1 → 2 (${changes_req} CHANGES_REQUESTED)\033[0m"
     add_pane "fix-review-2" "fix-review"
   fi
 
-  # ── Add dev-server if impl agents are running and no dev-server ──
+  # ── Add dev-server if needed ──
   if [ "$current_impl" -gt 0 ] && [ "$current_dev" -eq 0 ]; then
-    # Check if project has a dev server config
     if [ -f "package.json" ] || [ -f "pyproject.toml" ] || [ -f "Cargo.toml" ]; then
+      echo -e "  \033[32m🖥️  dev-server: 追加 (プロジェクト設定ファイル検出)\033[0m"
       add_pane "dev-server" "dev-server"
     fi
   fi
@@ -191,21 +254,25 @@ while true; do
   # ── Add watch-main + e2e after first merge ──
   if $has_merges; then
     if [ "$current_watch" -eq 0 ]; then
+      echo -e "  \033[35m👀 watch-main: 追加 (マージ検出)\033[0m"
       add_pane "watch-main" "watch-main"
     fi
     if [ "$current_e2e" -eq 0 ]; then
+      echo -e "  \033[36m🧪 e2e-hunt: 追加 (マージ検出)\033[0m"
       add_pane "e2e-hunt" "e2e-bug-hunt"
     fi
     if [ "$current_improve" -eq 0 ]; then
+      echo -e "  \033[34m💡 improve: 追加 (マージ検出)\033[0m"
       add_pane "improve" "improve"
     fi
   fi
 
-  # ── Show active panes ──
-  echo "  📊 アクティブpane:"
-  while IFS='|' read -r name role pid; do
-    [ -z "$name" ] && continue
-    echo "    ${name} (${role})"
-  done < "$PANE_REGISTRY"
+  # No changes
+  if [ "$current_impl" -ge "$desired_impl" ] && ! $has_merges 2>/dev/null; then
+    echo -e "  \033[2m変更なし\033[0m"
+  fi
   echo ""
+
+  # Footer
+  echo -e "  \033[2m⏳ 次のチェック: ${POLL_INTERVAL}秒後\033[0m"
 done
