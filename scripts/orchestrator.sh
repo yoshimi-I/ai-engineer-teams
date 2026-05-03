@@ -159,11 +159,15 @@ scale() {
   local cur_e2e;  cur_e2e=$(count_alive "e2e-bug-hunt")
   local cur_imp;  cur_imp=$(count_alive "improve")
 
-  # Implement: 1 per 5 issues, max 4, add one at a time
+  # Implement: start with 1, add more only if unassigned issues > alive impl agents
+  # Add at most 1 per cycle, max 4 total
   local desired=0
-  [ "${ISSUES:-0}" -gt 0 ] && desired=$(( (ISSUES + 4) / 5 ))
+  [ "${ISSUES:-0}" -gt 0 ] && desired=1
+  # Only scale up if there are significantly more issues than agents
+  if [ "${ISSUES:-0}" -gt $((cur_impl * 3)) ]; then
+    desired=$((cur_impl + 1))
+  fi
   [ $desired -gt 4 ] && desired=4
-  [ $desired -lt 1 ] && [ "${ISSUES:-0}" -gt 0 ] && desired=1
   if [ "$cur_impl" -lt "$desired" ]; then
     IMPL_SEQ=$((IMPL_SEQ + 1))
     add_pane "implement-${IMPL_SEQ}" "implement"
