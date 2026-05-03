@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+# TUI Control Panel for Kiro Pipeline
+# Displays agent status and allows stop/restart operations
+set -euo pipefail
+
+STATUS_DIR=".agent-status"
+REFRESH=3
+
+# Colors
+R='\033[0m'
+DIM='\033[2m'
+BOLD='\033[1m'
+CYAN='\033[36m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+RED='\033[31m'
+MAGENTA='\033[35m'
+WHITE='\033[97m'
+BG_SELECT='\033[48;5;238m'
+
+icon_for() {
+  case "$1" in
+    dev-server)   echo "🖥️ " ;;
+    implement)    echo "🔨" ;;
+    review)       echo "🔍" ;;
+    fix-review)   echo "🔧" ;;
+    watch-main)   echo "👀" ;;
+    e2e-bug-hunt) echo "🧪" ;;
+    improve)      echo "💡" ;;
+    idle)         echo "💤" ;;
+    *)            echo "⚙️ " ;;
+  esac
+}
+
+state_color() {
+  case "$1" in
+    *running*)  echo -e "${CYAN}" ;;
+    *done*)     echo -e "${GREEN}" ;;
+    *error*)    echo -e "${RED}" ;;
+    *dead*)     echo -e "${RED}${BOLD}" ;;
+    *waiting*)  echo -e "${YELLOW}" ;;
+    *sleeping*) echo -e "${MAGENTA}" ;;
+    *idle*)     echo -e "${DIM}" ;;
+    *finished*) echo -e "${GREEN}" ;;
+    *)          echo -e "${DIM}" ;;
+  esac
+}
+
+discover_agents() {
+  local files=("$STATUS_DIR"/*.json)
+  [[ -e "${files[0]}" ]] || return
+  for f in "${files[@]}"; do
+    basename "$f" .json
+  done | sort
+}
+
+show_panel() {
+  clear
+  mapfile -t AGENTS < <(discover_agents)
+  local count=${#AGENTS[@]}
+
+  # Header
+  echo -e "${BOLD}${CYAN}"
+  echo "  ╔══════════════════════════════════════════════════════════════════╗"
+  echo "  ║          🎛️  K I R O   C O N T R O L   P A N E L  🎛️          ║"
+  echo "  ╚══════════════════════════════════════════════════════════════════╝${R}"
+  echo ""
+
+  # Stats
+  local total=0 running=0 errors=0 idle=0
+  for id in "${AGENTS[@]}"; do
+    f="${STATUS_DIR}/${id}.json"
+    [[ -f "$f" ]] || continue
+    total=$((total + 1))
+    state=$(jq -r '.state // ""' "$f" 2>/dev/null || true)
+    case "$state" in
+      *running*) running=$((running + 1)) ;;
+      *error*|*dead*) errors=$((errors + 1)) ;;
+      *idle*) idle=$((idle + 1)) ;;
+    esac
+  done
+  echo -e "  ${DIM}$(date '+%H:%M:%S')${R}  ${WHITE}Total: ${total}${R}  ${CYAN}▶ ${running}${R}  ${RED}✕ ${errors}${R}  ${DIM}💤 ${idle}${R}"
+  echo ""
+
+  # Agent list
+  echo -e "  ${DIM}┌─────┬──────────────────┬──────────────┬──────────────────────────────────────┐${R}"
+  printf "  ${DIM}│${R} ${BOLD} # ${R} ${DIM}│${R} ${BOLD}%-16s${R} ${DIM}│${R} ${BOLD}%-12s${R} ${DIM}│${R} ${BOLD}%-36s${R} ${DIM}│${R}\n" "Agent" "State" "Detail"
+  echo -e "  ${DIM}├─────┼──────────────────┼──────────────┼──────────────────────────────────────┤${R}"
+
+  local i=0
+  for id in "${AGENTS[@]}"; do
+    f="${STATUS_DIR}/${id}.json"
+    [[ -f "$f" ]] || continue
+    i=$((i + 1))
+
+    prompt=$(jq -r '.prompt // ""' "$f" 2>/dev/null || echo "")
+    state=$(jq -r '.state // "?"' "$f" 2>/dev/null || echo "?")
+    detail=$(jq -r '.detail // ""' "$f" 2>/dev/null || echo "")
+    cycle=$(jq -r '.cycle // 0' "$f" 2>/dev/null || echo "0")
+    ts=$(jq -r '.ts // ""' "$f" 2>/dev/null || echo "")
+
+    icon="$(icon_for "$prompt")"
+    sc=$(state_color "$state")
+
+    # Truncate detail
+    [[ ${#detail} -gt 34 ]] && detail="${detail:0:33}…"
+
+    printf "  ${DIM}│${R} %2d  ${DIM}│${R} %s %-14s ${DIM}│${R} ${sc}%-12s${R} ${DIM}│${R} %-36s ${DIM}│${R}\n" \
+      "$i" "$icon" "$id" "$state" "${detail:-cycle #${cycle}}"
+  done
+
+  echo -e "  ${DIM}└─────┴──────────────────┴──────────────┴──────────────────────────────────────┘${R}"
+  echo ""
+
+  # Actions
+  echo -e "  ${BOLD}⌨️  Actions${R}"
+  echo -e "  ${DIM}─────────────────────────────────────────────────────────────────────${R}"
+  echo -e "  ${CYAN}[s]${R} Stop agent    ${CYAN}[r]${R} Restart agent    ${CYAN}[a]${R} Stop all"
+  echo -e "  ${CYAN}[l]${R} View log      ${CYAN}[o]${R} Orchestrator     ${CYAN}[q]${R} Quit panel"
+  echo ""
+}
+
+stop_agent() {
+  mapfile -t AGENTS < <(discover_agents)
+  local selection
+  selection=$(printf '%s\n' "${AGENTS[@]}" | gum choose --header "Select agent to stop:")
+  [[ -z "$selection" ]] && return
+
+  local f="${STATUS_DIR}/${selection}.json"
+  cat > "$f" <<JSON
+{"agent":"${selection}","prompt":"idle","state":"⏹️ stopped","detail":"manually stopped","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
+JSON
+  echo -e "  ${RED}⏹️  Stopped ${selection}${R}"
+  sleep 1
+}
+
+restart_agent() {
+  mapfile -t AGENTS < <(discover_agents)
+  local selection
+  selection=$(printf '%s\n' "${AGENTS[@]}" | gum choose --header "Select agent to restart:")
+  [[ -z "$selection" ]] && return
+
+  local prompt
+  prompt=$(jq -r '.prompt // "idle"' "${STATUS_DIR}/${selection}.json" 2>/dev/null || echo "idle")
+
+  if [[ "$prompt" == "idle" ]]; then
+    prompt=$(gum choose --header "Select role:" implement review fix-review watch-main e2e-bug-hunt improve dev-server)
+    [[ -z "$prompt" ]] && return
+  fi
+
+  # Launch via zellij
+  zellij run \
+    --name "$selection" \
+    --cwd "$(pwd)" \
+    --close-on-exit \
+    -- bash -c "AGENT_ID=${selection} AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh ${prompt}" &
+
+  echo -e "  ${GREEN}▶ Restarted ${selection} as ${prompt}${R}"
+  sleep 1
+}
+
+stop_all() {
+  if gum confirm "Stop all agents?"; then
+    mapfile -t AGENTS < <(discover_agents)
+    for id in "${AGENTS[@]}"; do
+      local f="${STATUS_DIR}/${id}.json"
+      cat > "$f" <<JSON
+{"agent":"${id}","prompt":"idle","state":"⏹️ stopped","detail":"manually stopped","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
+JSON
+    done
+    echo -e "  ${RED}⏹️  All agents stopped${R}"
+    sleep 1
+  fi
+}
+
+view_log() {
+  mapfile -t AGENTS < <(discover_agents)
+  local selection
+  selection=$(printf '%s\n' "${AGENTS[@]}" | gum choose --header "Select agent log:")
+  [[ -z "$selection" ]] && return
+
+  local logfile=".agent-logs/${selection}.log"
+  if [[ -f "$logfile" ]]; then
+    gum pager < "$logfile"
+  else
+    echo -e "  ${DIM}No log file for ${selection}${R}"
+    sleep 1
+  fi
+}
+
+toggle_orchestrator() {
+  local pid_file=".agent-status/.orch_pid"
+  if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+    kill "$(cat "$pid_file")" 2>/dev/null
+    rm -f "$pid_file"
+    echo -e "  ${RED}⏹️  Orchestrator stopped${R}"
+  else
+    ./scripts/orchestrator.sh &
+    echo $! > "$pid_file"
+    echo -e "  ${GREEN}▶ Orchestrator started${R}"
+  fi
+  sleep 1
+}
+
+# Main loop
+while true; do
+  show_panel
+
+  # Read single key with timeout
+  if read -rsn1 -t "$REFRESH" key; then
+    case "$key" in
+      s) stop_agent ;;
+      r) restart_agent ;;
+      a) stop_all ;;
+      l) view_log ;;
+      o) toggle_orchestrator ;;
+      q) exit 0 ;;
+    esac
+  fi
+done
