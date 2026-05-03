@@ -28,15 +28,10 @@ git clone https://github.com/yoshimi-I/kiro-engineer-teams.git .
 
 **2. Install prerequisites**
 ```bash
-./scripts/setup.sh
+just setup
 ```
 
-**3. Initialize as your own private repo**
-```bash
-just init
-```
-
-**4. Start (INCEPTION → orchestrated pipeline)**
+**3. Start (repo creation → INCEPTION → orchestrated pipeline)**
 ```bash
 just start
 ```

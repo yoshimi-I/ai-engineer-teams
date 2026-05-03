@@ -27,15 +27,10 @@ git clone https://github.com/yoshimi-I/kiro-engineer-teams.git .
 
 **2. 前提ツールをインストール**
 ```bash
-./scripts/setup.sh
+just setup
 ```
 
-**3. 自分のプライベートリポジトリとして初期化**
-```bash
-just init
-```
-
-**4. 起動（INCEPTION → 10エージェントパイプライン）**
+**3. 起動（リポジトリ作成 → INCEPTION → パイプライン）**
 ```bash
 just start
 ```

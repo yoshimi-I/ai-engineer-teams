@@ -8,10 +8,6 @@ setup:
 update:
     ./scripts/update.sh
 
-# Initialize as your own private repo (run after git clone)
-init:
-    ./scripts/init.sh
-
 # Start full pipeline (INCEPTION → orchestrated 12-agent pipeline)
 start:
     ./scripts/start-pipeline.sh

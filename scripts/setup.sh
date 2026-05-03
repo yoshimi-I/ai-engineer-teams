@@ -113,9 +113,7 @@ echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "Next steps:"
-echo "  git init                                    # if not already"
-echo "  gh repo create <name> --private --source=. --push"
-echo "  ./scripts/start-pipeline.sh"
+echo "  just start    # INCEPTION → パイプライン起動"
 
 # ── fswatch (for event-driven orchestrator) ──
 if command -v fswatch &>/dev/null; then
