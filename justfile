@@ -4,6 +4,12 @@
 setup:
     ./scripts/setup.sh
 
+# Upgrade all tools to latest versions
+upgrade:
+    @echo "⬆️  Upgrading tools..."
+    @brew upgrade zellij gh just gum jq fswatch 2>/dev/null || true
+    @echo "✅ Done. Run 'zellij --version' to verify."
+
 # Update to latest version
 update:
     ./scripts/update.sh
