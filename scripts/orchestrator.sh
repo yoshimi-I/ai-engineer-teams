@@ -120,49 +120,56 @@ allocate_roles() {
   printf '%s\n' "${roles[@]}"
 }
 
-# ── Pane management ──
+# ── Pane management (bash 3 compatible) ──
 
-declare -A PANE_ROLE   # pane_index -> current role
-declare -A PANE_PID    # pane_index -> background PID
+PANE_ROLES_FILE="${STATUS_DIR}/.pane_roles"
+PANE_PIDS_FILE="${STATUS_DIR}/.pane_pids"
+: > "$PANE_ROLES_FILE"
+: > "$PANE_PIDS_FILE"
 
-for ((i=0; i<PANE_COUNT; i++)); do
-  PANE_ROLE[$i]=""
-  PANE_PID[$i]=""
+get_pane_role() { sed -n "${1}p" "$PANE_ROLES_FILE" 2>/dev/null; }
+set_pane_role() { local i=$1 v=$2; while [ "$(wc -l < "$PANE_ROLES_FILE")" -lt "$i" ]; do echo "" >> "$PANE_ROLES_FILE"; done; sed -i '' "${i}s/.*/${v}/" "$PANE_ROLES_FILE" 2>/dev/null || sed -i "${i}s/.*/${v}/" "$PANE_ROLES_FILE"; }
+get_pane_pid()  { sed -n "${1}p" "$PANE_PIDS_FILE" 2>/dev/null; }
+set_pane_pid()  { local i=$1 v=$2; while [ "$(wc -l < "$PANE_PIDS_FILE")" -lt "$i" ]; do echo "" >> "$PANE_PIDS_FILE"; done; sed -i '' "${i}s/.*/${v}/" "$PANE_PIDS_FILE" 2>/dev/null || sed -i "${i}s/.*/${v}/" "$PANE_PIDS_FILE"; }
+
+# Initialize pane files
+for i in $(seq 1 $PANE_COUNT); do
+  echo "" >> "$PANE_ROLES_FILE"
+  echo "" >> "$PANE_PIDS_FILE"
 done
 
 dispatch_pane() {
   local idx="$1" role="$2"
+  local line=$((idx + 1))
   local agent_id
 
-  # Name mapping
   case "$role" in
     dev-server)   agent_id="Dev-Server" ;;
     implement)    agent_id="Impl-${idx}" ;;
-    review)       agent_id="Review-${idx}" ;;
     fix-review)   agent_id="Fix-Review-${idx}" ;;
     watch-main)   agent_id="Watch-Main" ;;
     e2e-bug-hunt) agent_id="E2E-Hunt" ;;
     improve)      agent_id="Improve" ;;
     idle)         agent_id="Idle-${idx}" ;;
+    *)            agent_id="Agent-${idx}" ;;
   esac
 
-  if [[ "$role" == "idle" ]]; then
+  if [ "$role" = "idle" ]; then
     cat > "${STATUS_DIR}/${agent_id}.json" <<JSON
 {"agent":"${agent_id}","prompt":"idle","state":"💤 idle","detail":"waiting for work","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
 JSON
-    PANE_ROLE[$idx]="$role"
+    set_pane_role "$line" "$role"
     return
   fi
 
-  # Launch via zellij run into the pane
   zellij run \
     --name "$agent_id" \
     --cwd "$PROJECT_CWD" \
     --close-on-exit \
     -- bash -c "AGENT_ID=${agent_id} AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh ${role}" &
 
-  PANE_PID[$idx]=$!
-  PANE_ROLE[$idx]="$role"
+  set_pane_pid "$line" "$!"
+  set_pane_role "$line" "$role"
 }
 
 # ── Main loop ──
@@ -194,32 +201,37 @@ while true; do
   echo ""
 
   # Allocate roles
-  mapfile -t new_roles < <(allocate_roles "$issues" "$need_review" "$changes_req" "$approved" "$has_merges")
+  new_roles=$(allocate_roles "$issues" "$need_review" "$changes_req" "$approved" "$has_merges")
 
   # Show allocation
   echo "  🎭 Allocation:"
-  for ((i=0; i<PANE_COUNT; i++)); do
-    role="${new_roles[$i]:-idle}"
-    prev="${PANE_ROLE[$i]:-}"
+  i=0
+  echo "$new_roles" | while IFS= read -r role; do
+    role="${role:-idle}"
+    prev=$(get_pane_role $((i + 1)))
     changed=""
-    [[ "$role" != "$prev" ]] && changed=" ← was ${prev:-none}"
+    [ "$role" != "$prev" ] && changed=" ← was ${prev:-none}"
     echo "    Pane ${i}: ${role}${changed}"
+    i=$((i + 1))
   done
   echo ""
 
   # Check which panes are free (finished or idle)
-  for ((i=0; i<PANE_COUNT; i++)); do
-    role="${new_roles[$i]:-idle}"
-    prev="${PANE_ROLE[$i]:-}"
-    pid="${PANE_PID[$i]:-}"
+  i=0
+  echo "$new_roles" | while IFS= read -r role; do
+    role="${role:-idle}"
+    line=$((i + 1))
+    pid=$(get_pane_pid "$line")
 
     # If pane has a running process, skip
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      i=$((i + 1))
       continue
     fi
 
     # Pane is free — dispatch new role
     dispatch_pane "$i" "$role"
+    i=$((i + 1))
   done
 
   echo "  ⏳ Next check in ${POLL_INTERVAL}s..."

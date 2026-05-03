@@ -12,6 +12,13 @@ init:
 start:
     ./scripts/start-pipeline.sh
 
+# Launch pipeline directly (skip INCEPTION, use when steering is already configured)
+pipeline:
+    @LAYOUT_TMP=$(mktemp /tmp/pipeline-XXXXXX.kdl) && \
+    sed "s|__PROJECT_CWD__|$(pwd)|g" scripts/pipeline.kdl > "$$LAYOUT_TMP" && \
+    zellij --layout "$$LAYOUT_TMP"; \
+    rm -f "$$LAYOUT_TMP"
+
 # Restart from INCEPTION (clear previous artifacts and start fresh)
 restart:
     rm -rf aidlc-docs/inception
