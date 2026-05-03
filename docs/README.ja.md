@@ -173,6 +173,12 @@ zellij --version
 brew upgrade zellij
 ```
 
+オーケストレーターはデフォルトで AI Planner prompt（`.kiro/prompts/orchestrator-plan.md`）を使います。Bash が GitHub issue、PR、pane、post-merge 状態を集め、Planner に JSON の起動計画だけを作らせ、その JSON を検証してから zellij pane を起動します。AI 計画に失敗した場合は控えめなルールにフォールバックし、`implement` は同時1pane、レビュー修正が必要な時だけ `fix-review`、新しいmerge検出時だけ `e2e-bug-hunt` を起動します。
+
+`watch-main` と `improve` の自動起動は `ORCH_AUTO_WATCH_MAIN=true` / `ORCH_AUTO_IMPROVE=true` を指定した場合のみ有効です。AI Planner を無効化したい場合は `ORCH_AI=false` を指定します。
+
+オーケストレーター画面は固定 tick（`ORCH_TICK_INTERVAL`、デフォルト `10s`）で更新され、最後の planner 種別、起動した action、skip 理由、次回 tick を表示します。同じ状態は `.agent-status/orchestrator.json` と `.agent-status/.cache/orchestrator_decision.json` にも書き出されます。
+
 > **Linux**: `brew install` の代わりに各ツールのインストールドキュメントを参照。
 > **Windows**: WSL2を使用するか、各ツールのWindowsインストールドキュメントを参照。
 

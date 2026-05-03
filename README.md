@@ -67,11 +67,10 @@ just start (./scripts/start-pipeline.sh)
     │
     └── オーケストレーター（最小構成で開始 → 必要に応じてスケール）
         │
-        ├── 起動時: issue数に応じてimplement-1, 2, ... を即座に起動
-        ├── issue増加 → implement追加 (2issue/1agent, max 4)
-        ├── dev-server必要 → dev-server を追加
+        ├── issue検出 → implement を1paneだけ追加（デフォルト）
         ├── レビュー指摘 → fix-review を追加
-        └── 初回マージ後 → watch-main, e2e-hunt, improve を追加
+        ├── merge検出 → e2e-hunt を追加
+        └── watch-main/improve → 環境変数で明示有効化した場合のみ追加
 ```
 
 ---
@@ -189,6 +188,12 @@ zellij **0.44.1 or newer is required**. The orchestrator depends on the newer CL
 zellij --version
 brew upgrade zellij
 ```
+
+The orchestrator uses an AI planner prompt (`.kiro/prompts/orchestrator-plan.md`) by default. Bash gathers GitHub, PR, pane, and post-merge state, asks the planner for a JSON action plan, validates that JSON, then launches only the approved zellij panes. If AI planning fails, it falls back to a conservative rule set: one `implement` pane at a time, `fix-review` only when review changes are requested, and `e2e-bug-hunt` when a new merge is detected.
+
+Optional `watch-main` and `improve` auto-spawns can be enabled with `ORCH_AUTO_WATCH_MAIN=true` and `ORCH_AUTO_IMPROVE=true`. AI planning can be disabled with `ORCH_AI=false`.
+
+The orchestrator pane refreshes on a fixed tick (`ORCH_TICK_INTERVAL`, default `10s`) and shows the last planner source, launched actions, skip reasons, and next tick timing. The same state is written to `.agent-status/orchestrator.json` and `.agent-status/.cache/orchestrator_decision.json`.
 
 ---
 
