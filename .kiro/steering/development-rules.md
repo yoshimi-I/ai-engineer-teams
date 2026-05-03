@@ -31,21 +31,12 @@ description: 全タスクに適用されるコアルール
 ## プロジェクト固有設定
 
 ```
-- フロントエンド: Vite + React + TypeScript (Bulletproof React) — web/
-- Chrome拡張: Manifest V3 + TypeScript — extension/
-- バックエンド: Hono + TypeScript on ECS Fargate (Clean Architecture + Hexagonal) — api/
-- DB: Amazon RDS (PostgreSQL)
-- 認証: Amazon Cognito
-- インフラ: Terraform — infra/
-- Format/Lint: oxc (oxlint + oxc_formatter)
-- Type check: tsgo
-- テスト: Vitest + similar-ts
-- Dead code検出: knip
-- テストコマンド: cd api && npm test && cd ../web && npm test && cd ../extension && npm test
-- Lintコマンド: npx oxlint && npx oxc_formatter --check
-- Type checkコマンド: npx tsgo --project api/tsconfig.json && npx tsgo --project web/tsconfig.json && npx tsgo --project extension/tsconfig.json
-- Git: Conventional Commits
-- ポート: api=3000, web=5173
+# INCEPTION完了後に記入:
+# - フロントエンド: 
+# - バックエンド: 
+# - インフラ: 
+# - テストコマンド: 
+# - Git: Conventional Commits
 ```
 
 ## 前提条件

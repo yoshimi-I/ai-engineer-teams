@@ -43,25 +43,3 @@ en:
     @scripts/sed-i.sh 's/Always respond to the user in Japanese\./Always respond to the user in English./' .kiro/steering/development-rules.md
     @scripts/sed-i.sh 's/Always respond in Japanese\./Always respond in English./' AGENTS.md
     @echo "✅ Switched to English"
-
-# Start all dev servers in background
-dev:
-    #!/usr/bin/env bash
-    lsof -ti:3000 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    lsof -ti:5173 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    sleep 1
-    cd api && nohup npm run dev > /tmp/dev-backend.log 2>&1 &
-    cd web && nohup npm run dev > /tmp/dev-frontend.log 2>&1 &
-    for i in $(seq 1 30); do
-      if lsof -ti:3000 > /dev/null 2>&1 && lsof -ti:5173 > /dev/null 2>&1; then
-        echo "✅ All servers ready"; exit 0
-      fi
-      sleep 2
-    done
-    echo "⚠️ Timeout"; exit 1
-
-# Stop all dev servers
-dev-stop:
-    lsof -ti:3000 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    lsof -ti:5173 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    @echo "✅ Servers stopped"
