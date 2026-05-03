@@ -14,11 +14,14 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || '' }}
-      - uses: konippi/kiro-cli-review-action@v1
+      - uses: yoshimi-I/kiro-cli-review-action@main
         with:
           kiro_api_key: ${{ secrets.KIRO_API_KEY }}
+          debug: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
