@@ -55,6 +55,7 @@ wait_for_work() {
     implement|watch-issues)
       echo "⏳ Waiting for open issues..."
       while true; do
+        update_status "⏳ waiting" "issues"
         count=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 30
@@ -63,6 +64,7 @@ wait_for_work() {
     review|watch-review)
       echo "⏳ Waiting for open PRs..."
       while true; do
+        update_status "⏳ waiting" "PRs"
         count=$(gh pr list --json number --jq 'length' 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 30
@@ -71,6 +73,7 @@ wait_for_work() {
     fix-review)
       echo "⏳ Waiting for PRs with review comments..."
       while true; do
+        update_status "⏳ waiting" "review comments"
         count=$(gh pr list --json number --jq 'length' 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 30
@@ -79,6 +82,7 @@ wait_for_work() {
     watch-main|e2e-bug-hunt)
       echo "⏳ Waiting for first merge to main..."
       while true; do
+        update_status "⏳ waiting" "merge"
         count=$(gh pr list --state merged --json number --jq 'length' --limit 1 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 30
@@ -87,6 +91,7 @@ wait_for_work() {
     improve)
       echo "⏳ Waiting for first merge to main..."
       while true; do
+        update_status "⏳ waiting" "merge"
         count=$(gh pr list --state merged --json number --jq 'length' --limit 1 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 60
