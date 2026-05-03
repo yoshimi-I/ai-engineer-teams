@@ -133,39 +133,42 @@ scale() {
   local cur_watch; cur_watch=$(count_role "watch-main")
   local cur_e2e;  cur_e2e=$(count_role "e2e-bug-hunt")
   local cur_imp;  cur_imp=$(count_role "improve")
+  local total; total=$(wc -l < "$PANE_REGISTRY" | tr -d ' ')
 
-  # Implement: 1 per 3 issues, min 1 if issues > 0, max 8
+  # Hard cap: never exceed 8 total panes
+  if [ "$total" -ge 8 ]; then return; fi
+
+  # Implement: 1 per 5 issues, min 1 if issues > 0, max 4
+  # Only add if there are MORE unassigned issues than running impl agents
   local desired=0
   if [ "${ISSUES:-0}" -gt 0 ]; then
-    desired=$(( (ISSUES + 2) / 3 ))
-    [ $desired -gt 8 ] && desired=8
+    desired=$(( (ISSUES + 4) / 5 ))
+    [ $desired -gt 4 ] && desired=4
     [ $desired -lt 1 ] && desired=1
   fi
-  while [ "$cur_impl" -lt "$desired" ]; do
+  # Only add ONE at a time to prevent explosion
+  if [ "$cur_impl" -lt "$desired" ] && [ "$total" -lt 8 ]; then
     IMPL_SEQ=$((IMPL_SEQ + 1))
     add_pane "implement-${IMPL_SEQ}" "implement"
-    cur_impl=$((cur_impl + 1))
-  done
-
-  # Fix-review
-  if [ "${CHANGES_REQ:-0}" -gt 0 ] && [ "$cur_fix" -eq 0 ]; then
-    add_pane "fix-review-1" "fix-review"
-  elif [ "${CHANGES_REQ:-0}" -gt 2 ] && [ "$cur_fix" -lt 2 ]; then
-    add_pane "fix-review-2" "fix-review"
   fi
 
-  # Dev-server
-  if [ "$cur_impl" -gt 0 ] && [ "$cur_dev" -eq 0 ]; then
+  # Fix-review: max 1
+  if [ "${CHANGES_REQ:-0}" -gt 0 ] && [ "$cur_fix" -eq 0 ] && [ "$total" -lt 8 ]; then
+    add_pane "fix-review" "fix-review"
+  fi
+
+  # Dev-server: only if project needs it and not already running
+  if [ "$cur_impl" -gt 0 ] && [ "$cur_dev" -eq 0 ] && [ "$total" -lt 8 ]; then
     if [ -f "package.json" ] || [ -f "pyproject.toml" ] || [ -f "Cargo.toml" ]; then
       add_pane "dev-server" "dev-server"
     fi
   fi
 
-  # Post-merge agents
+  # Post-merge agents: one each, only after merge
   if ${HAS_MERGES:-false}; then
-    [ "$cur_watch" -eq 0 ] && add_pane "watch-main" "watch-main"
-    [ "$cur_e2e" -eq 0 ]   && add_pane "e2e-hunt" "e2e-bug-hunt"
-    [ "$cur_imp" -eq 0 ]   && add_pane "improve" "improve"
+    [ "$cur_watch" -eq 0 ] && [ "$total" -lt 8 ] && add_pane "watch-main" "watch-main"
+    [ "$cur_e2e" -eq 0 ]   && [ "$total" -lt 8 ] && add_pane "e2e-hunt" "e2e-bug-hunt"
+    [ "$cur_imp" -eq 0 ]   && [ "$total" -lt 8 ] && add_pane "improve" "improve"
   fi
 }
 
