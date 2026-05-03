@@ -2,7 +2,7 @@
 
 # 🏭 kiro-engineer-teams
 
-**12-agent orchestrated development pipeline**
+**Auto-scaling agent development pipeline**
 **powered by [Kiro CLI](https://kiro.dev/docs/cli/) × [zellij](https://zellij.dev/)**
 
 issue → implementation → review → merge → E2E verification — fully automated.
@@ -57,24 +57,23 @@ just setup && just start
 ```
 ./scripts/start-pipeline.sh
 │
-├── Phase 1: INCEPTION (you + AI)
-│   ├── 1. Workspace Detection
-│   ├── 2. Requirements Analysis
-│   ├── 3. User Stories
-│   ├── 4. Architecture Design
-│   └── 5. Issue Generation → GitHub issues
+├── フェーズ 1: INCEPTION (you + AI)
+│   ├── 1. ワークスペース検出
+│   ├── 2. 要件分析
+│   ├── 3. ユーザーストーリー
+│   ├── 4. アーキテクチャ設計
+│   └── 5. Issue 自動生成 → GitHub issues
 │
-└── Phase 2: Orchestrated Pipeline (fully autonomous)
+└── フェーズ 2: 自律パイプライン
     │
-    ├── Orchestrator polls GitHub every 30s
-    │   ├── issues多い → Impl多め
-    │   ├── PR溜まってる → Review多め
-    │   └── 仕事なし → idle
-    │
-    └── 12 panes dynamically assigned:
-        ├── Dev-Server, Impl ×N, Review ×N
-        ├── Fix-Review ×N, Watch-Main, E2E-Hunt
-        └── Improve
+    └── オーケストレーター（最小構成で開始 → 必要に応じてスケール）
+        │
+        ├── 起動時: implement-1 のみ
+        ├── issue増加 → implement-2, 3, ... を追加 (3issue/1agent, max 8)
+        ├── dev-server必要 → dev-server を追加
+        ├── レビュー指摘 → fix-review を追加
+        ├── 初回マージ後 → watch-main, e2e-hunt, improve を追加
+        └── 完了したpane → 自動クリーンアップ
 ```
 
 ---
@@ -83,7 +82,7 @@ just setup && just start
 
 | Tab | Key | Content |
 |-----|-----|---------|
-| **Pipeline** | Alt+1 | Orchestrator — dynamically assigns 12 panes |
+| **Pipeline** | Alt+1 | Orchestrator — starts minimal, adds panes as needed |
 | **Control** | Alt+2 | TUI control panel — status, stop/restart, logs, current work |
 | **Kiro** | Alt+3 | Interactive kiro-cli — use `/slash-commands` manually |
 
@@ -152,23 +151,25 @@ PRs are automatically reviewed by [kiro-cli-review-action](https://github.com/ko
 GitHub Issue
     │
     ▼
-Orchestrator (polls every 30s, assigns roles to 12 panes)
+Orchestrator (starts with 1 agent, scales as needed)
     │
-    ├── Impl agents → pick issue → implement → PR
+    ├── implement-1 → pick issue → implement → PR
+    │   (more added as issues grow: implement-2, 3, ...)
     │                                │
-    │                    CI: kiro-cli-review-action
+    │                    CI: kiro-cli-review-action (strict 6-point review)
     │                                │
     │                         ┌──────┴──────┐
-    │                      🟢 LGTM      🔴 Fix needed
+    │                      🟢 APPROVE    🔴 REQUEST_CHANGES
     │                         │              │
-    │                    Local Review    Fix-Review agent
-    │                    agent merges    fixes → re-push
+    │                    CI: Auto Merge  fix-review agent
+    │                                    fixes → re-push
     │                         │
     │                    main merged
     │                         │
-    ├── Watch-Main → E2E verification → bug issues
-    ├── E2E-Hunt → Playwright patrol → bug issues
-    └── Improve → auto-generate improvement issues
+    ├── dev-server → started when project has package.json etc.
+    ├── watch-main → added after first merge → E2E verification
+    ├── e2e-hunt → added after first merge → Playwright patrol
+    └── improve → added after first merge → improvement issues
 ```
 
 ---
