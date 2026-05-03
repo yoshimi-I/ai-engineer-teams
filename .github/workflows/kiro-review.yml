@@ -1,0 +1,24 @@
+name: CI + Kiro Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, synchronize]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || '' }}
+      - uses: konippi/kiro-cli-review-action@v1
+        with:
+          kiro_api_key: ${{ secrets.KIRO_API_KEY }}

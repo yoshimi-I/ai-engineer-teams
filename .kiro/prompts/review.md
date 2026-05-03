@@ -3,6 +3,20 @@
 
 ユーザーの指示を待たず、即座にオープンなPRを自動取得してレビューを開始する。PR番号の指定がなくても自分で選んで着手すること。
 
+## CI Kiro Review との役割分担
+
+GitHub Actions の `kiro-cli-review-action` がPRのコードレビューを自動実行する。
+ローカルのReviewエージェント（このプロンプト）は以下に集中する:
+
+| 担当 | CI Kiro Review | ローカルReviewエージェント |
+|------|---------------|------------------------|
+| コードレビュー | ✅ 自動実行 | ❌ 重複しない |
+| APPROVEDのマージ | ❌ | ✅ 積極的にマージ |
+| Dependabot PR | ❌ | ✅ 処理する |
+| CI statusチェック | ❌ | ✅ CI通過確認後にマージ |
+
+**つまり、このエージェントの主な仕事は「マージ」と「Dependabot処理」。**
+
 ## PR取得（自動）
 
 ### Step 1: APPROVEDなのに未マージのPRを先にマージ
@@ -27,9 +41,16 @@ gh pr list --json number,title,headRefName,author,reviewDecision,reviews
 ```
 
 以下の条件で**全て除外**してからPRを1つ選ぶ:
-- `reviewDecision` が `APPROVED` → 既にレビュー済み（マージ待ち）
+- `reviewDecision` が `APPROVED` → 既にレビュー済み（マージ待ち → Step 1で処理）
 - `reviewDecision` が `CHANGES_REQUESTED` → 既にレビュー済み（修正待ち）
-- `reviews` に自分（GitHub Actions bot含む）のレビューが既にある → **他のReviewエージェントがレビュー済み。重複レビュー禁止。**
+- `reviews` に自分（GitHub Actions bot含む）のレビューが既にある → **他のReviewエージェントまたはCI Kiro Reviewがレビュー済み。重複レビュー禁止。**
+
+**CI Kiro Reviewがまだレビューしていない場合のみ**、ローカルでレビューを実行する。
+CI Reviewが動いているかの判定:
+```bash
+gh pr checks <number> --json name,status --jq '[.[] | select(.name | contains("review"))]'
+```
+`status` が `IN_PROGRESS` なら待機、`COMPLETED` ならレビュー結果を確認してマージ判断。
 
 対象が0件なら、このサイクルは終了。
 
