@@ -50,14 +50,13 @@ count_alive() {
 }
 
 update_pane_status() {
-  # Get live pane names from zellij
-  local live_panes
-  live_panes=$(zellij action dump-layout 2>/dev/null | grep 'name="' | grep -v 'tab ' | sed 's/.*name="\([^"]*\)".*/\1/' || echo "")
-
   local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
+  local now; now=$(date +%s)
   while IFS='|' read -r name role pid status; do
     [ -z "$name" ] && continue
-    if echo "$live_panes" | grep -qx "$name"; then
+    local mtime=0
+    [ -f "${STATUS_DIR}/${name}.json" ] && mtime=$(stat -f%m "${STATUS_DIR}/${name}.json" 2>/dev/null || stat -c%Y "${STATUS_DIR}/${name}.json" 2>/dev/null || echo 0)
+    if [ $((now - mtime)) -lt 60 ]; then
       echo "${name}|${role}|${pid}|alive" >> "$tmp"
     else
       echo "${name}|${role}|${pid}|stopped" >> "$tmp"
