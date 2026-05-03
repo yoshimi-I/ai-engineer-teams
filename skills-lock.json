@@ -1,10 +1,34 @@
 {
   "version": 1,
   "skills": {
+    "ETL Pipeline": {
+      "source": "claude-office-skills/skills",
+      "sourceType": "github",
+      "skillPath": "etl-pipeline/SKILL.md",
+      "computedHash": "4663ddf39772a0181df90d996fddeb15c594de2c25cfb4ef7afe2f382df32973"
+    },
+    "aws-cdk-development": {
+      "source": "zxkane/aws-skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aws-cdk/skills/aws-cdk-development/SKILL.md",
+      "computedHash": "bdb896d637c43cd0065b7eadbce835e07273dee9f5fde2bf9b9f34526f2e284f"
+    },
+    "ci-cd-pipeline-patterns": {
+      "source": "manutej/luxor-claude-marketplace",
+      "sourceType": "github",
+      "skillPath": "plugins/luxor-devops-suite/skills/ci-cd-pipeline-patterns/SKILL.md",
+      "computedHash": "41cfe416f25bb6f92f17e57d3fc1ae442bbf11005ed4919778deb70eba07fd0d"
+    },
     "clean-ddd-hexagonal": {
       "source": "ccheney/robust-skills",
       "sourceType": "github",
       "computedHash": "b9a54e257685086d0034bd8277964452b7208e2f18bf68d158996936ce667b6a"
+    },
+    "database-migration": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/framework-migration/skills/database-migration/SKILL.md",
+      "computedHash": "535c07f27fc92339bd3e1c4c9eb1a3e1d129180358fb78915df5933ea361c383"
     },
     "find-skills": {
       "source": "vercel-labs/skills",
@@ -15,6 +39,24 @@
       "source": "anthropics/skills",
       "sourceType": "github",
       "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "monitoring-observability": {
+      "source": "ahmedasmar/devops-claude-skills",
+      "sourceType": "github",
+      "skillPath": "monitoring-observability/skills/SKILL.md",
+      "computedHash": "a074cfeaa390c9492b920971f12f9ab6b16c828ae9436b13d35e44cd6e54360b"
+    },
+    "react-native-best-practices": {
+      "source": "callstackincubator/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-best-practices/SKILL.md",
+      "computedHash": "bad5e73a1c3ddca2ed4bcd93b05ff913e8f9cc5495feacc3717c69e07fee540f"
+    },
+    "terraform-style-guide": {
+      "source": "hashicorp/agent-skills",
+      "sourceType": "github",
+      "skillPath": "terraform/code-generation/skills/terraform-style-guide/SKILL.md",
+      "computedHash": "fd301fe5bfb41764acac67c25244cc5650b5dd0a5d8d037414449a2d3adecbbf"
     }
   }
 }
