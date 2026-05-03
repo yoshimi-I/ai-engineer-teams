@@ -37,6 +37,54 @@ gh pr list --search "head:<branch-name>"
 
 **3ステップすべてクリアしてから実装に入る。**
 
+## Worktree必須ルール（絶対厳守）
+
+実装作業は必ずissue専用のgit worktreeで行う。メインリポジトリの作業ディレクトリでは、コード編集・テスト・コミットをしてはならない。
+
+禁止:
+- `git checkout -b <branch>` をメインリポジトリで実行する
+- `git switch -c <branch>` をメインリポジトリで実行する
+- メインリポジトリ上で直接ファイルを編集する
+- `.worktrees/` 以外にworktreeを作る
+
+必須手順:
+```bash
+ISSUE=<issue番号>
+BRANCH="<type>/issue-${ISSUE}-<short-description>"
+WORKTREE=".worktrees/issue-${ISSUE}-<short-description>"
+
+git fetch origin main
+git worktree add -b "$BRANCH" "$WORKTREE" origin/main
+cd "$WORKTREE"
+```
+
+以降の調査・実装・検証・コミット・push・PR作成は、すべて `cd "$WORKTREE"` 後のworktree内で実行する。
+
+PR作成:
+```bash
+git push -u origin "$BRANCH"
+cat > /tmp/pr-body-${ISSUE}.md <<EOF
+## Related Issue
+
+closes #${ISSUE}
+
+## Changes
+
+- <change summary>
+
+## Checklist
+
+- [x] Tests added/updated
+- [x] Lint/format passed
+- [x] No breaking changes (or documented)
+EOF
+gh pr create --title "<Conventional Commit title>" --body "$(cat /tmp/pr-body-${ISSUE}.md)"
+```
+
+`.github/PULL_REQUEST_TEMPLATE.md` が存在する場合は、必ずそのセクション構成に沿ってPR本文を作成する。チェック項目は実際に満たしたものだけ `[x]` にする。
+
+PR作成後もworktreeはPRがmergeされるまで残す。勝手に削除しない。
+
 ## Issue進捗管理（必須・省略禁止）
 
 **排他制御の主体はGitHub issueのassignee。** task.mdは補助記録。
@@ -137,7 +185,7 @@ issue番号の指定がない場合:
 
 2. **調査**: 関連ファイルを最低3つ読む（変更対象+呼び出し元+型定義）
 
-3. **実装**: ブランチを作成し、下記「領域別の実装ガイド」に従って実装
+3. **実装**: issue専用worktreeを作成し、そのworktree内で下記「領域別の実装ガイド」に従って実装
 
 4. **検証**: 領域に応じたlint・テストコマンドを実行（steering参照）
 

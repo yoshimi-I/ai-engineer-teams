@@ -260,7 +260,7 @@ update_pane_status() {
 }
 
 add_pane() {
-  local name="$1" role="$2"
+  local name="$1" role="$2" context="${3:-}"
   adopt_existing_panes
   if singleton_role "$role"; then
     dedupe_singleton_role "$role"
@@ -281,13 +281,14 @@ add_pane() {
 {"agent":"${name}","prompt":"${role}","state":"🚀 starting","detail":"","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
 JSON
   resolve_pipeline_tab_id
-  local pane
+  local pane context_env
+  context_env=$(printf '%q' "$context")
   if [ -n "$PIPELINE_TAB_ID" ] && [ "$PIPELINE_TAB_ID" != "null" ]; then
     pane=$(zellij action new-pane --tab-id "$PIPELINE_TAB_ID" --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
-      -- bash -lc "AGENT_ID='${name}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
+      -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT=${context_env} AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   else
     pane=$(zellij action new-pane --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
-      -- bash -lc "AGENT_ID='${name}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
+      -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT=${context_env} AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   fi
   record_registry_entry "$name" "$role" "$pane" "alive"
 }
@@ -413,6 +414,43 @@ next_implement_name() {
   echo "implement-$((max + 1))"
 }
 
+active_implement_issues_json() {
+  jq -Rn '
+    [inputs
+      | select(length > 0)
+      | split("|")
+      | select(length >= 4 and .[1] == "implement" and .[3] == "alive")
+      | .[0]
+      | select(test("^implement-issue-[0-9]+$"))
+      | sub("^implement-issue-"; "")
+      | tonumber]
+  ' < "$PANE_REGISTRY"
+}
+
+ready_issue_numbers_json() {
+  local active
+  active=$(active_implement_issues_json)
+  jq \
+    --argjson active "$active" '
+    [.[].number] as $open
+    | [.[] | select(.assignees | length == 0)
+      | select(([.labels[]?.name] | index("blocked") | not))
+      | select((.number as $n | $active | index($n) | not))
+      | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
+        | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))
+      | .number]
+  ' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo "[]"
+}
+
+next_ready_issue_number() {
+  ready_issue_numbers_json | jq -r '.[0] // ""'
+}
+
+implement_context_for_issue() {
+  local issue="$1"
+  printf 'You are assigned to GitHub issue #%s. Work only on issue #%s in this cycle. Do not auto-select another issue unless this issue is already closed, assigned to someone else, or already has an open PR.' "$issue" "$issue"
+}
+
 build_ai_context() {
   local active_json post_merge_spawned dev_health
   active_json=$(active_panes_json)
@@ -429,6 +467,7 @@ build_ai_context() {
     --argjson post_merge_spawned "$post_merge_spawned" \
     --argjson max_alive "$MAX_ALIVE" \
     --argjson max_implement "$MAX_IMPLEMENT" \
+    --argjson ready_issue_numbers "$(ready_issue_numbers_json)" \
     --arg next_implement "$(next_implement_name)" \
     --argjson has_dev_target "$(has_dev_target && echo true || echo false)" \
     --argjson auto_dev_server "$([ "$AUTO_DEV_SERVER" = "true" ] && echo true || echo false)" \
@@ -440,6 +479,7 @@ build_ai_context() {
       project: {has_dev_target: $has_dev_target},
       dev_server: $dev_health,
       next_names: {implement: $next_implement},
+      ready_issue_numbers: $ready_issue_numbers,
       active_panes: $active,
       issues: {
         unassigned_count: ([$issues[] | select(.assignees | length == 0)] | length),
@@ -499,7 +539,7 @@ valid_role() {
 }
 
 execute_ai_plan() {
-  local plan="$1" changed=0 launched=0 launched_implement=0 launched_roles="" skipped=""
+  local plan="$1" changed=0 launched=0 launched_implement=0 launched_roles="" skipped="" issue_num context
   while IFS=$'\t' read -r role; do
     if ! valid_role "$role"; then
       skipped="${skipped} invalid-stop:${role}"
@@ -538,7 +578,9 @@ execute_ai_plan() {
         if [ "${READY_ISSUES:-0}" -le 0 ]; then skipped="${skipped} no-ready-issues"; continue; fi
         if limit_reached "$(count_alive "implement")" "$MAX_IMPLEMENT"; then skipped="${skipped} max-implement"; continue; fi
         if [ "$launched_implement" -ge "${READY_ISSUES:-0}" ]; then skipped="${skipped} no-more-ready-issues"; continue; fi
-        name="$(next_implement_name)"
+        issue_num="$(next_ready_issue_number)"
+        if [ -z "$issue_num" ]; then skipped="${skipped} no-ready-issue-number"; continue; fi
+        name="implement-issue-${issue_num}"
         launched_implement=$((launched_implement + 1))
         ;;
       fix-review)
@@ -569,7 +611,11 @@ execute_ai_plan() {
         ;;
     esac
     [ -n "$name" ] && [ "$name" != "null" ] || name="$role"
-    add_pane "$name" "$role"
+    context=""
+    if [ "$role" = "implement" ] && [[ "$name" =~ ^implement-issue-([0-9]+)$ ]]; then
+      context="$(implement_context_for_issue "${BASH_REMATCH[1]}")"
+    fi
+    add_pane "$name" "$role" "$context"
     changed=$((changed + 1))
     launched=$((launched + 1))
     launched_roles="${launched_roles} ${name}:${role}"
@@ -595,7 +641,7 @@ fallback_scale() {
   local cur_impl; cur_impl=$(count_alive "implement")
   local cur_fix;  cur_fix=$(count_alive "fix-review")
   local cur_e2e;  cur_e2e=$(count_alive "e2e-bug-hunt")
-  local cur_watch=0 cur_imp=0
+  local cur_watch=0 cur_imp=0 issue_num
   local launched=""
   [ "$AUTO_WATCH_MAIN" = "true" ] && cur_watch=$(count_alive "watch-main")
   [ "$AUTO_IMPROVE" = "true" ] && cur_imp=$(count_alive "improve")
@@ -614,8 +660,10 @@ fallback_scale() {
   fi
   while [ "$cur_impl" -lt "$desired" ] && below_limit "$(total_alive)" "$MAX_ALIVE"; do
     local impl_name
-    impl_name="$(next_implement_name)"
-    add_pane "$impl_name" "implement"
+    issue_num="$(next_ready_issue_number)"
+    [ -n "$issue_num" ] || break
+    impl_name="implement-issue-${issue_num}"
+    add_pane "$impl_name" "implement" "$(implement_context_for_issue "$issue_num")"
     launched="${launched} ${impl_name}"
     cur_impl=$((cur_impl + 1))
   done

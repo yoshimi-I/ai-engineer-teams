@@ -11,7 +11,7 @@ Return **only a single-line JSON object**. Do not include Markdown fences, prose
   "actions": [
     {
       "role": "implement",
-      "name": "implement-1",
+      "name": "implement-issue-42",
       "reason": "A ready unassigned implementation issue exists."
     }
   ],
@@ -74,7 +74,7 @@ Return **only a single-line JSON object**. Do not include Markdown fences, prose
 Use stable, role-based names:
 
 - `dev-server`
-- `implement-N` where N is the next sequence from context.
+- `implement-issue-N` where N is the GitHub issue number from `ready_issue_numbers`.
 - `review`
 - `fix-review`
 - `e2e`
@@ -88,6 +88,7 @@ Use stable, role-based names:
 - If `dev_server.healthy` is true, do not launch another `dev-server`; reuse it.
 - If `dev_server.pane_count` is greater than 1, assume Bash will deduplicate extra `dev-server` panes automatically; do not stop `dev-server` just to deduplicate it.
 - `implement`: work on ready implementation issues. Scale this up or down based on real parallelism.
+- When launching `implement`, use issue-numbered pane names from `ready_issue_numbers` such as `implement-issue-42`. Do not use generic names like `implement-1`.
 - `review`: inspect/merge PRs and handle approved PRs; avoid duplicating CI review when it is already in progress.
 - `fix-review`: fix PRs with requested changes.
 - `e2e`: run targeted browser verification for current app behavior or a specific PR flow.
@@ -102,6 +103,7 @@ The user message contains a JSON context with:
 - limits
 - active panes
 - GitHub issue summary
+- ready issue numbers
 - PR summary
 - latest merged PR
 - post-merge state
