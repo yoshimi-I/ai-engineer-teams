@@ -76,7 +76,9 @@ if echo "$REMOTE_URL" | grep -q "kiro-engineer-teams"; then
     git add -A
     git commit -m "init: scaffold from kiro-engineer-teams" --allow-empty 2>/dev/null || true
 
-    gh repo create "$REPO_NAME" $VIS_FLAG --source=. --push
+    # Replace template origin with new repo
+    git remote remove origin 2>/dev/null || true
+    gh repo create "$REPO_NAME" $VIS_FLAG --source=. --remote origin --push
     echo "  ✔ リポジトリを作成しました: $(gh repo view --json url --jq '.url')"
     echo ""
   fi
