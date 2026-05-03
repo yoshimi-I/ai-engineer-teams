@@ -26,6 +26,9 @@ TARGETS=(
   "scripts/pipeline.kdl"
   "scripts/setup.sh"
   ".github/workflows/kiro-review.yml"
+  ".github/PULL_REQUEST_TEMPLATE.md"
+  ".github/ISSUE_TEMPLATE/bug_report.md"
+  ".github/ISSUE_TEMPLATE/feature_request.md"
   ".kiro/agents/code-reviewer.json"
   "justfile"
   "skills-lock.json"
@@ -44,16 +47,54 @@ for f in "${TARGETS[@]}"; do
   fi
 done
 
-# Update skills (only add new ones)
+# Update prompts (overwrite pipeline-managed prompts)
+if [ -d "${SRC}/.kiro/prompts" ]; then
+  mkdir -p ".kiro/prompts"
+  while IFS= read -r src_file; do
+    rel="${src_file#${SRC}/}"
+    mkdir -p "$(dirname "$rel")"
+    if [ -f "$rel" ] && diff -q "$rel" "$src_file" >/dev/null 2>&1; then
+      continue
+    fi
+    cp "$src_file" "$rel"
+    echo "  ✅ ${rel}"
+    updated=$((updated + 1))
+  done < <(find "${SRC}/.kiro/prompts" -type f | sort)
+fi
+
+# Update skills (overwrite pipeline-managed skills)
 if [ -d "${SRC}/.kiro/skills" ]; then
-  for skill in "${SRC}"/.kiro/skills/*/; do
-    name=$(basename "$skill")
-    if [ ! -e ".kiro/skills/${name}" ]; then
-      cp -r "$skill" ".kiro/skills/${name}"
-      echo "  ✅ .kiro/skills/${name} (new)"
+  mkdir -p ".kiro/skills"
+  while IFS= read -r src_file; do
+    rel="${src_file#${SRC}/}"
+    mkdir -p "$(dirname "$rel")"
+    if [ -f "$rel" ] && diff -q "$rel" "$src_file" >/dev/null 2>&1; then
+      continue
+    fi
+    cp "$src_file" "$rel"
+    echo "  ✅ ${rel}"
+    updated=$((updated + 1))
+  done < <(find "${SRC}/.kiro/skills" -type f | sort)
+fi
+
+# Update steering defaults only when project-specific settings are still empty.
+STEERING_SRC="${SRC}/.kiro/steering/development-rules.md"
+STEERING_DST=".kiro/steering/development-rules.md"
+if [ -f "$STEERING_SRC" ]; then
+  mkdir -p "$(dirname "$STEERING_DST")"
+  if [ ! -f "$STEERING_DST" ]; then
+    cp "$STEERING_SRC" "$STEERING_DST"
+    echo "  ✅ ${STEERING_DST}"
+    updated=$((updated + 1))
+  elif grep -q "# INCEPTION完了後に記入:" "$STEERING_DST"; then
+    if ! diff -q "$STEERING_DST" "$STEERING_SRC" >/dev/null 2>&1; then
+      cp "$STEERING_SRC" "$STEERING_DST"
+      echo "  ✅ ${STEERING_DST} (template settings still empty)"
       updated=$((updated + 1))
     fi
-  done
+  else
+    echo "  ⏭️  ${STEERING_DST} (project-specific settings preserved)"
+  fi
 fi
 
 echo ""
