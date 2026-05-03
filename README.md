@@ -119,12 +119,24 @@ just setup && just start
 
 PRs are automatically reviewed by [kiro-cli-review-action](https://github.com/konippi/kiro-cli-review-action) on GitHub Actions.
 
+**Setup:**
+1. Get a `KIRO_API_KEY` from [app.kiro.dev](https://app.kiro.dev)
+2. Add it to your repo: `gh secret set KIRO_API_KEY`
+3. The workflow runs automatically on PR creation
+
 ```yaml
 # .github/workflows/kiro-review.yml
-on:
-  pull_request: [opened, ready_for_review, synchronize]
-  issue_comment: [created]  # @kiro trigger
+- uses: konippi/kiro-cli-review-action@v1
+  with:
+    kiro_api_key: ${{ secrets.KIRO_API_KEY }}
+    trigger_phrase: /review          # comment "/review" on a PR for on-demand review
+  env:
+    GITHUB_TOKEN: ${{ github.token }} # required for GitHub MCP server
 ```
+
+> ⚠️ `GITHUB_TOKEN` must be passed via `env`. Without it, the GitHub MCP server fails to start and reviews won't be posted.
+
+> ⚠️ Do not use `@kiro` as trigger phrase — it sends a mention notification to an unrelated GitHub user.
 
 | Role | CI Kiro Review | Local Review Agent |
 |------|:-:|:-:|
