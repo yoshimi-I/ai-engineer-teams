@@ -22,3 +22,4 @@ jobs:
       - uses: konippi/kiro-cli-review-action@v1
         with:
           kiro_api_key: ${{ secrets.KIRO_API_KEY }}
+          debug: true
