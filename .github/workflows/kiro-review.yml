@@ -22,5 +22,6 @@ jobs:
       - uses: yoshimi-I/kiro-cli-review-action@main
         with:
           kiro_api_key: ${{ secrets.KIRO_API_KEY }}
+          debug: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
