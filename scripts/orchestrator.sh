@@ -77,12 +77,13 @@ add_pane() {
   mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
 
   cat > "${STATUS_DIR}/${name}.json" <<JSON
-{"agent":"${name}","prompt":"${role}","state":"🚀 starting","detail":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
+{"agent":"${name}","prompt":"${role}","state":"🚀 starting","detail":"","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
 JSON
   zellij run --name "$name" --cwd "$PROJECT_CWD" \
     -- bash -c "AGENT_ID='${name}' AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'" &
-  echo "${name}|${role}|$!|alive" >> "$PANE_REGISTRY"
-  LAST_SCALE_ADD=$(date +%s)
+  local zpid=$!
+  sleep 0.5  # Give zellij time to create the pane
+  echo "${name}|${role}|${zpid}|alive" >> "$PANE_REGISTRY"
 }
 
 total_alive() {
@@ -104,26 +105,40 @@ render() {
   echo -e "  \033[2m$(date '+%H:%M:%S')\033[0m  \033[32m▶ ${alive} 稼働\033[0m / ${total} 合計  📋 issue: \033[33m${ISSUES:-?}\033[0m  🔧 要修正: \033[31m${CHANGES_REQ:-?}\033[0m  🔀 merge: $(if ${HAS_MERGES:-false}; then echo -e '\033[32m✓\033[0m'; else echo -e '\033[2m-\033[0m'; fi)"
   echo ""
 
-  echo -e "  \033[2m┌──────────────────────┬──────────────┬────────┬──────────────────────────────┐\033[0m"
-  printf "  \033[2m│\033[0m \033[1m%-20s\033[0m \033[2m│\033[0m \033[1m%-12s\033[0m \033[2m│\033[0m \033[1m%-6s\033[0m \033[2m│\033[0m \033[1m%-28s\033[0m \033[2m│\033[0m\n" "Name" "Role" "State" "Detail"
-  echo -e "  \033[2m├──────────────────────┼──────────────┼────────┼──────────────────────────────┤\033[0m"
+  # Table header
+  printf "  \033[2m┌──────────────────────┬──────────────┬────────┬────────────────────────────────────────────────────────┐\033[0m\n"
+  printf "  \033[2m│\033[0m \033[1m%-20s\033[0m \033[2m│\033[0m \033[1m%-12s\033[0m \033[2m│\033[0m \033[1m%-6s\033[0m \033[2m│\033[0m \033[1m%-54s\033[0m \033[2m│\033[0m\n" "Name" "Role" "State" "Detail"
+  printf "  \033[2m├──────────────────────┼──────────────┼────────┼────────────────────────────────────────────────────────┤\033[0m\n"
 
   while IFS='|' read -r name role pid status; do
     [ -z "$name" ] && continue
 
-    local detail=""
+    local state_str="" issue_str="" pr_str="" branch_str="" detail=""
     if [ -f "${STATUS_DIR}/${name}.json" ]; then
-      detail=$(jq -r '"\(.state) \(.detail // "")"' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
+      state_str=$(jq -r '.state // ""' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
+      issue_str=$(jq -r '.issue // ""' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
+      pr_str=$(jq -r '.pr // ""' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
+      branch_str=$(jq -r '.branch // ""' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
+      detail=$(jq -r '.detail // ""' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
     fi
-    [ ${#detail} -gt 26 ] && detail="${detail:0:25}…"
 
-    local color state_icon
+    # Build rich detail string
+    local rich_detail=""
+    [ -n "$state_str" ] && rich_detail="${state_str}"
+    [ -n "$issue_str" ] && rich_detail="${rich_detail} 📋${issue_str}"
+    [ -n "$pr_str" ] && rich_detail="${rich_detail} 🔗${pr_str}"
+    [ -n "$branch_str" ] && rich_detail="${rich_detail} 🌿${branch_str}"
+    [ -n "$detail" ] && [ "$detail" != "$state_str" ] && rich_detail="${rich_detail} ${detail}"
+    [ ${#rich_detail} -gt 52 ] && rich_detail="${rich_detail:0:51}…"
+
+    local state_icon
     if [ "$status" = "alive" ]; then
       state_icon="\033[32m● 稼働\033[0m"
     else
       state_icon="\033[31m○ 停止\033[0m"
     fi
 
+    local color
     case "$role" in
       implement)    color="\033[33m" ;;
       fix-review)   color="\033[31m" ;;
@@ -134,14 +149,46 @@ render() {
       *)            color="\033[2m" ;;
     esac
 
-    printf "  \033[2m│\033[0m ${color}%-20s\033[0m \033[2m│\033[0m %-12s \033[2m│\033[0m ${state_icon} \033[2m│\033[0m %-28s \033[2m│\033[0m\n" "$name" "$role" "" "$detail"
+    printf "  \033[2m│\033[0m ${color}%-20s\033[0m \033[2m│\033[0m %-12s \033[2m│\033[0m ${state_icon} \033[2m│\033[0m %-54s \033[2m│\033[0m\n" "$name" "$role" "" "$rich_detail"
   done < "$PANE_REGISTRY"
 
   if [ "$(wc -l < "$PANE_REGISTRY" | tr -d ' ')" -eq 0 ]; then
-    printf "  \033[2m│ %-20s │ %-12s │ %-6s │ %-28s │\033[0m\n" "(起動中...)" "" "" ""
+    printf "  \033[2m│ %-20s │ %-12s │ %-6s │ %-54s │\033[0m\n" "(起動中...)" "" "" ""
   fi
-  echo -e "  \033[2m└──────────────────────┴──────────────┴────────┴──────────────────────────────┘\033[0m"
+  printf "  \033[2m└──────────────────────┴──────────────┴────────┴────────────────────────────────────────────────────────┘\033[0m\n"
   echo ""
+
+  # ── Work Summary ──
+  # Show assigned issues and open PRs
+  local summary_file="${CACHE_DIR}/work_summary"
+  local summary_age=999
+  [ -f "$summary_file" ] && summary_age=$(( $(date +%s) - $(stat -f%m "$summary_file" 2>/dev/null || stat -c%Y "$summary_file" 2>/dev/null || echo 0) ))
+
+  if [ $summary_age -ge $CACHE_TTL ]; then
+    {
+      echo "ISSUES_IN_PROGRESS:"
+      gh issue list --state open --json number,title,assignees \
+        --jq '.[] | select(.assignees | length > 0) | "  #\(.number) \(.title) ← \(.assignees[0].login)"' 2>/dev/null || true
+      echo "OPEN_PRS:"
+      gh pr list --json number,title,headRefName,reviewDecision \
+        --jq '.[] | "  #\(.number) [\(.reviewDecision // "PENDING")] \(.title) (\(.headRefName))"' 2>/dev/null || true
+    } > "$summary_file" 2>/dev/null || true
+  fi
+
+  if [ -f "$summary_file" ]; then
+    local in_issues=false in_prs=false
+    echo -e "  \033[1m📋 Current Work\033[0m"
+    while IFS= read -r line; do
+      case "$line" in
+        "ISSUES_IN_PROGRESS:") in_issues=true; in_prs=false; echo -e "  \033[33mIssues (着手中):\033[0m" ;;
+        "OPEN_PRS:") in_issues=false; in_prs=true; echo -e "  \033[36mPull Requests:\033[0m" ;;
+        *)
+          [ -n "$line" ] && echo -e "  \033[2m${line}\033[0m"
+          ;;
+      esac
+    done < "$summary_file"
+    echo ""
+  fi
 }
 
 # ── Scaling ──
@@ -160,19 +207,20 @@ scale() {
   local cur_e2e;  cur_e2e=$(count_alive "e2e-bug-hunt")
   local cur_imp;  cur_imp=$(count_alive "improve")
 
-  # Implement: start with 1, add more only if unassigned issues > alive impl agents
-  # Add at most 1 per cycle, max 4 total
+  # Implement: scale based on unassigned issues
+  # 1 agent per 2 unassigned issues, min 1 if any issues exist, max 4
   local desired=0
-  [ "${ISSUES:-0}" -gt 0 ] && desired=1
-  # Only scale up if there are significantly more issues than agents
-  if [ "${ISSUES:-0}" -gt $((cur_impl * 3)) ]; then
-    desired=$((cur_impl + 1))
+  if [ "${ISSUES:-0}" -gt 0 ]; then
+    desired=$(( (ISSUES + 1) / 2 ))
+    [ $desired -lt 1 ] && desired=1
+    [ $desired -gt 4 ] && desired=4
   fi
-  [ $desired -gt 4 ] && desired=4
-  if [ "$cur_impl" -lt "$desired" ]; then
+  while [ "$cur_impl" -lt "$desired" ]; do
     IMPL_SEQ=$((IMPL_SEQ + 1))
     add_pane "implement-${IMPL_SEQ}" "implement"
-  fi
+    cur_impl=$((cur_impl + 1))
+    sleep 1  # Stagger pane creation
+  done
 
   # Fix-review
   [ "${CHANGES_REQ:-0}" -gt 0 ] && [ "$cur_fix" -eq 0 ] && add_pane "fix-review" "fix-review"
@@ -193,11 +241,11 @@ scale() {
 # ── Main ──
 
 IMPL_SEQ=0; ISSUES=0; CHANGES_REQ=0; HAS_MERGES=false; last_gh=0
-LAST_SCALE_ADD=0  # timestamp of last pane addition
 
 refresh_github
-IMPL_SEQ=1; add_pane "implement-1" "implement"
-LAST_SCALE_ADD=$(date +%s)
+
+# Initial scale — immediately spawn agents based on current issues
+scale
 render
 
 while true; do
@@ -210,10 +258,7 @@ while true; do
   now=$(date +%s)
   [ $((now - last_gh)) -ge $GH_REFRESH ] && refresh_github && last_gh=$now
 
-  # Only scale if 60s have passed since last pane addition
-  if [ $((now - LAST_SCALE_ADD)) -ge 60 ]; then
-    scale
-  fi
+  scale
   update_pane_status
   render
 done

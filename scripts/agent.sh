@@ -22,19 +22,46 @@ ONCE="${AGENT_ONCE:-false}"
 MAX_ERRORS=5
 STATUS_DIR=".agent-status"
 LOG_DIR=".agent-logs"
-STATUS_FILE="${STATUS_DIR}/${AGENT_ID:-$PROMPT_NAME}.json"
-LOG_FILE="${LOG_DIR}/${AGENT_ID:-$PROMPT_NAME}.log"
+AGENT_NAME="${AGENT_ID:-$PROMPT_NAME}"
+STATUS_FILE="${STATUS_DIR}/${AGENT_NAME}.json"
+LOG_FILE="${LOG_DIR}/${AGENT_NAME}.log"
 
 mkdir -p "$STATUS_DIR" "$LOG_DIR"
 
 # Tee all output to log file
 exec > >(tee -a "$LOG_FILE") 2>&1
 
+# ── Status tracking ──
+# These vars are updated by scan_agent_context() after each cycle
+CURRENT_ISSUE=""
+CURRENT_PR=""
+CURRENT_BRANCH=""
+
 update_status() {
   local state="$1" detail="${2:-}"
   cat > "$STATUS_FILE" <<JSON
-{"agent":"${AGENT_ID:-$PROMPT_NAME}","prompt":"$PROMPT_NAME","state":"$state","detail":"$detail","cycle":$cycle,"errors":$error_count,"ts":"$(date '+%H:%M:%S')"}
+{"agent":"${AGENT_NAME}","prompt":"$PROMPT_NAME","state":"$state","detail":"$detail","issue":"${CURRENT_ISSUE}","pr":"${CURRENT_PR}","branch":"${CURRENT_BRANCH}","cycle":$cycle,"errors":$error_count,"ts":"$(date '+%H:%M:%S')"}
 JSON
+}
+
+# Scan git state and GitHub to detect what this agent is working on
+scan_agent_context() {
+  # Current branch
+  CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+
+  # Extract issue number from branch name (e.g., feat/issue-42-xxx → #42)
+  if [[ "$CURRENT_BRANCH" =~ issue-([0-9]+) ]]; then
+    CURRENT_ISSUE="#${BASH_REMATCH[1]}"
+  elif [[ "$CURRENT_BRANCH" =~ ^[a-z]+/([0-9]+)- ]]; then
+    CURRENT_ISSUE="#${BASH_REMATCH[1]}"
+  fi
+
+  # Check for open PR from this branch
+  if [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "main" ]; then
+    local pr_num
+    pr_num=$(gh pr list --head "$CURRENT_BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
+    [ -n "$pr_num" ] && CURRENT_PR="#${pr_num}"
+  fi
 }
 
 if [[ ! -f "$PROMPT_FILE" ]]; then
@@ -49,7 +76,6 @@ cycle=0
 wait_for_work() {
   case "$PROMPT_NAME" in
     dev-server)
-      # No wait — start immediately
       return 0
       ;;
     implement|watch-issues)
@@ -119,6 +145,11 @@ echo ""
 while true; do
   cycle=$((cycle + 1))
   echo "━━━ Cycle #${cycle} [$(date '+%H:%M:%S')] ━━━"
+
+  # Reset context for new cycle
+  CURRENT_ISSUE=""
+  CURRENT_PR=""
+  CURRENT_BRANCH=""
   update_status "🔄 running" "cycle #${cycle}"
 
   if kiro-cli chat \
@@ -127,10 +158,13 @@ while true; do
     --resume \
     "$(cat "$PROMPT_FILE")" 2>&1; then
     error_count=0
+    # Scan what the agent did
+    scan_agent_context
     update_status "✅ done" "cycle #${cycle}"
     echo "✅ Cycle #${cycle} complete"
   else
     error_count=$((error_count + 1))
+    scan_agent_context
     update_status "⚠️ error" "cycle #${cycle} (${error_count}/${MAX_ERRORS})"
     echo "⚠️  Cycle #${cycle} failed (${error_count}/${MAX_ERRORS})"
     [[ $error_count -ge $MAX_ERRORS ]] && update_status "💀 dead" "too many errors" && echo "❌ Too many errors. Stopping." && exit 1
