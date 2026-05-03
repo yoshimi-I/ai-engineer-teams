@@ -11,6 +11,8 @@ CACHE_DIR="${STATUS_DIR}/.cache"
 CACHE_TTL=25
 PANE_REGISTRY="${STATUS_DIR}/.panes"
 GH_REFRESH=60
+TMUX_SESSION="${KIRO_TMUX_SESSION:-$(tmux display-message -p '#S' 2>/dev/null || echo kiro-pipeline)}"
+TMUX_WORKERS_WINDOW="${KIRO_TMUX_WINDOW:-Pipeline}"
 
 mkdir -p "$STATUS_DIR" "$CACHE_DIR"
 : > "$PANE_REGISTRY"
@@ -42,7 +44,7 @@ refresh_github() {
 
 count_alive() {
   local role="$1" count=0
-  while IFS='|' read -r name r pid status; do
+  while IFS='|' read -r name r _pane status; do
     [ -z "$name" ] && continue
     [ "$r" = "$role" ] && [ "$status" = "alive" ] && count=$((count + 1))
   done < "$PANE_REGISTRY"
@@ -52,14 +54,14 @@ count_alive() {
 update_pane_status() {
   local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
   local now; now=$(date +%s)
-  while IFS='|' read -r name role pid status; do
+  while IFS='|' read -r name role pane status; do
     [ -z "$name" ] && continue
     local mtime=0
     [ -f "${STATUS_DIR}/${name}.json" ] && mtime=$(stat -f%m "${STATUS_DIR}/${name}.json" 2>/dev/null || stat -c%Y "${STATUS_DIR}/${name}.json" 2>/dev/null || echo 0)
-    if [ $((now - mtime)) -lt 300 ]; then
-      echo "${name}|${role}|${pid}|alive" >> "$tmp"
+    if [ $((now - mtime)) -lt 300 ] && tmux list-panes -a -F '#{pane_id}' 2>/dev/null | grep -qx "$pane"; then
+      echo "${name}|${role}|${pane}|alive" >> "$tmp"
     else
-      echo "${name}|${role}|${pid}|stopped" >> "$tmp"
+      echo "${name}|${role}|${pane}|stopped" >> "$tmp"
     fi
   done < "$PANE_REGISTRY"
   mv "$tmp" "$PANE_REGISTRY"
@@ -68,7 +70,7 @@ update_pane_status() {
 add_pane() {
   local name="$1" role="$2"
   # Skip if already exists and alive
-  while IFS='|' read -r n r p s; do
+  while IFS='|' read -r n r _pane s; do
     [ "$n" = "$name" ] && [ "$s" = "alive" ] && return
   done < "$PANE_REGISTRY"
 
@@ -79,15 +81,16 @@ add_pane() {
   cat > "${STATUS_DIR}/${name}.json" <<JSON
 {"agent":"${name}","prompt":"${role}","state":"🚀 starting","detail":"","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
 JSON
-  zellij run --name "$name" --cwd "$PROJECT_CWD" \
-    -- bash -c "AGENT_ID='${name}' AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'" &
-  local zpid=$!
-  sleep 0.5  # Give zellij time to create the pane
-  echo "${name}|${role}|${zpid}|alive" >> "$PANE_REGISTRY"
+  local pane
+  pane=$(tmux split-window -d -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" -c "$PROJECT_CWD" \
+    -P -F '#{pane_id}' \
+    "AGENT_ID='${name}' AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
+  tmux select-layout -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" tiled >/dev/null 2>&1 || true
+  echo "${name}|${role}|${pane}|alive" >> "$PANE_REGISTRY"
 }
 
 total_alive() {
-  grep "|alive$" "$PANE_REGISTRY" 2>/dev/null | wc -l | tr -d ' '
+  grep -c "|alive$" "$PANE_REGISTRY" 2>/dev/null || true
 }
 
 # ── Display ──
@@ -110,7 +113,7 @@ render() {
   printf "  \033[2m│\033[0m \033[1m%-20s\033[0m \033[2m│\033[0m \033[1m%-12s\033[0m \033[2m│\033[0m \033[1m%-6s\033[0m \033[2m│\033[0m \033[1m%-54s\033[0m \033[2m│\033[0m\n" "Name" "Role" "State" "Detail"
   printf "  \033[2m├──────────────────────┼──────────────┼────────┼────────────────────────────────────────────────────────┤\033[0m\n"
 
-  while IFS='|' read -r name role pid status; do
+  while IFS='|' read -r name role _pane status; do
     [ -z "$name" ] && continue
 
     local state_str="" issue_str="" pr_str="" branch_str="" detail=""
@@ -176,12 +179,11 @@ render() {
   fi
 
   if [ -f "$summary_file" ]; then
-    local in_issues=false in_prs=false
     echo -e "  \033[1m📋 Current Work\033[0m"
     while IFS= read -r line; do
       case "$line" in
-        "ISSUES_IN_PROGRESS:") in_issues=true; in_prs=false; echo -e "  \033[33mIssues (着手中):\033[0m" ;;
-        "OPEN_PRS:") in_issues=false; in_prs=true; echo -e "  \033[36mPull Requests:\033[0m" ;;
+        "ISSUES_IN_PROGRESS:") echo -e "  \033[33mIssues (着手中):\033[0m" ;;
+        "OPEN_PRS:") echo -e "  \033[36mPull Requests:\033[0m" ;;
         *)
           [ -n "$line" ] && echo -e "  \033[2m${line}\033[0m"
           ;;

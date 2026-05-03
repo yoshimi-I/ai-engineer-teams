@@ -3,7 +3,7 @@
 # 🏭 kiro-engineer-teams
 
 **Auto-scaling agent development pipeline**
-**powered by [Kiro CLI](https://kiro.dev/docs/cli/) × [zellij](https://zellij.dev/)**
+**powered by [Kiro CLI](https://kiro.dev/docs/cli/) × [tmux](https://github.com/tmux/tmux/wiki)**
 
 issue → implementation → review → merge → E2E verification — fully automated.
 
@@ -78,13 +78,13 @@ just setup && just start
 
 ---
 
-## 🖥️ Zellij Tabs
+## 🖥️ tmux Windows
 
 | Tab | Key | Content |
 |-----|-----|---------|
-| **Pipeline** | Alt+1 | Orchestrator — starts minimal, adds panes as needed |
-| **Control** | Alt+2 | TUI control panel — status, stop/restart, logs, current work |
-| **Kiro** | Alt+3 | Interactive kiro-cli — use `/slash-commands` manually |
+| **Pipeline** | Prefix+1 | Orchestrator — starts minimal, adds panes as needed |
+| **Control** | Prefix+2 | TUI control panel — status, stop/restart, logs, current work |
+| **Kiro** | Prefix+3 | Interactive kiro-cli — use `/slash-commands` manually |
 
 ### Control Panel
 
@@ -179,7 +179,7 @@ Orchestrator (starts with 1 agent, scales as needed)
 | Tool | Install | Required |
 |------|---------|:---:|
 | [Kiro CLI](https://kiro.dev/docs/cli/) | See [downloads](https://kiro.dev/downloads/) | ✅ |
-| [zellij](https://zellij.dev/) | `brew install zellij` | ✅ |
+| [tmux](https://github.com/tmux/tmux/wiki) | `brew install tmux` | ✅ |
 | [GitHub CLI](https://cli.github.com/) | `brew install gh` → `gh auth login` | ✅ |
 | [gum](https://github.com/charmbracelet/gum) | `brew install gum` | ✅ (for control panel) |
 | [jq](https://jqlang.github.io/jq/) | `brew install jq` | ✅ |
@@ -252,7 +252,7 @@ scripts/
 ├── agent.sh                       # Agent loop wrapper
 ├── control-panel.sh               # TUI control panel (gum)
 ├── dashboard.sh                   # Status dashboard
-└── pipeline.kdl                   # zellij layout
+└── tmux-layout.sh                 # tmux session/window layout
 .github/workflows/
 └── kiro-review.yml                # CI: kiro-cli-review-action
 ```

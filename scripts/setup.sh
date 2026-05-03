@@ -39,15 +39,16 @@ else
   warn "kiro-cli not found. Install from https://kiro.dev/downloads/"
 fi
 
-# ── zellij ──
-if command -v zellij &>/dev/null; then
-  info "zellij already installed"
+# ── tmux ──
+if command -v tmux &>/dev/null; then
+  info "tmux already installed"
 else
-  install_msg "zellij"
+  install_msg "tmux"
   case "$PKG" in
-    brew) brew install zellij ;;
-    apt)  sudo apt-get install -y zellij 2>/dev/null || cargo install --locked zellij ;;
-    *)    cargo install --locked zellij 2>/dev/null || warn "Install zellij manually: https://zellij.dev/" ;;
+    brew) brew install tmux ;;
+    apt)  sudo apt-get install -y tmux ;;
+    dnf)  sudo dnf install -y tmux ;;
+    *)    warn "Install tmux manually: https://github.com/tmux/tmux/wiki" ;;
   esac
 fi
 

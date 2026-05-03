@@ -23,7 +23,7 @@ TARGETS=(
   "scripts/dashboard.sh"
   "scripts/control-panel.sh"
   "scripts/start-pipeline.sh"
-  "scripts/pipeline.kdl"
+  "scripts/tmux-layout.sh"
   "scripts/setup.sh"
   "scripts/update.sh"
   ".github/workflows/kiro-review.yml"
@@ -63,12 +63,12 @@ if [ "$updated" -eq 0 ]; then
 else
   echo "✨ ${updated} ファイルを更新しました。"
   echo ""
-  read -p "  この変更をコミットしますか？ (Y/n) → " yn
+  read -r -p "  この変更をコミットしますか？ (Y/n) → " yn
   if [ "$yn" != "n" ] && [ "$yn" != "N" ]; then
     git add -A
     git commit -m "chore: update kiro-engineer-teams pipeline"
     echo "  ✔ コミットしました。"
-    read -p "  プッシュしますか？ (Y/n) → " yn2
+    read -r -p "  プッシュしますか？ (Y/n) → " yn2
     if [ "$yn2" != "n" ] && [ "$yn2" != "N" ]; then
       git push --no-verify
       echo "  ✔ プッシュしました。"

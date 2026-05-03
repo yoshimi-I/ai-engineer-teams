@@ -4,7 +4,10 @@
 set -euo pipefail
 
 STATUS_DIR=".agent-status"
+PANE_REGISTRY="${STATUS_DIR}/.panes"
 REFRESH=3
+TMUX_SESSION="${KIRO_TMUX_SESSION:-$(tmux display-message -p '#S' 2>/dev/null || echo kiro-pipeline)}"
+TMUX_WORKERS_WINDOW="${KIRO_TMUX_WINDOW:-Pipeline}"
 
 # Colors
 R='\033[0m'
@@ -16,7 +19,6 @@ YELLOW='\033[33m'
 RED='\033[31m'
 MAGENTA='\033[35m'
 WHITE='\033[97m'
-BG_SELECT='\033[48;5;238m'
 
 icon_for() {
   case "$1" in
@@ -54,11 +56,27 @@ discover_agents() {
   done | sort
 }
 
+pane_for_agent() {
+  local agent="$1"
+  [[ -f "$PANE_REGISTRY" ]] || return 1
+  awk -F'|' -v agent="$agent" '$1 == agent { print $3; exit }' "$PANE_REGISTRY"
+}
+
+pane_exists() {
+  local pane="$1"
+  [[ -n "$pane" ]] && tmux list-panes -a -F '#{pane_id}' 2>/dev/null | grep -qx "$pane"
+}
+
+record_pane() {
+  local agent="$1" prompt="$2" pane="$3" state="$4"
+  grep -v "^${agent}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
+  mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
+  echo "${agent}|${prompt}|${pane}|${state}" >> "$PANE_REGISTRY"
+}
+
 show_panel() {
   clear
   mapfile -t AGENTS < <(discover_agents)
-  local count=${#AGENTS[@]}
-
   # Header
   echo -e "${BOLD}${CYAN}"
   echo "  ╔══════════════════════════════════════════════════════════════════╗"
@@ -97,8 +115,6 @@ show_panel() {
     state=$(jq -r '.state // "?"' "$f" 2>/dev/null || echo "?")
     detail=$(jq -r '.detail // ""' "$f" 2>/dev/null || echo "")
     cycle=$(jq -r '.cycle // 0' "$f" 2>/dev/null || echo "0")
-    ts=$(jq -r '.ts // ""' "$f" 2>/dev/null || echo "")
-
     icon="$(icon_for "$prompt")"
     sc=$(state_color "$state")
 
@@ -166,6 +182,12 @@ stop_agent() {
   [[ -z "$selection" ]] && return
 
   local f="${STATUS_DIR}/${selection}.json"
+  local pane
+  pane=$(pane_for_agent "$selection" || true)
+  if pane_exists "$pane"; then
+    tmux kill-pane -t "$pane" 2>/dev/null || true
+  fi
+  record_pane "$selection" "idle" "$pane" "stopped"
   cat > "$f" <<JSON
 {"agent":"${selection}","prompt":"idle","state":"⏹️ stopped","detail":"manually stopped","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
 JSON
@@ -187,12 +209,19 @@ restart_agent() {
     [[ -z "$prompt" ]] && return
   fi
 
-  # Launch via zellij
-  zellij run \
-    --name "$selection" \
-    --cwd "$(pwd)" \
-    --close-on-exit \
-    -- bash -c "AGENT_ID=${selection} AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh ${prompt}" &
+  local pane
+  pane=$(pane_for_agent "$selection" || true)
+  if pane_exists "$pane"; then
+    tmux respawn-pane -k -t "$pane" -c "$(pwd)" \
+      "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'"
+    record_pane "$selection" "$prompt" "$pane" "alive"
+  else
+    pane=$(tmux split-window -d -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" -c "$(pwd)" \
+      -P -F '#{pane_id}' \
+      "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'")
+    record_pane "$selection" "$prompt" "$pane" "alive"
+    tmux select-layout -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" tiled >/dev/null 2>&1 || true
+  fi
 
   echo -e "  ${GREEN}▶ Restarted ${selection} as ${prompt}${R}"
   sleep 1
@@ -202,6 +231,12 @@ stop_all() {
   if gum confirm "Stop all agents?"; then
     mapfile -t AGENTS < <(discover_agents)
     for id in "${AGENTS[@]}"; do
+      local pane
+      pane=$(pane_for_agent "$id" || true)
+      if pane_exists "$pane"; then
+        tmux kill-pane -t "$pane" 2>/dev/null || true
+      fi
+      record_pane "$id" "idle" "$pane" "stopped"
       local f="${STATUS_DIR}/${id}.json"
       cat > "$f" <<JSON
 {"agent":"${id}","prompt":"idle","state":"⏹️ stopped","detail":"manually stopped","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
@@ -228,16 +263,10 @@ view_log() {
 }
 
 toggle_orchestrator() {
-  local pid_file=".agent-status/.orch_pid"
-  if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
-    kill "$(cat "$pid_file")" 2>/dev/null
-    rm -f "$pid_file"
-    echo -e "  ${RED}⏹️  Orchestrator stopped${R}"
-  else
-    ./scripts/orchestrator.sh &
-    echo $! > "$pid_file"
-    echo -e "  ${GREEN}▶ Orchestrator started${R}"
-  fi
+  tmux split-window -d -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" -c "$(pwd)" \
+    "./scripts/orchestrator.sh" >/dev/null
+  tmux select-layout -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" tiled >/dev/null 2>&1 || true
+  echo -e "  ${GREEN}▶ Orchestrator pane started${R}"
   sleep 1
 }
 

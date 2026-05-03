@@ -58,7 +58,7 @@ copy_dir ".kiro"
 copy_dir "scripts"
 
 # ── Merge justfile recipes ──
-RECIPES=("setup" "start" "pipeline" "test-layout" "ja" "en")
+RECIPES=("setup" "start" "pipeline" "ja" "en")
 RECIPE_BLOCKS=$(cat <<'JUST'
 
 # ── kiro-engineer-teams ──
@@ -73,11 +73,7 @@ start:
 
 # Launch 7-agent pipeline only (skip INCEPTION)
 pipeline:
-    zellij --layout scripts/pipeline.kdl
-
-# Test zellij 8-pane layout
-test-layout:
-    ./scripts/test-layout.sh
+    ./scripts/tmux-layout.sh
 
 # Switch to Japanese
 ja:

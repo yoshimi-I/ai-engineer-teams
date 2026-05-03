@@ -2,14 +2,14 @@
 # 8-Agent Pipeline Launcher
 #
 # Phase 1: INCEPTION — structured planning with AI-DLC workflow
-# Phase 2: Pipeline — launch 8 agents in zellij
+# Phase 2: Pipeline — launch 8 agents in tmux
 #
 # Usage: ./scripts/start-pipeline.sh
 
 set -euo pipefail
 
 # ── Preflight ──
-for cmd in kiro-cli zellij gh; do
+for cmd in kiro-cli tmux gh; do
   if ! command -v "$cmd" &>/dev/null; then
     echo "❌ Required: $cmd"
     exit 1
@@ -27,7 +27,7 @@ else
   echo ""
   echo "  取得先: https://app.kiro.dev → API Keys"
   echo ""
-  read -p "  KIRO_API_KEY を入力 (空でスキップ): " KIRO_KEY
+  read -r -p "  KIRO_API_KEY を入力 (空でスキップ): " KIRO_KEY
   if [[ -n "$KIRO_KEY" ]]; then
     echo "$KIRO_KEY" | gh secret set KIRO_API_KEY
     echo "  ✔ KIRO_API_KEY を設定しました。"
@@ -59,10 +59,10 @@ if echo "$REMOTE_URL" | grep -q "kiro-engineer-teams"; then
   echo "  新しいプロジェクト用のリポジトリを作成します。"
   echo ""
   DEFAULT_REPO="$(basename "$PWD")"
-  read -p "  リポジトリ名 (${DEFAULT_REPO}): " REPO_NAME
+  read -r -p "  リポジトリ名 (${DEFAULT_REPO}): " REPO_NAME
   REPO_NAME="${REPO_NAME:-$DEFAULT_REPO}"
   {
-    read -p "  公開設定 (1: private, 2: public) [1]: " VISIBILITY
+    read -r -p "  公開設定 (1: private, 2: public) [1]: " VISIBILITY
     VIS_FLAG="--private"
     [[ "$VISIBILITY" == "2" ]] && VIS_FLAG="--public"
 
@@ -141,7 +141,7 @@ else
   echo "  ⚠️  INCEPTION が完了したら /quit と入力してこの画面を抜けてください。"
   echo "      パイプラインが自動で起動します。"
   echo ""
-  read -p "  Enter を押して開始 → " _
+  read -r -p "  Enter を押して開始 → " _
 
   kiro-cli chat --trust-all-tools "/inception"
 
@@ -151,9 +151,11 @@ else
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "  INCEPTION 成果物を検出:"
-    echo "$INCEPTION_FILES" | sed 's/^/    /'
+    while IFS= read -r file; do
+      echo "    ${file}"
+    done <<< "$INCEPTION_FILES"
     echo ""
-    read -p "  main にプッシュしてエージェントがアクセスできるようにしますか？ (Y/n) → " yn
+    read -r -p "  main にプッシュしてエージェントがアクセスできるようにしますか？ (Y/n) → " yn
     if [[ "$yn" != "n" && "$yn" != "N" ]]; then
       git add aidlc-docs/ issue/ .kiro/steering/
       git commit -m "docs: add INCEPTION artifacts"
@@ -177,7 +179,7 @@ fi
 if [[ "$ISSUE_COUNT" -eq 0 ]]; then
   echo ""
   echo "⚠️  オープンな issue がありません。"
-  read -p "  それでもパイプラインを起動しますか？ (y/N) → " yn
+  read -r -p "  それでもパイプラインを起動しますか？ (y/N) → " yn
   [[ "$yn" != "y" && "$yn" != "Y" ]] && echo "中止しました。" && exit 0
 fi
 
@@ -201,9 +203,4 @@ echo ""
 echo "  各エージェントは仕事を待機し、自動で開始します。"
 echo ""
 
-# Generate layout with project cwd
-LAYOUT_TMP=$(mktemp /tmp/pipeline-XXXXXX.kdl)
-sed "s|__PROJECT_CWD__|$(pwd)|g" scripts/pipeline.kdl > "$LAYOUT_TMP"
-trap 'rm -f "$LAYOUT_TMP"' EXIT
-
-zellij --layout "$LAYOUT_TMP"
+./scripts/tmux-layout.sh

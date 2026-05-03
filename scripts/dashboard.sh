@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Real-time agent dashboard for zellij Status tab
+# Real-time agent dashboard for the tmux Pipeline window
 set -euo pipefail
 
 STATUS_DIR=".agent-status"
@@ -38,9 +38,7 @@ GREEN='\033[32m'
 YELLOW='\033[33m'
 RED='\033[31m'
 MAGENTA='\033[35m'
-BLUE='\033[34m'
 WHITE='\033[97m'
-BG_DARK='\033[48;5;236m'
 
 state_color() {
   case "$1" in
