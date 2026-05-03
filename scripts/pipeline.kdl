@@ -31,4 +31,9 @@ layout {
             args "-c" "./scripts/dashboard.sh"
         }
     }
+    tab name="Kiro" {
+        pane command="kiro-cli" name="Interactive" {
+            args "chat" "--trust-all-tools"
+        }
+    }
 }
