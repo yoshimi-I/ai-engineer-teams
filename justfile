@@ -4,6 +4,10 @@
 setup:
     ./scripts/setup.sh
 
+# Update to latest version
+update:
+    ./scripts/update.sh
+
 # Initialize as your own private repo (run after git clone)
 init:
     ./scripts/init.sh
