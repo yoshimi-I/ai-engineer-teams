@@ -47,6 +47,7 @@ Return **only a single-line JSON object**. Do not include Markdown fences, prose
 - Use `stop` to close no-longer-needed non-implement panes.
 - Never stop `implement` panes. They own issue work and must finish or fail naturally.
 - Do not stop `dev-server` if any `e2e`, `e2e-bug-hunt`, or `watch-main` work is active or planned.
+- `dev-server` is a singleton. Never launch more than one `dev-server` action.
 - Do not use a fixed pane limit by default. Choose the number of `implement` panes based on actual parallelizable work.
 - If `limits.max_alive` is greater than 0, do not exceed it. If it is 0, there is no global pane cap.
 - If `limits.max_implement` is greater than 0, do not exceed it. If it is 0, there is no implement pane cap.
@@ -84,6 +85,8 @@ Use stable, role-based names:
 ## Role strategy
 
 - `dev-server`: keep the app running for browser-based agents. Start it before `e2e`, `e2e-bug-hunt`, or `watch-main` when needed.
+- If `dev_server.healthy` is true, do not launch another `dev-server`; reuse it.
+- If `dev_server.pane_count` is greater than 1, assume Bash will deduplicate extra `dev-server` panes automatically; do not stop `dev-server` just to deduplicate it.
 - `implement`: work on ready implementation issues. Scale this up or down based on real parallelism.
 - `review`: inspect/merge PRs and handle approved PRs; avoid duplicating CI review when it is already in progress.
 - `fix-review`: fix PRs with requested changes.
@@ -102,6 +105,7 @@ The user message contains a JSON context with:
 - PR summary
 - latest merged PR
 - post-merge state
+- dev server health and pane count
 - automation flags
 - project capability flags
 

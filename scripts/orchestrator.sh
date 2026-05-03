@@ -24,13 +24,14 @@ AI_PLAN_PROMPT=".kiro/prompts/orchestrator-plan.md"
 AI_PLAN_FILE="${CACHE_DIR}/orchestrator_plan.json"
 DECISION_FILE="${CACHE_DIR}/orchestrator_decision.json"
 ORCH_STATUS_FILE="${STATUS_DIR}/orchestrator.json"
+DEV_HEALTH_FILE="${STATUS_DIR}/dev-server-health.json"
 LAST_DECISION_SUMMARY="booting"
 LAST_DECISION_DETAIL="initializing"
 LAST_DECISION_TS=""
 LAST_PLAN_SOURCE="none"
 
 mkdir -p "$STATUS_DIR" "$CACHE_DIR"
-: > "$PANE_REGISTRY"
+touch "$PANE_REGISTRY"
 
 # ── GitHub API ──
 
@@ -153,6 +154,80 @@ pane_exists() {
     | jq -e --argjson id "$id" '.[] | select(.id == $id and (.exited | not))' >/dev/null 2>&1
 }
 
+pane_name_expr='.name // .pane_name // .title // .command // ""'
+
+zellij_panes_json() {
+  zellij action list-panes --json 2>/dev/null || echo "[]"
+}
+
+role_from_name() {
+  case "$1" in
+    dev-server) echo "dev-server" ;;
+    review) echo "review" ;;
+    fix-review) echo "fix-review" ;;
+    e2e) echo "e2e" ;;
+    e2e-hunt) echo "e2e-bug-hunt" ;;
+    watch-main) echo "watch-main" ;;
+    improve) echo "improve" ;;
+    implement-*) echo "implement" ;;
+    *) echo "" ;;
+  esac
+}
+
+record_registry_entry() {
+  local name="$1" role="$2" pane="$3" status="${4:-alive}"
+  grep -v "^${name}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
+  mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
+  echo "${name}|${role}|${pane}|${status}" >> "$PANE_REGISTRY"
+}
+
+adopt_existing_panes() {
+  local panes name id role pane reg_name existing_pane
+  panes=$(zellij_panes_json)
+  while IFS=$'\t' read -r name id; do
+    [ -n "$name" ] || continue
+    [ -n "$id" ] || continue
+    role=$(role_from_name "$name")
+    [ -n "$role" ] || continue
+    pane="terminal_${id}"
+    reg_name="$name"
+    existing_pane=$(awk -F'|' -v agent="$reg_name" '$1 == agent { print $3; exit }' "$PANE_REGISTRY")
+    if [ -n "$existing_pane" ] && [ "$existing_pane" != "$pane" ]; then
+      reg_name="${name}-${id}"
+    fi
+    record_registry_entry "$reg_name" "$role" "$pane" "alive"
+  done < <(jq -r '.[] | select(.exited | not) | [('"$pane_name_expr"'), (.id | tostring)] | @tsv' <<< "$panes" 2>/dev/null)
+}
+
+singleton_role() {
+  case "$1" in
+    dev-server|review|fix-review|e2e|e2e-bug-hunt|watch-main|improve) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+dedupe_singleton_role() {
+  local role="$1" seen="" tmp="${PANE_REGISTRY}.tmp"
+  : > "$tmp"
+  while IFS='|' read -r name r pane status; do
+    [ -z "$name" ] && continue
+    if [ "$r" = "$role" ] && [ "$status" = "alive" ]; then
+      if [ -z "$seen" ]; then
+        seen="$name"
+        echo "${name}|${r}|${pane}|${status}" >> "$tmp"
+      else
+        zellij action close-pane --pane-id "$pane" 2>/dev/null || true
+        cat > "${STATUS_DIR}/${name}.json" <<JSON
+{"agent":"${name}","prompt":"${role}","state":"⏹️ stopped","detail":"deduplicated singleton role","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
+JSON
+      fi
+    else
+      echo "${name}|${r}|${pane}|${status}" >> "$tmp"
+    fi
+  done < "$PANE_REGISTRY"
+  mv "$tmp" "$PANE_REGISTRY"
+}
+
 count_alive() {
   local role="$1" count=0
   while IFS='|' read -r name r _pane status; do
@@ -163,6 +238,7 @@ count_alive() {
 }
 
 update_pane_status() {
+  adopt_existing_panes
   local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
   local now; now=$(date +%s)
   while IFS='|' read -r name role pane status; do
@@ -179,10 +255,19 @@ update_pane_status() {
     fi
   done < "$PANE_REGISTRY"
   mv "$tmp" "$PANE_REGISTRY"
+  dedupe_singleton_role "dev-server"
+  check_dev_server_health
 }
 
 add_pane() {
   local name="$1" role="$2"
+  adopt_existing_panes
+  if singleton_role "$role"; then
+    dedupe_singleton_role "$role"
+    while IFS='|' read -r n r _pane s; do
+      [ "$r" = "$role" ] && [ "$s" = "alive" ] && return
+    done < "$PANE_REGISTRY"
+  fi
   # Skip if already exists and alive
   while IFS='|' read -r n r _pane s; do
     [ "$n" = "$name" ] && [ "$s" = "alive" ] && return
@@ -204,7 +289,7 @@ JSON
     pane=$(zellij action new-pane --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
       -- bash -lc "AGENT_ID='${name}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   fi
-  echo "${name}|${role}|${pane}|alive" >> "$PANE_REGISTRY"
+  record_registry_entry "$name" "$role" "$pane" "alive"
 }
 
 kill_role() {
@@ -255,6 +340,49 @@ has_dev_target() {
   return 1
 }
 
+candidate_dev_urls() {
+  {
+    grep -Eho 'https?://(localhost|127\.0\.0\.1):[0-9]+' .agent-logs/dev-server.log 2>/dev/null || true
+    printf '%s\n' \
+      "http://localhost:5173" \
+      "http://localhost:3000" \
+      "http://localhost:4173" \
+      "http://localhost:8000" \
+      "http://localhost:8080"
+  } | awk '!seen[$0]++'
+}
+
+check_dev_server_health() {
+  local url healthy_url="" pane_count
+  pane_count=$(count_alive "dev-server")
+  while IFS= read -r url; do
+    [ -n "$url" ] || continue
+    if curl -fsS --max-time 1 "$url" >/dev/null 2>&1; then
+      healthy_url="$url"
+      break
+    fi
+  done < <(candidate_dev_urls)
+
+  jq -n \
+    --argjson pane_count "$pane_count" \
+    --arg url "$healthy_url" \
+    --arg ts "$(date '+%H:%M:%S')" \
+    '{
+      pane_count: $pane_count,
+      healthy: ($url != ""),
+      url: $url,
+      ts: $ts
+    }' > "$DEV_HEALTH_FILE"
+}
+
+dev_health_json() {
+  if [ -f "$DEV_HEALTH_FILE" ]; then
+    cat "$DEV_HEALTH_FILE"
+  else
+    jq -n '{pane_count: 0, healthy: false, url: "", ts: ""}'
+  fi
+}
+
 limit_reached() {
   local current="$1" max="$2"
   [ "$max" -gt 0 ] && [ "$current" -ge "$max" ]
@@ -286,8 +414,9 @@ next_implement_name() {
 }
 
 build_ai_context() {
-  local active_json post_merge_spawned
+  local active_json post_merge_spawned dev_health
   active_json=$(active_panes_json)
+  dev_health=$(dev_health_json)
   post_merge_spawned=false
   post_merge_already_spawned && post_merge_spawned=true
 
@@ -295,6 +424,7 @@ build_ai_context() {
     --argjson issues "${ISSUES_JSON:-[]}" \
     --argjson prs "${PRS_JSON:-[]}" \
     --argjson active "$active_json" \
+    --argjson dev_health "$dev_health" \
     --arg latest_merged_pr "${LATEST_MERGED_PR:-}" \
     --argjson post_merge_spawned "$post_merge_spawned" \
     --argjson max_alive "$MAX_ALIVE" \
@@ -308,6 +438,7 @@ build_ai_context() {
       limits: {max_alive: $max_alive, max_implement: $max_implement},
       automation: {dev_server: $auto_dev_server, watch_main: $auto_watch_main, improve: $auto_improve},
       project: {has_dev_target: $has_dev_target},
+      dev_server: $dev_health,
       next_names: {implement: $next_implement},
       active_panes: $active,
       issues: {
@@ -530,6 +661,17 @@ render() {
   local alive; alive=$(total_alive)
   local total; total=$(wc -l < "$PANE_REGISTRY" | tr -d ' ')
   echo -e "  \033[2m$(date '+%H:%M:%S')\033[0m  \033[32m▶ ${alive} 稼働\033[0m / ${total} 合計  📋 ready: \033[33m${READY_ISSUES:-?}\033[0m / open: \033[33m${ISSUES:-?}\033[0m  🔧 要修正: \033[31m${CHANGES_REQ:-?}\033[0m  🔀 merge: $(if ${HAS_MERGES:-false}; then echo -e '\033[32m✓\033[0m'; else echo -e '\033[2m-\033[0m'; fi)"
+  if [ -f "$DEV_HEALTH_FILE" ]; then
+    local dev_ok dev_url dev_panes
+    dev_ok=$(jq -r '.healthy // false' "$DEV_HEALTH_FILE" 2>/dev/null || echo false)
+    dev_url=$(jq -r '.url // ""' "$DEV_HEALTH_FILE" 2>/dev/null || echo "")
+    dev_panes=$(jq -r '.pane_count // 0' "$DEV_HEALTH_FILE" 2>/dev/null || echo 0)
+    if [ "$dev_ok" = "true" ]; then
+      echo -e "  🖥️  dev-server: \033[32mhealthy\033[0m ${dev_url}  panes:${dev_panes}"
+    else
+      echo -e "  🖥️  dev-server: \033[33mnot ready\033[0m  panes:${dev_panes}"
+    fi
+  fi
   echo -e "  \033[35m🧠 ${LAST_PLAN_SOURCE}\033[0m  ${LAST_DECISION_SUMMARY}  \033[2m${LAST_DECISION_DETAIL} (${LAST_DECISION_TS:---:--:--}) next:${TICK_INTERVAL}s\033[0m"
   echo ""
 
