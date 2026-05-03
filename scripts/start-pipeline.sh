@@ -157,7 +157,7 @@ else
     echo ""
     read -r -p "  main にプッシュしてエージェントがアクセスできるようにしますか？ (Y/n) → " yn
     if [[ "$yn" != "n" && "$yn" != "N" ]]; then
-      git add aidlc-docs/ issue/ .kiro/steering/
+      git add -f aidlc-docs/ issue/ .kiro/steering/
       git commit -m "docs: add INCEPTION artifacts"
       git push origin main
       echo "  ✔ main にプッシュしました。"
