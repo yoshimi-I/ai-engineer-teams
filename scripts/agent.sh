@@ -29,6 +29,12 @@ LOG_FILE="${LOG_DIR}/${AGENT_NAME}.log"
 
 mkdir -p "$STATUS_DIR" "$LOG_DIR"
 
+# Keep zellij pane title stable even if the shell/program changes terminal title.
+printf '\033]2;%s\007' "$AGENT_NAME" 2>/dev/null || true
+if [ -n "${ZELLIJ_PANE_ID:-}" ]; then
+  zellij action rename-pane --pane-id "$ZELLIJ_PANE_ID" "$AGENT_NAME" 2>/dev/null || true
+fi
+
 # Tee all output to log file
 exec > >(tee -a "$LOG_FILE") 2>&1
 

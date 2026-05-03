@@ -176,6 +176,14 @@ role_from_name() {
 
 record_registry_entry() {
   local name="$1" role="$2" pane="$3" status="${4:-alive}"
+  if [ -z "$name" ]; then
+    case "$role" in
+      dev-server|review|fix-review|e2e|watch-main|improve) name="$role" ;;
+      e2e-bug-hunt) name="e2e-hunt" ;;
+      implement) name="$(next_implement_name)" ;;
+      *) name="unknown-${pane#terminal_}" ;;
+    esac
+  fi
   grep -v "^${name}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
   mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
   echo "${name}|${role}|${pane}|${status}" >> "$PANE_REGISTRY"
@@ -250,7 +258,14 @@ update_pane_status() {
   local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
   local now; now=$(date +%s)
   while IFS='|' read -r name role pane status; do
-    [ -z "$name" ] && continue
+    if [ -z "$name" ]; then
+      case "$role" in
+        dev-server|review|fix-review|e2e|watch-main|improve) name="$role" ;;
+        e2e-bug-hunt) name="e2e-hunt" ;;
+        implement) name="$(next_implement_name)" ;;
+        *) name="unknown-${pane#terminal_}" ;;
+      esac
+    fi
     if ! pane_exists "$pane"; then
       continue
     fi
