@@ -73,7 +73,10 @@ start:
 
 # Launch 7-agent pipeline only (skip INCEPTION)
 pipeline:
-    ./scripts/tmux-layout.sh
+    @LAYOUT_TMP=$(mktemp /tmp/pipeline-XXXXXX.kdl) && \
+    sed "s|__PROJECT_CWD__|$(pwd)|g" scripts/pipeline.kdl > "$$LAYOUT_TMP" && \
+    zellij --layout "$$LAYOUT_TMP"; \
+    rm -f "$$LAYOUT_TMP"
 
 # Switch to Japanese
 ja:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Real-time agent dashboard for the tmux Pipeline window
+# Real-time agent dashboard for the zellij Pipeline tab
 set -euo pipefail
 
 STATUS_DIR=".agent-status"

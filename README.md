@@ -3,7 +3,7 @@
 # 🏭 kiro-engineer-teams
 
 **Auto-scaling agent development pipeline**
-**powered by [Kiro CLI](https://kiro.dev/docs/cli/) × [tmux](https://github.com/tmux/tmux/wiki)**
+**powered by [Kiro CLI](https://kiro.dev/docs/cli/) × [zellij](https://zellij.dev/)**
 
 issue → implementation → review → merge → E2E verification — fully automated.
 
@@ -63,7 +63,7 @@ just start (./scripts/start-pipeline.sh)
 │   ├── 4. アーキテクチャ設計
 │   └── 5. Issue 自動生成 → GitHub issues
 │
-└── Phase 2: 自律パイプライン (tmux)
+└── Phase 2: 自律パイプライン (zellij)
     │
     └── オーケストレーター（最小構成で開始 → 必要に応じてスケール）
         │
@@ -76,7 +76,7 @@ just start (./scripts/start-pipeline.sh)
 
 ---
 
-## 🖥️ tmux Windows
+## 🖥️ Zellij Tabs
 
 | Tab | Key | Content |
 |-----|-----|---------|
@@ -177,11 +177,18 @@ Orchestrator (starts with 1 agent, scales as needed)
 | Tool | Install | Required |
 |------|---------|:---:|
 | [Kiro CLI](https://kiro.dev/docs/cli/) | See [downloads](https://kiro.dev/downloads/) | ✅ |
-| [tmux](https://github.com/tmux/tmux/wiki) | `brew install tmux` | ✅ |
+| [zellij](https://zellij.dev/) | `brew install zellij` | ✅ 0.44.1+ |
 | [GitHub CLI](https://cli.github.com/) | `brew install gh` → `gh auth login` | ✅ |
 | [gum](https://github.com/charmbracelet/gum) | `brew install gum` | ✅ (for control panel) |
 | [jq](https://jqlang.github.io/jq/) | `brew install jq` | ✅ |
 | [just](https://just.systems/) | `brew install just` | Optional |
+
+zellij **0.44.1 or newer is required**. The orchestrator depends on the newer CLI automation APIs: `list-panes --json`, pane IDs, `--tab-id`, and `--close-on-exit`. Older versions such as `0.43.1` cannot run the dynamic pane lifecycle correctly.
+
+```bash
+zellij --version
+brew upgrade zellij
+```
 
 ---
 
@@ -250,7 +257,7 @@ scripts/
 ├── agent.sh                       # Agent loop wrapper
 ├── control-panel.sh               # TUI control panel (gum)
 ├── dashboard.sh                   # Status dashboard
-└── tmux-layout.sh                 # tmux session/window layout
+└── pipeline.kdl                   # zellij layout
 .github/workflows/
 └── kiro-review.yml                # CI: kiro-cli-review-action
 ```

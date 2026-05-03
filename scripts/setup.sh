@@ -7,6 +7,21 @@ set -euo pipefail
 info()  { echo "✅ $1"; }
 warn()  { echo "⚠️  $1"; }
 install_msg() { echo "📦 Installing $1..."; }
+version_ge() {
+  local version="$1" minimum="$2"
+  awk -v version="$version" -v minimum="$minimum" '
+    BEGIN {
+      split(version, v, ".")
+      split(minimum, m, ".")
+      for (i = 1; i <= 3; i++) {
+        vi = v[i] + 0
+        mi = m[i] + 0
+        if (vi > mi) exit 0
+        if (vi < mi) exit 1
+      }
+      exit 0
+    }'
+}
 
 # ── Clean up template files (if cloned/degit'd) ──
 for f in README.md docs/README.ja.md LICENSE docs; do
@@ -39,16 +54,24 @@ else
   warn "kiro-cli not found. Install from https://kiro.dev/downloads/"
 fi
 
-# ── tmux ──
-if command -v tmux &>/dev/null; then
-  info "tmux already installed"
+# ── zellij ──
+if command -v zellij &>/dev/null; then
+  ZELLIJ_VERSION=$(zellij --version | awk '{print $2}')
+  if version_ge "$ZELLIJ_VERSION" "0.44.1"; then
+    info "zellij already installed (${ZELLIJ_VERSION})"
+  else
+    warn "zellij ${ZELLIJ_VERSION} found; 0.44.1+ is required for dynamic pane orchestration"
+    case "$PKG" in
+      brew) brew upgrade zellij || brew install zellij ;;
+      *)    warn "Upgrade zellij manually: https://zellij.dev/" ;;
+    esac
+  fi
 else
-  install_msg "tmux"
+  install_msg "zellij"
   case "$PKG" in
-    brew) brew install tmux ;;
-    apt)  sudo apt-get install -y tmux ;;
-    dnf)  sudo dnf install -y tmux ;;
-    *)    warn "Install tmux manually: https://github.com/tmux/tmux/wiki" ;;
+    brew) brew install zellij ;;
+    apt)  sudo apt-get install -y zellij 2>/dev/null || cargo install --locked zellij ;;
+    *)    cargo install --locked zellij 2>/dev/null || warn "Install zellij manually: https://zellij.dev/" ;;
   esac
 fi
 

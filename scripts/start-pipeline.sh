@@ -2,19 +2,42 @@
 # 8-Agent Pipeline Launcher
 #
 # Phase 1: INCEPTION — structured planning with AI-DLC workflow
-# Phase 2: Pipeline — launch 8 agents in tmux
+# Phase 2: Pipeline — launch agents in zellij
 #
 # Usage: ./scripts/start-pipeline.sh
 
 set -euo pipefail
 
 # ── Preflight ──
-for cmd in kiro-cli tmux gh; do
+for cmd in kiro-cli zellij gh jq; do
   if ! command -v "$cmd" &>/dev/null; then
     echo "❌ Required: $cmd"
     exit 1
   fi
 done
+
+version_ge() {
+  local version="$1" minimum="$2"
+  awk -v version="$version" -v minimum="$minimum" '
+    BEGIN {
+      split(version, v, ".")
+      split(minimum, m, ".")
+      for (i = 1; i <= 3; i++) {
+        vi = v[i] + 0
+        mi = m[i] + 0
+        if (vi > mi) exit 0
+        if (vi < mi) exit 1
+      }
+      exit 0
+    }'
+}
+
+ZELLIJ_VERSION=$(zellij --version | awk '{print $2}')
+if ! version_ge "$ZELLIJ_VERSION" "0.44.1"; then
+  echo "❌ Required: zellij >= 0.44.1 (found ${ZELLIJ_VERSION})"
+  echo "   Dynamic pane orchestration requires the latest zellij CLI automation."
+  exit 1
+fi
 
 # ── KIRO_API_KEY Secret check ──
 check_kiro_api_key() {
@@ -197,7 +220,6 @@ echo ""
 echo "  📋 オープンissue: ${ISSUE_COUNT}件"
 echo ""
 echo "  🎭 オーケストレーター → 状況に応じて12paneに役割を動的割り当て"
-echo "  🖥️  Dev-Server       → 開発サーバーの起動・維持"
 echo "  🔨 Impl ×N          → issueを取得して実装 → PR作成"
 echo "  🔍 CI Kiro Review   → PRの自動コードレビュー"
 echo "  🔧 Fix-Review ×N    → レビュー指摘の自動修正"
@@ -205,7 +227,11 @@ echo "  👀 Watch-Main       → マージ後のE2E検証"
 echo "  🧪 E2E-Hunt         → Playwright巡回テスト"
 echo "  💡 Improve          → 改善issueの自動生成"
 echo ""
-echo "  各エージェントは仕事を待機し、自動で開始します。"
+echo "  必要な時だけpaneを作成し、1サイクル完了後に自動で閉じます。"
 echo ""
 
-./scripts/tmux-layout.sh
+LAYOUT_TMP=$(mktemp /tmp/pipeline-XXXXXX.kdl)
+sed "s|__PROJECT_CWD__|$(pwd)|g" scripts/pipeline.kdl > "$LAYOUT_TMP"
+trap 'rm -f "$LAYOUT_TMP"' EXIT
+
+zellij --layout "$LAYOUT_TMP"

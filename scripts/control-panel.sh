@@ -6,8 +6,6 @@ set -euo pipefail
 STATUS_DIR=".agent-status"
 PANE_REGISTRY="${STATUS_DIR}/.panes"
 REFRESH=3
-TMUX_SESSION="${KIRO_TMUX_SESSION:-$(tmux display-message -p '#S' 2>/dev/null || echo kiro-pipeline)}"
-TMUX_WORKERS_WINDOW="${KIRO_TMUX_WINDOW:-Pipeline}"
 
 # Colors
 R='\033[0m'
@@ -64,7 +62,9 @@ pane_for_agent() {
 
 pane_exists() {
   local pane="$1"
-  [[ -n "$pane" ]] && tmux list-panes -a -F '#{pane_id}' 2>/dev/null | grep -qx "$pane"
+  local id="${pane#terminal_}"
+  [[ -n "$pane" ]] && zellij action list-panes --json 2>/dev/null \
+    | jq -e --argjson id "$id" '.[] | select(.id == $id and (.exited | not))' >/dev/null 2>&1
 }
 
 record_pane() {
@@ -72,6 +72,26 @@ record_pane() {
   grep -v "^${agent}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
   mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
   echo "${agent}|${prompt}|${pane}|${state}" >> "$PANE_REGISTRY"
+}
+
+pipeline_tab_id() {
+  zellij action list-tabs --json 2>/dev/null \
+    | jq -r '.[] | select(.name == "Pipeline") | .tab_id' 2>/dev/null \
+    | head -n 1
+}
+
+open_agent_pane() {
+  local selection="$1" prompt="$2"
+  local tab_id pane
+  tab_id=$(pipeline_tab_id)
+  if [[ -n "$tab_id" && "$tab_id" != "null" ]]; then
+    pane=$(zellij action new-pane --tab-id "$tab_id" --name "$selection" --cwd "$(pwd)" --close-on-exit \
+      -- bash -lc "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'")
+  else
+    pane=$(zellij action new-pane --name "$selection" --cwd "$(pwd)" --close-on-exit \
+      -- bash -lc "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'")
+  fi
+  echo "$pane"
 }
 
 show_panel() {
@@ -185,7 +205,7 @@ stop_agent() {
   local pane
   pane=$(pane_for_agent "$selection" || true)
   if pane_exists "$pane"; then
-    tmux kill-pane -t "$pane" 2>/dev/null || true
+    zellij action close-pane --pane-id "$pane" 2>/dev/null || true
   fi
   record_pane "$selection" "idle" "$pane" "stopped"
   cat > "$f" <<JSON
@@ -212,16 +232,10 @@ restart_agent() {
   local pane
   pane=$(pane_for_agent "$selection" || true)
   if pane_exists "$pane"; then
-    tmux respawn-pane -k -t "$pane" -c "$(pwd)" \
-      "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'"
-    record_pane "$selection" "$prompt" "$pane" "alive"
-  else
-    pane=$(tmux split-window -d -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" -c "$(pwd)" \
-      -P -F '#{pane_id}' \
-      "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'")
-    record_pane "$selection" "$prompt" "$pane" "alive"
-    tmux select-layout -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" tiled >/dev/null 2>&1 || true
+    zellij action close-pane --pane-id "$pane" 2>/dev/null || true
   fi
+  pane=$(open_agent_pane "$selection" "$prompt")
+  record_pane "$selection" "$prompt" "$pane" "alive"
 
   echo -e "  ${GREEN}▶ Restarted ${selection} as ${prompt}${R}"
   sleep 1
@@ -234,7 +248,7 @@ stop_all() {
       local pane
       pane=$(pane_for_agent "$id" || true)
       if pane_exists "$pane"; then
-        tmux kill-pane -t "$pane" 2>/dev/null || true
+        zellij action close-pane --pane-id "$pane" 2>/dev/null || true
       fi
       record_pane "$id" "idle" "$pane" "stopped"
       local f="${STATUS_DIR}/${id}.json"
@@ -263,9 +277,15 @@ view_log() {
 }
 
 toggle_orchestrator() {
-  tmux split-window -d -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" -c "$(pwd)" \
-    "./scripts/orchestrator.sh" >/dev/null
-  tmux select-layout -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" tiled >/dev/null 2>&1 || true
+  local tab_id
+  tab_id=$(pipeline_tab_id)
+  if [[ -n "$tab_id" && "$tab_id" != "null" ]]; then
+    zellij action new-pane --tab-id "$tab_id" --name "Orchestrator" --cwd "$(pwd)" \
+      -- bash -lc "./scripts/orchestrator.sh" >/dev/null
+  else
+    zellij action new-pane --name "Orchestrator" --cwd "$(pwd)" \
+      -- bash -lc "./scripts/orchestrator.sh" >/dev/null
+  fi
   echo -e "  ${GREEN}▶ Orchestrator pane started${R}"
   sleep 1
 }
