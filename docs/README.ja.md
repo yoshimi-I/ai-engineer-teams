@@ -173,7 +173,7 @@ zellij --version
 brew upgrade zellij
 ```
 
-オーケストレーターはデフォルトで AI Planner prompt（`.kiro/prompts/orchestrator-plan.md`）を使います。Bash が GitHub issue、PR、pane、post-merge 状態を集め、Planner に JSON の起動計画だけを作らせ、その JSON を検証してから zellij pane を起動します。AI 計画に失敗した場合は控えめなルールにフォールバックし、`implement` は同時1pane、レビュー修正が必要な時だけ `fix-review`、新しいmerge検出時だけ `e2e-bug-hunt` を起動します。
+オーケストレーターはデフォルトで AI Planner prompt（`.kiro/prompts/orchestrator-plan.md`）を使います。Bash が GitHub issue、PR、pane、project、post-merge 状態を集め、Planner に JSON の起動計画だけを作らせ、その JSON を検証してから zellij pane を起動します。Planner は `dev-server`、`implement`、`review`、`fix-review`、`e2e`、`e2e-bug-hunt`、`watch-main`、`improve` のどれを起動するかを判断します。`implement` pane の数は、依存関係・変更ファイルの衝突可能性・稼働中pane・レビュー/E2E状況を見て Planner が判断します。`blocked` ラベル付き、または open な `depends-on: #N` 依存を持つ issue は ready とみなしません。AI 計画に失敗した場合のみ、Bash が依存関係を見たスケーリングにフォールバックします。
 
 `watch-main` と `improve` の自動起動は `ORCH_AUTO_WATCH_MAIN=true` / `ORCH_AUTO_IMPROVE=true` を指定した場合のみ有効です。AI Planner を無効化したい場合は `ORCH_AI=false` を指定します。
 

@@ -14,10 +14,11 @@ GH_REFRESH=60
 TICK_INTERVAL="${ORCH_TICK_INTERVAL:-10}"
 POST_MERGE_STATE="${STATUS_DIR}/.last_post_merge_pr"
 PIPELINE_TAB_ID=""
-MAX_ALIVE="${ORCH_MAX_ALIVE:-2}"
-MAX_IMPLEMENT="${ORCH_MAX_IMPLEMENT:-1}"
+MAX_ALIVE="${ORCH_MAX_ALIVE:-0}"
+MAX_IMPLEMENT="${ORCH_MAX_IMPLEMENT:-0}"
 AUTO_WATCH_MAIN="${ORCH_AUTO_WATCH_MAIN:-false}"
 AUTO_IMPROVE="${ORCH_AUTO_IMPROVE:-false}"
+AUTO_DEV_SERVER="${ORCH_AUTO_DEV_SERVER:-true}"
 AI_ORCHESTRATION="${ORCH_AI:-true}"
 AI_PLAN_PROMPT=".kiro/prompts/orchestrator-plan.md"
 AI_PLAN_FILE="${CACHE_DIR}/orchestrator_plan.json"
@@ -45,9 +46,17 @@ gh_cached() {
 }
 
 refresh_github() {
-  ISSUES_JSON=$(gh_cached issues_json gh issue list --state open --limit 30 --json number,title,labels,assignees)
+  ISSUES_JSON=$(gh_cached issues_json gh issue list --state open --limit 100 --json number,title,body,labels,assignees)
   PRS_JSON=$(gh_cached prs_json gh pr list --limit 30 --json number,title,headRefName,reviewDecision,author)
   ISSUES=$(jq '[.[] | select(.assignees | length == 0)] | length' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
+  READY_ISSUES=$(jq '
+    [.[].number] as $open
+    | [.[] | select(.assignees | length == 0)
+      | select(([.labels[]?.name] | index("blocked") | not))
+      | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
+        | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]
+    | length
+  ' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
   CHANGES_REQ=$(jq '[.[] | select(.reviewDecision == "CHANGES_REQUESTED")] | length' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo 0)
   LATEST_MERGED_PR=$(gh_cached latest_merged_pr gh pr list --state merged --limit 1 --json number \
     --jq '.[0].number // ""')
@@ -92,6 +101,7 @@ record_decision() {
     --arg ts "$LAST_DECISION_TS" \
     --argjson alive "$(total_alive 2>/dev/null || echo 0)" \
     --argjson issues "${ISSUES:-0}" \
+    --argjson ready_issues "${READY_ISSUES:-0}" \
     --argjson changes "${CHANGES_REQ:-0}" \
     --arg latest_merged_pr "${LATEST_MERGED_PR:-}" \
     '{
@@ -101,6 +111,7 @@ record_decision() {
       ts: $ts,
       alive: $alive,
       unassigned_issues: $issues,
+      ready_issues: $ready_issues,
       changes_requested: $changes,
       latest_merged_pr: $latest_merged_pr
     }' > "$DECISION_FILE"
@@ -235,6 +246,24 @@ total_alive() {
   grep -c "|alive$" "$PANE_REGISTRY" 2>/dev/null || true
 }
 
+has_dev_target() {
+  [ -f "justfile" ] && grep -Eq '^[[:space:]]*dev:' justfile && return 0
+  [ -f "package.json" ] && return 0
+  [ -f "pyproject.toml" ] && return 0
+  [ -f "Cargo.toml" ] && return 0
+  [ -f "go.mod" ] && return 0
+  return 1
+}
+
+limit_reached() {
+  local current="$1" max="$2"
+  [ "$max" -gt 0 ] && [ "$current" -ge "$max" ]
+}
+
+below_limit() {
+  ! limit_reached "$1" "$2"
+}
+
 active_panes_json() {
   jq -Rn '
     [inputs
@@ -271,15 +300,26 @@ build_ai_context() {
     --argjson max_alive "$MAX_ALIVE" \
     --argjson max_implement "$MAX_IMPLEMENT" \
     --arg next_implement "$(next_implement_name)" \
+    --argjson has_dev_target "$(has_dev_target && echo true || echo false)" \
+    --argjson auto_dev_server "$([ "$AUTO_DEV_SERVER" = "true" ] && echo true || echo false)" \
     --argjson auto_watch_main "$([ "$AUTO_WATCH_MAIN" = "true" ] && echo true || echo false)" \
     --argjson auto_improve "$([ "$AUTO_IMPROVE" = "true" ] && echo true || echo false)" \
     '{
       limits: {max_alive: $max_alive, max_implement: $max_implement},
-      automation: {watch_main: $auto_watch_main, improve: $auto_improve},
+      automation: {dev_server: $auto_dev_server, watch_main: $auto_watch_main, improve: $auto_improve},
+      project: {has_dev_target: $has_dev_target},
       next_names: {implement: $next_implement},
       active_panes: $active,
       issues: {
         unassigned_count: ([$issues[] | select(.assignees | length == 0)] | length),
+        ready_count: (
+          [$issues[].number] as $open
+          | [$issues[] | select(.assignees | length == 0)
+            | select(([.labels[]?.name] | index("blocked") | not))
+            | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
+              | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]
+          | length
+        ),
         open: $issues
       },
       pull_requests: {
@@ -322,37 +362,69 @@ role_active() {
 
 valid_role() {
   case "$1" in
-    implement|fix-review|e2e-bug-hunt|watch-main|improve|review) return 0 ;;
+    dev-server|implement|review|fix-review|e2e|e2e-bug-hunt|watch-main|improve) return 0 ;;
     *) return 1 ;;
   esac
 }
 
 execute_ai_plan() {
-  local plan="$1" launched=0 launched_roles="" skipped=""
+  local plan="$1" changed=0 launched=0 launched_implement=0 launched_roles="" skipped=""
+  while IFS=$'\t' read -r role; do
+    if ! valid_role "$role"; then
+      skipped="${skipped} invalid-stop:${role}"
+      continue
+    fi
+    if [ "$role" = "implement" ]; then
+      skipped="${skipped} stop-implement-denied"
+      continue
+    fi
+    if role_active "$role"; then
+      kill_role "$role"
+      changed=$((changed + 1))
+      launched_roles="${launched_roles} stopped-${role}"
+    fi
+  done < <(jq -r '.stop[]? | .role' <<< "$plan" 2>/dev/null)
+
   while IFS=$'\t' read -r role name; do
     if ! valid_role "$role"; then
       skipped="${skipped} invalid:${role}"
       continue
     fi
-    if [ "$(total_alive)" -ge "$MAX_ALIVE" ]; then
+    if limit_reached "$(total_alive)" "$MAX_ALIVE"; then
       skipped="${skipped} max-alive"
       break
     fi
-    if role_active "$role"; then
+    if [ "$role" != "implement" ] && role_active "$role"; then
       skipped="${skipped} active:${role}"
       continue
     fi
     case "$role" in
+      dev-server)
+        if [ "$AUTO_DEV_SERVER" != "true" ]; then skipped="${skipped} dev-disabled"; continue; fi
+        if ! has_dev_target; then skipped="${skipped} no-dev-target"; continue; fi
+        ;;
       implement)
-        if [ "${ISSUES:-0}" -le 0 ]; then skipped="${skipped} no-issues"; continue; fi
+        if [ "${READY_ISSUES:-0}" -le 0 ]; then skipped="${skipped} no-ready-issues"; continue; fi
+        if limit_reached "$(count_alive "implement")" "$MAX_IMPLEMENT"; then skipped="${skipped} max-implement"; continue; fi
+        if [ "$launched_implement" -ge "${READY_ISSUES:-0}" ]; then skipped="${skipped} no-more-ready-issues"; continue; fi
+        name="$(next_implement_name)"
+        launched_implement=$((launched_implement + 1))
         ;;
       fix-review)
         if [ "${CHANGES_REQ:-0}" -le 0 ]; then skipped="${skipped} no-review-changes"; continue; fi
         ;;
+      review)
+        if [ "$(jq '[.[] | select(.reviewDecision != "CHANGES_REQUESTED")] | length' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo 0)" -le 0 ]; then skipped="${skipped} no-reviewable-pr"; continue; fi
+        ;;
+      e2e)
+        if ! role_active "dev-server"; then skipped="${skipped} no-dev-server"; continue; fi
+        ;;
       e2e-bug-hunt)
+        if ! role_active "dev-server"; then skipped="${skipped} no-dev-server"; continue; fi
         if ! post_merge_due; then skipped="${skipped} no-new-merge"; continue; fi
         ;;
       watch-main)
+        if ! role_active "dev-server"; then skipped="${skipped} no-dev-server"; continue; fi
         if [ "$AUTO_WATCH_MAIN" != "true" ] || ! post_merge_due; then
           skipped="${skipped} watch-disabled"
           continue
@@ -367,16 +439,17 @@ execute_ai_plan() {
     esac
     [ -n "$name" ] && [ "$name" != "null" ] || name="$role"
     add_pane "$name" "$role"
+    changed=$((changed + 1))
     launched=$((launched + 1))
     launched_roles="${launched_roles} ${name}:${role}"
   done < <(jq -r '.actions[]? | [.role, (.name // .role)] | @tsv' <<< "$plan" 2>/dev/null)
 
-  if jq -e '.actions[]? | .role == "e2e-bug-hunt" or .role == "watch-main" or .role == "improve"' >/dev/null 2>&1 <<< "$plan"; then
+  if jq -e '.actions[]? | .role == "e2e" or .role == "e2e-bug-hunt" or .role == "watch-main" or .role == "improve"' >/dev/null 2>&1 <<< "$plan"; then
     [ "$launched" -gt 0 ] && mark_post_merge_spawned
   fi
 
-  if [ "$launched" -gt 0 ]; then
-    record_decision "ai" "launched:${launched_roles# }" "skipped:${skipped# }"
+  if [ "$changed" -gt 0 ]; then
+    record_decision "ai" "changed:${launched_roles# }" "skipped:${skipped# }"
     return 0
   fi
 
@@ -397,32 +470,40 @@ fallback_scale() {
   [ "$AUTO_IMPROVE" = "true" ] && cur_imp=$(count_alive "improve")
 
   local desired=0
-  if [ "${ISSUES:-0}" -gt 0 ]; then
-    desired="$MAX_IMPLEMENT"
+  if [ "$AUTO_DEV_SERVER" = "true" ] && has_dev_target && ! role_active "dev-server" && below_limit "$(total_alive)" "$MAX_ALIVE"; then
+    add_pane "dev-server" "dev-server"
+    launched="${launched} dev-server"
   fi
-  while [ "$cur_impl" -lt "$desired" ] && [ "$(total_alive)" -lt "$MAX_ALIVE" ]; do
-    IMPL_SEQ=$((IMPL_SEQ + 1))
-    add_pane "implement-${IMPL_SEQ}" "implement"
-    launched="${launched} implement-${IMPL_SEQ}"
+
+  if [ "${READY_ISSUES:-0}" -gt 0 ]; then
+    desired="$READY_ISSUES"
+    if [ "$MAX_IMPLEMENT" -gt 0 ] && [ "$MAX_IMPLEMENT" -lt "$desired" ]; then
+      desired="$MAX_IMPLEMENT"
+    fi
+  fi
+  while [ "$cur_impl" -lt "$desired" ] && below_limit "$(total_alive)" "$MAX_ALIVE"; do
+    local impl_name
+    impl_name="$(next_implement_name)"
+    add_pane "$impl_name" "implement"
+    launched="${launched} ${impl_name}"
     cur_impl=$((cur_impl + 1))
-    sleep 1
   done
 
-  if [ "${CHANGES_REQ:-0}" -gt 0 ] && [ "$cur_fix" -eq 0 ] && [ "$(total_alive)" -lt "$MAX_ALIVE" ]; then
+  if [ "${CHANGES_REQ:-0}" -gt 0 ] && [ "$cur_fix" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
     add_pane "fix-review" "fix-review"
     launched="${launched} fix-review"
   fi
 
-  if post_merge_due && [ "$(total_alive)" -lt "$MAX_ALIVE" ]; then
+  if post_merge_due && role_active "dev-server" && below_limit "$(total_alive)" "$MAX_ALIVE"; then
     if [ "$cur_e2e" -eq 0 ]; then
       add_pane "e2e-hunt" "e2e-bug-hunt"
       launched="${launched} e2e-hunt"
     fi
-    if [ "$AUTO_WATCH_MAIN" = "true" ] && [ "$cur_watch" -eq 0 ] && [ "$(total_alive)" -lt "$MAX_ALIVE" ]; then
+    if [ "$AUTO_WATCH_MAIN" = "true" ] && [ "$cur_watch" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
       add_pane "watch-main" "watch-main"
       launched="${launched} watch-main"
     fi
-    if [ "$AUTO_IMPROVE" = "true" ] && [ "$cur_imp" -eq 0 ] && [ "$(total_alive)" -lt "$MAX_ALIVE" ]; then
+    if [ "$AUTO_IMPROVE" = "true" ] && [ "$cur_imp" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
       add_pane "improve" "improve"
       launched="${launched} improve"
     fi
@@ -448,7 +529,7 @@ render() {
 
   local alive; alive=$(total_alive)
   local total; total=$(wc -l < "$PANE_REGISTRY" | tr -d ' ')
-  echo -e "  \033[2m$(date '+%H:%M:%S')\033[0m  \033[32m▶ ${alive} 稼働\033[0m / ${total} 合計  📋 issue: \033[33m${ISSUES:-?}\033[0m  🔧 要修正: \033[31m${CHANGES_REQ:-?}\033[0m  🔀 merge: $(if ${HAS_MERGES:-false}; then echo -e '\033[32m✓\033[0m'; else echo -e '\033[2m-\033[0m'; fi)"
+  echo -e "  \033[2m$(date '+%H:%M:%S')\033[0m  \033[32m▶ ${alive} 稼働\033[0m / ${total} 合計  📋 ready: \033[33m${READY_ISSUES:-?}\033[0m / open: \033[33m${ISSUES:-?}\033[0m  🔧 要修正: \033[31m${CHANGES_REQ:-?}\033[0m  🔀 merge: $(if ${HAS_MERGES:-false}; then echo -e '\033[32m✓\033[0m'; else echo -e '\033[2m-\033[0m'; fi)"
   echo -e "  \033[35m🧠 ${LAST_PLAN_SOURCE}\033[0m  ${LAST_DECISION_SUMMARY}  \033[2m${LAST_DECISION_DETAIL} (${LAST_DECISION_TS:---:--:--}) next:${TICK_INTERVAL}s\033[0m"
   echo ""
 
@@ -491,6 +572,7 @@ render() {
       fix-review)   color="\033[31m" ;;
       dev-server)   color="\033[32m" ;;
       watch-main)   color="\033[35m" ;;
+      e2e)           color="\033[36m" ;;
       e2e-bug-hunt) color="\033[36m" ;;
       improve)      color="\033[34m" ;;
       *)            color="\033[2m" ;;
@@ -540,10 +622,13 @@ render() {
     echo -e "  \033[1m🧠 Last AI Plan\033[0m"
     local actions skips
     actions=$(jq -r '[.actions[]? | (.name // .role) + ":" + .role] | join(", ")' "$AI_PLAN_FILE" 2>/dev/null)
+    stops=$(jq -r '[.stop[]? | .role] | join(", ")' "$AI_PLAN_FILE" 2>/dev/null)
     skips=$(jq -r '[.skip[]? | .role + ":" + .reason] | join(" | ")' "$AI_PLAN_FILE" 2>/dev/null)
     [ -n "$actions" ] && [ "$actions" != "null" ] || actions="none"
+    [ -n "$stops" ] && [ "$stops" != "null" ] || stops="none"
     [ -n "$skips" ] && [ "$skips" != "null" ] || skips="none"
     echo -e "  \033[32mActions:\033[0m \033[2m${actions}\033[0m"
+    echo -e "  \033[31mStops:\033[0m \033[2m${stops}\033[0m"
     echo -e "  \033[33mSkipped:\033[0m \033[2m${skips:0:140}\033[0m"
     echo ""
   fi
@@ -555,9 +640,8 @@ scale() {
   update_pane_status
   local alive; alive=$(total_alive)
 
-  # Keep orchestration intentionally small. Agent prompts already claim work
-  # dynamically, so too many panes mostly creates duplicate issue-selection races.
-  if [ "$alive" -ge "$MAX_ALIVE" ]; then
+  # Let the AI planner decide pane count. Bash only enforces hard safety limits.
+  if limit_reached "$alive" "$MAX_ALIVE"; then
     record_decision "guard" "max alive reached" "${alive}/${MAX_ALIVE} panes active"
     return
   fi
@@ -574,7 +658,7 @@ scale() {
 
 # ── Main ──
 
-IMPL_SEQ=0; ISSUES=0; CHANGES_REQ=0; HAS_MERGES=false; LATEST_MERGED_PR=""; last_gh=0
+ISSUES=0; READY_ISSUES=0; CHANGES_REQ=0; HAS_MERGES=false; LATEST_MERGED_PR=""; last_gh=0
 
 write_orchestrator_status "🚀 starting" "initializing orchestrator"
 refresh_github
