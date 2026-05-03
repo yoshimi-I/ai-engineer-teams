@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Orchestrator   : event-driven, reacts to agent status changes in real-time
-set -euo pipefail
+set -uo pipefail
 
 export GIT_EDITOR=true
 export EDITOR=true
@@ -186,9 +186,9 @@ render
 
 # Watch for status file changes + periodic GitHub refresh
 while true; do
-  # Wait for file change (2s timeout for periodic refresh)
+  # Wait for file change (2s timeout)
   if command -v fswatch >/dev/null 2>&1; then
-    fswatch -1 --latency 2 "$STATUS_DIR"/*.json 2>/dev/null || true
+    fswatch -1 --latency 2 "$STATUS_DIR" 2>/dev/null || sleep 3
   else
     sleep 3
   fi
