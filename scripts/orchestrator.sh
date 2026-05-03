@@ -82,6 +82,7 @@ JSON
   zellij run --name "$name" --cwd "$PROJECT_CWD" \
     -- bash -c "AGENT_ID='${name}' AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'" &
   echo "${name}|${role}|$!|alive" >> "$PANE_REGISTRY"
+  LAST_SCALE_ADD=$(date +%s)
 }
 
 total_alive() {
@@ -192,9 +193,11 @@ scale() {
 # ── Main ──
 
 IMPL_SEQ=0; ISSUES=0; CHANGES_REQ=0; HAS_MERGES=false; last_gh=0
+LAST_SCALE_ADD=0  # timestamp of last pane addition
 
 refresh_github
 IMPL_SEQ=1; add_pane "implement-1" "implement"
+LAST_SCALE_ADD=$(date +%s)
 render
 
 while true; do
@@ -207,6 +210,10 @@ while true; do
   now=$(date +%s)
   [ $((now - last_gh)) -ge $GH_REFRESH ] && refresh_github && last_gh=$now
 
-  scale
+  # Only scale if 60s have passed since last pane addition
+  if [ $((now - LAST_SCALE_ADD)) -ge 60 ]; then
+    scale
+  fi
+  update_pane_status
   render
 done
