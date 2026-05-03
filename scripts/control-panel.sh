@@ -91,6 +91,7 @@ open_agent_pane() {
     pane=$(zellij action new-pane --name "$selection" --cwd "$(pwd)" --close-on-exit \
       -- bash -lc "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'")
   fi
+  zellij action rename-pane --pane-id "$pane" "$selection" 2>/dev/null || true
   echo "$pane"
 }
 
