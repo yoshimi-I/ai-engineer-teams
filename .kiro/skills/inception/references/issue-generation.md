@@ -21,20 +21,28 @@ INCEPTIONと8エージェントパイプラインの橋渡し。
 #### Pane運用を前提にした分割方針
 
 `kiro-engineer-teams` は8つのpaneを常時起動する前提ではなく、
-Orchestratorが必要な役割paneを短命に起動する前提でissueを供給する。
+OrchestratorのAI plannerが状況に応じて必要な役割paneを増減する前提でissueを供給する。
 
-issue生成時は、pane数を増やすことよりも「実装paneが迷わず1PRで完了できる粒度」を優先する。
+issue生成時は、AI plannerが「どのissueを並列化できるか」を判断できるよう、
+依存関係・変更対象・触らない範囲を明確にする。
 
 基本運用:
-- `implement` はデフォルト同時1pane。issueを小さく、順序付きで流す
+- `dev-server` はE2E/監視系paneが必要な時にAI plannerが起動する
+- `implement` はAI plannerが依存関係・変更範囲・現在のpane状況を見て必要数を起動する
+- `review` はPRレビュー/マージ判断が必要な時に起動される
+- 依存でblockedなissueは起動対象にしない
 - `fix-review` は `CHANGES_REQUESTED` のPRがある場合のみ起動される
+- `e2e` はPRや現在状態のブラウザ検証が必要な時に起動される
 - `e2e-bug-hunt` はmerge後の検証として起動される
+- `watch-main` はmain更新後の回帰検証・bug issue作成に使う
 - `watch-main` / `improve` は任意自動化。初期issue生成ではノイズを増やさない
 
 issue分割ルール:
 - 1 issue = 1 PR = 1つのユーザー価値または1つの技術的前提
 - UI / API / DB / E2E を大きく混ぜない。必要なら依存issueに分ける
-- 複数issueが同じファイルを触る場合は、本文に `depends-on: #<番号>` を書き `blocked` ラベルを付ける
+- 依存issueは、本文に `depends-on: #<番号>` を書き `blocked` ラベルを付ける
+- 依存がないissueは `blocked` を付けない。AI plannerが並列実行可否を判断する
+- 複数issueが同じファイルを触る場合は、後続issueに依存関係を明記して同時起動させない
 - 並列化できるissueには、本文の「変更対象」に重複しないファイルパスを明記する
 - scaffold / domain / API contract / implementation / UI / integration / E2E の順に、上流から下流へ作る
 - `improve` が拾うような曖昧な改善はINCEPTION直後に大量生成しない。実装issueが枯れてから扱う

@@ -32,12 +32,12 @@ gh issue list --state closed --limit 30 --json number,title
 - テスト、技術的な注意事項、影響範囲、受け入れ条件
 
 ### Step 4.5: Pane運用に合わせた分割確認
-`kiro-engineer-teams` は、Orchestratorが必要なpaneだけを短命に起動する。
-issueは「8paneを常時埋める」ためではなく、`implement` paneが迷わず1PRで完了できる粒度に分割する。
+`kiro-engineer-teams` は、OrchestratorのAI plannerが必要なpane数を判断して短命に起動する。
+issueは「8paneを常時埋める」ためではなく、AIが並列実行可否を判断でき、`implement` paneが迷わず1PRで完了できる粒度に分割する。
 
 分割基準:
 - 1 issue = 1 PR = 1つのユーザー価値、または1つの技術的前提
-- デフォルト運用は `ORCH_MAX_IMPLEMENT=1` 前提。順番に流しても詰まらない依存順にする
+- 依存がないready issueは並列候補。AI plannerが変更対象・依存・現在のpane状況を見てpane数を決める
 - 並列実行を狙うissueは、変更対象ファイル/ディレクトリが重ならないようにする
 - UI / API / DB / E2E を大きく混ぜない。必要なら別issueに分ける
 - 同じファイルを触るissueは、後続issue本文に `depends-on: #<番号>` を書き `blocked` ラベルを付ける
