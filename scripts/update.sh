@@ -59,11 +59,19 @@ fi
 
 echo ""
 if [ "$updated" -eq 0 ]; then
-  echo "✨ Already up to date."
+  echo "✨ 最新の状態です。"
 else
-  echo "✨ Updated ${updated} file(s)."
+  echo "✨ ${updated} ファイルを更新しました。"
+  echo ""
+  read -p "  この変更をコミットしますか？ (Y/n) → " yn
+  if [ "$yn" != "n" ] && [ "$yn" != "N" ]; then
+    git add -A
+    git commit -m "chore: update kiro-engineer-teams pipeline"
+    echo "  ✔ コミットしました。"
+    read -p "  プッシュしますか？ (Y/n) → " yn2
+    if [ "$yn2" != "n" ] && [ "$yn2" != "N" ]; then
+      git push --no-verify
+      echo "  ✔ プッシュしました。"
+    fi
+  fi
 fi
-
-# Show version
-echo ""
-echo "Version: $(cd "$SRC" && git log --oneline -1 2>/dev/null || date '+%Y-%m-%d')"
