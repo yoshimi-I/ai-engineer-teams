@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Orchestrator v3: event-driven, reacts to agent status changes in real-time
+# Orchestrator   : event-driven, reacts to agent status changes in real-time
 set -euo pipefail
 
 export GIT_EDITOR=true
@@ -80,7 +80,7 @@ render() {
   clear
   echo -e "\033[1m\033[36m"
   echo "  ╔══════════════════════════════════════════════════════════════╗"
-  echo "  ║        🎭  O R C H E S T R A T O R   v 3  🎭              ║"
+  echo "  ║        🎭  O R C H E S T R A T O R        🎭              ║"
   echo "  ║              イベント駆動 · リアルタイム                    ║"
   echo "  ╚══════════════════════════════════════════════════════════════╝"
   echo -e "\033[0m"
@@ -171,7 +171,7 @@ scale() {
 
 # ── Main ──
 
-echo -e "\033[1m\033[36m  🎭 Orchestrator v3 起動\033[0m"
+echo -e "\033[1m\033[36m  🎭 Orchestrator    起動\033[0m"
 echo ""
 
 IMPL_SEQ=0
