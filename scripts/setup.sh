@@ -83,6 +83,31 @@ else
   esac
 fi
 
+# ── gum (for TUI control panel) ──
+if command -v gum &>/dev/null; then
+  info "gum already installed"
+else
+  install_msg "gum"
+  case "$PKG" in
+    brew) brew install gum ;;
+    apt)  sudo mkdir -p /etc/apt/keyrings && curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg && echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list && sudo apt-get update && sudo apt-get install -y gum ;;
+    *)    warn "Install gum manually: https://github.com/charmbracelet/gum" ;;
+  esac
+fi
+
+# ── jq ──
+if command -v jq &>/dev/null; then
+  info "jq already installed"
+else
+  install_msg "jq"
+  case "$PKG" in
+    brew) brew install jq ;;
+    apt)  sudo apt-get install -y jq ;;
+    dnf)  sudo dnf install -y jq ;;
+    *)    warn "Install jq manually: https://jqlang.github.io/jq/" ;;
+  esac
+fi
+
 echo ""
 echo "🎉 Setup complete!"
 echo ""
