@@ -1,18 +1,14 @@
 # kiro-engineer-teams
 
+# Install prerequisites (kiro-cli, zellij, gh, gum, jq)
+setup:
+    ./scripts/setup.sh
+
 # Initialize as your own private repo (run after git clone)
 init:
     ./scripts/init.sh
 
-# Install into existing project (run from target project root)
-install:
-    bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/kiro-engineer-teams/main/scripts/install.sh)
-
-# Install prerequisites
-setup:
-    ./scripts/setup.sh
-
-# Start full pipeline (INCEPTION → 8-agent, skips INCEPTION if already completed)
+# Start full pipeline (INCEPTION → orchestrated 12-agent pipeline)
 start:
     ./scripts/start-pipeline.sh
 
@@ -21,13 +17,9 @@ restart:
     rm -rf aidlc-docs/inception
     ./scripts/start-pipeline.sh
 
-# Launch 7-agent pipeline only (skip INCEPTION)
-pipeline:
-    zellij --layout scripts/pipeline.kdl
-
-# Test zellij 8-pane layout
-test-layout:
-    ./scripts/test-layout.sh
+# Install into existing project (run from target project root)
+install:
+    bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/kiro-engineer-teams/main/scripts/install.sh)
 
 # Switch to Japanese
 ja:
