@@ -174,6 +174,13 @@ issue番号の指定がない場合:
 | メタデータ | `fixing-metadata` | 新規ページ追加、SEO・OGP対応が必要な場合 |
 | アニメーション | `fixing-motion-performance` | アニメーション・トランジションの追加・変更時 |
 | バックエンド設計 | `clean-ddd-hexagonal` | ドメインモデル・API設計の変更がある場合 |
+| IaC (Terraform) | `terraform-style-guide` | Terraformファイルの追加・変更がある場合 |
+| IaC (CDK) | `aws-cdk-development` | AWS CDKスタックの追加・変更がある場合 |
+| CI/CD | `ci-cd-pipeline-patterns` | ワークフロー・パイプラインの追加・変更がある場合 |
+| DBスキーマ変更 | `database-migration` | テーブル・カラム・インデックスの追加・変更・削除がある場合 |
+| モニタリング | `monitoring-observability` | メトリクス・アラート・ログ設定の追加・変更がある場合 |
+| モバイル (RN) | `react-native-best-practices` | React Nativeコンポーネントの追加・変更がある場合 |
+| データパイプライン | `etl-pipeline` | ETL/データ変換処理の追加・変更がある場合 |
 
 ## 領域別の実装ガイド
 
@@ -202,9 +209,31 @@ issue番号の指定がない場合:
 
 ### インフラ変更がある場合
 
-1. `terraform plan` で差分を確認
-2. 既存リソースへの影響範囲を把握
-3. 破壊的変更がないか確認
+1. Terraform → `terraform-style-guide` スキルを読み、命名・構造規約に従う
+2. CDK → `aws-cdk-development` スキルを読み、パターンに従う
+3. `terraform plan` または `cdk diff` で差分を確認
+4. 既存リソースへの影響範囲を把握
+5. 破壊的変更がないか確認
+6. CI/CDパイプライン変更がある場合は `ci-cd-pipeline-patterns` スキルを参照
+
+### DBスキーマ変更がある場合
+
+1. `database-migration` スキルを読み、安全なマイグレーションパターンに従う
+2. 後方互換性を確認（新コードが旧スキーマでも動くか）
+3. ロールバック可能か確認
+4. NOT NULL追加 → デフォルト値は？既存行は？
+
+### モバイル (React Native) 変更がある場合
+
+1. `react-native-best-practices` スキルを読む
+2. パフォーマンス（FlatList/FlashList、再レンダリング、メモリリーク）を確認
+3. プラットフォーム固有の問題（iOS/Android差異）を確認
+
+### データパイプライン変更がある場合
+
+1. `etl-pipeline` スキルを読む
+2. データ品質チェック（スキーマ検証、null処理、重複排除）を確認
+3. 冪等性を確認（再実行しても結果が同じか）
 
 ## ループ継続の強制ルール
 
