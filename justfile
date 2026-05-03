@@ -1,6 +1,6 @@
 # kiro-engineer-teams
 
-# Install prerequisites (kiro-cli, tmux, gh, gum, jq)
+# Install prerequisites (kiro-cli, zellij, gh, gum, jq)
 setup:
     ./scripts/setup.sh
 
@@ -14,7 +14,10 @@ start:
 
 # Launch pipeline directly (skip INCEPTION, use when steering is already configured)
 pipeline:
-    ./scripts/tmux-layout.sh
+    @LAYOUT_TMP=$(mktemp /tmp/pipeline-XXXXXX.kdl) && \
+    sed "s|__PROJECT_CWD__|$(pwd)|g" scripts/pipeline.kdl > "$$LAYOUT_TMP" && \
+    zellij --layout "$$LAYOUT_TMP"; \
+    rm -f "$$LAYOUT_TMP"
 
 # Restart from INCEPTION (clear previous artifacts and start fresh)
 restart:

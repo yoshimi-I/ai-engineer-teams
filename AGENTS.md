@@ -27,4 +27,4 @@ All rules are in `.kiro/steering/development-rules.md`. Key points:
 
 ## After INCEPTION
 
-Run `./scripts/start-pipeline.sh` to launch 8-agent pipeline in tmux.
+Run `./scripts/start-pipeline.sh` to launch 8-agent pipeline in zellij.

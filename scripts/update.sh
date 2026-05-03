@@ -23,7 +23,7 @@ TARGETS=(
   "scripts/dashboard.sh"
   "scripts/control-panel.sh"
   "scripts/start-pipeline.sh"
-  "scripts/tmux-layout.sh"
+  "scripts/pipeline.kdl"
   "scripts/setup.sh"
   "scripts/update.sh"
   ".github/workflows/kiro-review.yml"

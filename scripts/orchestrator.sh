@@ -11,8 +11,8 @@ CACHE_DIR="${STATUS_DIR}/.cache"
 CACHE_TTL=25
 PANE_REGISTRY="${STATUS_DIR}/.panes"
 GH_REFRESH=60
-TMUX_SESSION="${KIRO_TMUX_SESSION:-$(tmux display-message -p '#S' 2>/dev/null || echo kiro-pipeline)}"
-TMUX_WORKERS_WINDOW="${KIRO_TMUX_WINDOW:-Pipeline}"
+POST_MERGE_STATE="${STATUS_DIR}/.last_post_merge_pr"
+PIPELINE_TAB_ID=""
 
 mkdir -p "$STATUS_DIR" "$CACHE_DIR"
 : > "$PANE_REGISTRY"
@@ -35,12 +35,46 @@ refresh_github() {
     --jq "[.[] | select(.assignees | length == 0)] | length")
   CHANGES_REQ=$(gh_cached prs_changes gh pr list --json number,reviewDecision \
     --jq '[.[] | select(.reviewDecision == "CHANGES_REQUESTED")] | length')
+  LATEST_MERGED_PR=$(gh_cached latest_merged_pr gh pr list --state merged --limit 1 --json number \
+    --jq '.[0].number // ""')
   HAS_MERGES=false
-  local c; c=$(gh_cached prs_merged gh pr list --state merged --limit 1 --json number --jq 'length')
-  [ "${c:-0}" -gt 0 ] && HAS_MERGES=true
+  [ -n "${LATEST_MERGED_PR:-}" ] && HAS_MERGES=true
 }
 
 # ── Pane management ──
+
+pane_number() {
+  local pane="$1"
+  echo "${pane#terminal_}"
+}
+
+resolve_pipeline_tab_id() {
+  if [ -n "$PIPELINE_TAB_ID" ]; then
+    return
+  fi
+
+  if [ -n "${ZELLIJ_PANE_ID:-}" ]; then
+    local current_id
+    current_id=$(pane_number "$ZELLIJ_PANE_ID")
+    PIPELINE_TAB_ID=$(zellij action list-panes --json 2>/dev/null \
+      | jq -r --argjson id "$current_id" '.[] | select(.id == $id) | .tab_id' 2>/dev/null \
+      | head -n 1)
+  fi
+
+  if [ -z "$PIPELINE_TAB_ID" ] || [ "$PIPELINE_TAB_ID" = "null" ]; then
+    PIPELINE_TAB_ID=$(zellij action list-tabs --json 2>/dev/null \
+      | jq -r '.[] | select(.name == "Pipeline") | .tab_id' 2>/dev/null \
+      | head -n 1)
+  fi
+}
+
+pane_exists() {
+  local pane="$1"
+  local id
+  id=$(pane_number "$pane")
+  zellij action list-panes --json 2>/dev/null \
+    | jq -e --argjson id "$id" '.[] | select(.id == $id and (.exited | not))' >/dev/null 2>&1
+}
 
 count_alive() {
   local role="$1" count=0
@@ -56,9 +90,12 @@ update_pane_status() {
   local now; now=$(date +%s)
   while IFS='|' read -r name role pane status; do
     [ -z "$name" ] && continue
+    if ! pane_exists "$pane"; then
+      continue
+    fi
     local mtime=0
     [ -f "${STATUS_DIR}/${name}.json" ] && mtime=$(stat -f%m "${STATUS_DIR}/${name}.json" 2>/dev/null || stat -c%Y "${STATUS_DIR}/${name}.json" 2>/dev/null || echo 0)
-    if [ $((now - mtime)) -lt 300 ] && tmux list-panes -a -F '#{pane_id}' 2>/dev/null | grep -qx "$pane"; then
+    if [ $((now - mtime)) -lt 300 ]; then
       echo "${name}|${role}|${pane}|alive" >> "$tmp"
     else
       echo "${name}|${role}|${pane}|stopped" >> "$tmp"
@@ -81,12 +118,44 @@ add_pane() {
   cat > "${STATUS_DIR}/${name}.json" <<JSON
 {"agent":"${name}","prompt":"${role}","state":"🚀 starting","detail":"","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
 JSON
+  resolve_pipeline_tab_id
   local pane
-  pane=$(tmux split-window -d -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" -c "$PROJECT_CWD" \
-    -P -F '#{pane_id}' \
-    "AGENT_ID='${name}' AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
-  tmux select-layout -t "${TMUX_SESSION}:${TMUX_WORKERS_WINDOW}" tiled >/dev/null 2>&1 || true
+  if [ -n "$PIPELINE_TAB_ID" ] && [ "$PIPELINE_TAB_ID" != "null" ]; then
+    pane=$(zellij action new-pane --tab-id "$PIPELINE_TAB_ID" --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
+      -- bash -lc "AGENT_ID='${name}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
+  else
+    pane=$(zellij action new-pane --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
+      -- bash -lc "AGENT_ID='${name}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
+  fi
   echo "${name}|${role}|${pane}|alive" >> "$PANE_REGISTRY"
+}
+
+kill_role() {
+  local role="$1"
+  local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
+  while IFS='|' read -r name r pane status; do
+    [ -z "$name" ] && continue
+    if [ "$r" = "$role" ] && [ "$status" = "alive" ]; then
+      zellij action close-pane --pane-id "$pane" 2>/dev/null || true
+      cat > "${STATUS_DIR}/${name}.json" <<JSON
+{"agent":"${name}","prompt":"${role}","state":"⏹️ stopped","detail":"no longer needed","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
+JSON
+    else
+      echo "${name}|${r}|${pane}|${status}" >> "$tmp"
+    fi
+  done < "$PANE_REGISTRY"
+  mv "$tmp" "$PANE_REGISTRY"
+}
+
+post_merge_due() {
+  [ -n "${LATEST_MERGED_PR:-}" ] || return 1
+  local last=""
+  [ -f "$POST_MERGE_STATE" ] && last=$(cat "$POST_MERGE_STATE")
+  [ "$last" != "$LATEST_MERGED_PR" ]
+}
+
+mark_post_merge_spawned() {
+  [ -n "${LATEST_MERGED_PR:-}" ] && echo "$LATEST_MERGED_PR" > "$POST_MERGE_STATE"
 }
 
 total_alive() {
@@ -204,7 +273,6 @@ scale() {
 
   local cur_impl; cur_impl=$(count_alive "implement")
   local cur_fix;  cur_fix=$(count_alive "fix-review")
-  local cur_dev;  cur_dev=$(count_alive "dev-server")
   local cur_watch; cur_watch=$(count_alive "watch-main")
   local cur_e2e;  cur_e2e=$(count_alive "e2e-bug-hunt")
   local cur_imp;  cur_imp=$(count_alive "improve")
@@ -227,22 +295,18 @@ scale() {
   # Fix-review
   [ "${CHANGES_REQ:-0}" -gt 0 ] && [ "$cur_fix" -eq 0 ] && add_pane "fix-review" "fix-review"
 
-  # Dev-server
-  if [ "$cur_impl" -gt 0 ] && [ "$cur_dev" -eq 0 ]; then
-    [ -f "package.json" ] || [ -f "pyproject.toml" ] || [ -f "Cargo.toml" ] && add_pane "dev-server" "dev-server"
-  fi
-
   # Post-merge
-  if ${HAS_MERGES:-false}; then
+  if post_merge_due; then
     [ "$cur_watch" -eq 0 ] && add_pane "watch-main" "watch-main"
     [ "$cur_e2e" -eq 0 ]   && add_pane "e2e-hunt" "e2e-bug-hunt"
     [ "$cur_imp" -eq 0 ]   && add_pane "improve" "improve"
+    mark_post_merge_spawned
   fi
 }
 
 # ── Main ──
 
-IMPL_SEQ=0; ISSUES=0; CHANGES_REQ=0; HAS_MERGES=false; last_gh=0
+IMPL_SEQ=0; ISSUES=0; CHANGES_REQ=0; HAS_MERGES=false; LATEST_MERGED_PR=""; last_gh=0
 
 refresh_github
 
