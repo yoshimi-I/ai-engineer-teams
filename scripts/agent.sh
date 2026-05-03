@@ -23,6 +23,7 @@ MAX_ERRORS=5
 STATUS_DIR=".agent-status"
 LOG_DIR=".agent-logs"
 AGENT_NAME="${AGENT_ID:-$PROMPT_NAME}"
+AGENT_CONTEXT="${AGENT_CONTEXT:-}"
 STATUS_FILE="${STATUS_DIR}/${AGENT_NAME}.json"
 LOG_FILE="${LOG_DIR}/${AGENT_NAME}.log"
 
@@ -152,11 +153,20 @@ while true; do
   CURRENT_BRANCH=""
   update_status "🔄 running" "cycle #${cycle}"
 
+  PROMPT_BODY="$(cat "$PROMPT_FILE")"
+  if [ -n "$AGENT_CONTEXT" ]; then
+    PROMPT_BODY="${PROMPT_BODY}
+
+## Orchestrator assignment
+
+${AGENT_CONTEXT}"
+  fi
+
   if kiro-cli chat \
     --no-interactive \
     --trust-all-tools \
     --resume \
-    "$(cat "$PROMPT_FILE")" 2>&1; then
+    "$PROMPT_BODY" 2>&1; then
     error_count=0
     # Scan what the agent did
     scan_agent_context

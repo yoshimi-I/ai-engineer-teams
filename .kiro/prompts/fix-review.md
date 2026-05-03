@@ -104,9 +104,16 @@ gh pr comment <number> --body "## 指摘への回答
 反論後、正しい指摘の修正があればpushし、`gh pr review` でAPPROVEを要求する。
 
 ### Step 4: 正しい指摘の修正
-1. 対象ブランチをチェックアウト
+1. 対象ブランチ用のworktreeを `.worktrees/fix-review-<PR番号>` に作成し、その中で作業する
 2. 正しいと判断した指摘のみ修正する
 3. 不正確な指摘に対する修正は行わない
+
+```bash
+BRANCH=$(gh pr view <number> --json headRefName --jq '.headRefName')
+git fetch origin "$BRANCH"
+git worktree add ".worktrees/fix-review-<number>" "$BRANCH"
+cd ".worktrees/fix-review-<number>"
+```
 
 ### Step 4: 検証
 steering ファイルからプロジェクトの検証コマンドを確認し、実行する。

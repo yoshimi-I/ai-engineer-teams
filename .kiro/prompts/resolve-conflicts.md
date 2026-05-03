@@ -8,7 +8,8 @@
 ### 1. 準備
 ```bash
 git fetch origin
-git checkout <ブランチ名>
+git worktree add .worktrees/rebase-<PR番号> <ブランチ名>
+cd .worktrees/rebase-<PR番号>
 ```
 
 ### 2. リベース開始
@@ -39,14 +40,13 @@ git rebase --abort
 git push --force-with-lease origin <ブランチ名>
 ```
 
-### 6. 元のブランチに戻る
-```bash
-git checkout main
-```
+### 6. 後片付け
+PRがmergeされた後にのみ、自分が作成したworktreeを削除する。
 
 ## ルール
 
 - `--force` ではなく `--force-with-lease` を使う
+- メインリポジトリで `git checkout` / `git switch` しない。必ず `.worktrees/` 配下のworktreeで作業する
 - コンフリクトマーカーを残したままコミットしない
 - 理解せずに片方を丸ごと採用しない
 - **vim/nano等のエディタを起動しない** — `git rebase --continue` でエディタが開く場合は `GIT_EDITOR=true git rebase --continue` または `git -c core.editor=true rebase --continue` を使う
