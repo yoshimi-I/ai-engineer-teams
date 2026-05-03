@@ -57,34 +57,32 @@ fi
 
 if [[ "$INCEPTION_DONE" == "true" ]]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  ✅ INCEPTION already completed"
+  echo "  ✅ INCEPTION 完了済み"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
-  echo "  📄 Artifacts: aidlc-docs/inception/"
-  echo "  📋 Open issues: ${ISSUE_COUNT}"
+  echo "  📄 成果物: aidlc-docs/inception/"
+  echo "  📋 オープンissue: ${ISSUE_COUNT}件"
   echo ""
-  echo "  Skipping INCEPTION → launching pipeline directly."
+  echo "  INCEPTION をスキップ → パイプラインを直接起動します。"
   echo ""
 else
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  Phase 1: INCEPTION (AI-DLC)"
+  echo "  フェーズ 1: INCEPTION (AI-DLC)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
-  echo "  Kiro CLI will start with the INCEPTION workflow."
-  echo "  This guides you through:"
+  echo "  Kiro CLI で INCEPTION ワークフローを開始します。"
+  echo "  以下のステップを順に進めます:"
   echo ""
-  echo "    1. Workspace Detection"
-  echo "    2. Requirements Analysis"
-  echo "    3. User Stories (if needed)"
-  echo "    4. Architecture Design (if needed)"
-  echo "    5. Issue Generation (automatic)"
-  echo ""
-  echo "  After issues are created, type /quit to launch the pipeline."
+  echo "    1. ワークスペース検出"
+  echo "    2. 要件分析"
+  echo "    3. ユーザーストーリー（必要に応じて）"
+  echo "    4. アーキテクチャ設計（必要に応じて）"
+  echo "    5. Issue 自動生成"
   echo ""
   echo "  ⚠️  INCEPTION が完了したら /quit と入力してこの画面を抜けてください。"
   echo "      パイプラインが自動で起動します。"
   echo ""
-  read -p "  Press Enter to start → " _
+  read -p "  Enter を押して開始 → " _
 
   kiro-cli chat --trust-all-tools "/inception"
 
@@ -93,20 +91,20 @@ else
   if [[ -n "$INCEPTION_FILES" ]]; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "  INCEPTION artifacts detected:"
+    echo "  INCEPTION 成果物を検出:"
     echo "$INCEPTION_FILES" | sed 's/^/    /'
     echo ""
-    read -p "  Push to main so pipeline agents can access them? (Y/n) → " yn
+    read -p "  main にプッシュしてエージェントがアクセスできるようにしますか？ (Y/n) → " yn
     if [[ "$yn" != "n" && "$yn" != "N" ]]; then
       git add aidlc-docs/ issue/ .kiro/steering/
       git commit -m "docs: add INCEPTION artifacts"
       git push origin main
-      echo "  ✔ Pushed to main."
+      echo "  ✔ main にプッシュしました。"
     else
       for pattern in aidlc-docs/ issue/; do
         grep -qxF "$pattern" .gitignore 2>/dev/null || echo "$pattern" >> .gitignore
       done
-      echo "  ✔ Added aidlc-docs/ and issue/ to .gitignore."
+      echo "  ✔ aidlc-docs/ と issue/ を .gitignore に追加しました。"
     fi
   fi
 
@@ -119,28 +117,29 @@ if [[ -z "${ISSUE_COUNT:-}" ]]; then
 fi
 if [[ "$ISSUE_COUNT" -eq 0 ]]; then
   echo ""
-  echo "⚠️  No open issues found."
-  read -p "  Launch pipeline anyway? (y/N) → " yn
-  [[ "$yn" != "y" && "$yn" != "Y" ]] && echo "Aborted." && exit 0
+  echo "⚠️  オープンな issue がありません。"
+  read -p "  それでもパイプラインを起動しますか？ (y/N) → " yn
+  [[ "$yn" != "y" && "$yn" != "Y" ]] && echo "中止しました。" && exit 0
 fi
 
 # ── Phase 2: Pipeline ──
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Phase 2: 10-Agent Pipeline"
+echo "  フェーズ 2: 12エージェント パイプライン"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "  📋 Open issues: ${ISSUE_COUNT}"
+echo "  📋 オープンissue: ${ISSUE_COUNT}件"
 echo ""
-echo "  🖥️  Dev-Server       → keep dev servers running"
-echo "  🔨 Impl-1, Impl-2  → pick issues and implement"
-echo "  🔍 Review-1, Review-2 → review PRs → merge"
-echo "  🔧 Fix-Review-1, Fix-Review-2 → fix review comments"
-echo "  👀 Watch-Main       → E2E verification after merge"
-echo "  🧪 E2E-Hunt         → Playwright patrol"
-echo "  💡 Improve          → auto-generate improvement issues"
+echo "  🎭 オーケストレーター → 状況に応じて12paneに役割を動的割り当て"
+echo "  🖥️  Dev-Server       → 開発サーバーの起動・維持"
+echo "  🔨 Impl ×N          → issueを取得して実装 → PR作成"
+echo "  🔍 CI Kiro Review   → PRの自動コードレビュー"
+echo "  🔧 Fix-Review ×N    → レビュー指摘の自動修正"
+echo "  👀 Watch-Main       → マージ後のE2E検証"
+echo "  🧪 E2E-Hunt         → Playwright巡回テスト"
+echo "  💡 Improve          → 改善issueの自動生成"
 echo ""
-echo "  Each agent waits for work and starts automatically."
+echo "  各エージェントは仕事を待機し、自動で開始します。"
 echo ""
 
 # Generate layout with project cwd
