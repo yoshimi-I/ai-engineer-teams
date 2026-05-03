@@ -2,13 +2,14 @@
 
 # 🏭 kiro-engineer-teams
 
-**10-agent parallel development pipeline**
+**12-agent orchestrated development pipeline**
 **powered by [Kiro CLI](https://kiro.dev/docs/cli/) × [zellij](https://zellij.dev/)**
 
 issue → implementation → review → merge → E2E verification — fully automated.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Kiro CLI](https://img.shields.io/badge/Kiro_CLI-compatible-purple.svg)](https://kiro.dev/docs/cli/)
+[![CI + Kiro Review](https://img.shields.io/badge/CI-Kiro_Review-green.svg)](.github/workflows/kiro-review.yml)
 
 **English** · [日本語](docs/README.ja.md)
 
@@ -35,29 +36,18 @@ git clone https://github.com/yoshimi-I/kiro-engineer-teams.git .
 just init
 ```
 
-**4. Start (INCEPTION → 10-agent pipeline)**
+**4. Start (INCEPTION → orchestrated pipeline)**
 ```bash
 just start
 ```
-
-> 💡 You can also use GitHub's **"Use this template"** button to create a new repo directly.
 
 ---
 
 ## 📥 Add to Existing Project
 
-Already have a project? Run this one-liner from your project root:
-
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/kiro-engineer-teams/main/scripts/install.sh)
-```
-
-This copies `.kiro/`, `scripts/`, `justfile`, `AGENTS.md`, and `skills-lock.json` into your project. Existing files are never overwritten.
-
-Then:
-```bash
-just setup   # install prerequisites
-just start   # start INCEPTION + pipeline
+just setup && just start
 ```
 
 ---
@@ -68,62 +58,79 @@ just start   # start INCEPTION + pipeline
 ./scripts/start-pipeline.sh
 │
 ├── Phase 1: INCEPTION (you + AI)
-│   ├── 1. Workspace Detection — scan existing code
-│   ├── 2. Requirements Analysis — clarify what to build
-│   ├── 3. User Stories — define user behavior (if needed)
-│   ├── 4. Architecture Design — tech stack + structure (if needed)
-│   └── 5. Issue Generation — auto-create GitHub issues
+│   ├── 1. Workspace Detection
+│   ├── 2. Requirements Analysis
+│   ├── 3. User Stories
+│   ├── 4. Architecture Design
+│   └── 5. Issue Generation → GitHub issues
 │
-└── Phase 2: 10-Agent Pipeline (fully autonomous)
-    ├── Dev-Server → start and keep dev servers running
-    ├── Impl-1, Impl-2 → pick issues → implement → PR
-    ├── Review-1, Review-2 → strict 7-point review → merge
-    ├── Fix-Review-1, Fix-Review-2 → fix review comments → re-push
-    ├── Watch-Main → E2E verification after merge
-    ├── E2E-Hunt → Playwright patrol → bug issues
-    └── Improve → auto-generate improvement issues
+└── Phase 2: Orchestrated Pipeline (fully autonomous)
+    │
+    ├── Orchestrator polls GitHub every 30s
+    │   ├── issues多い → Impl多め
+    │   ├── PR溜まってる → Review多め
+    │   └── 仕事なし → idle
+    │
+    └── 12 panes dynamically assigned:
+        ├── Dev-Server, Impl ×N, Review ×N
+        ├── Fix-Review ×N, Watch-Main, E2E-Hunt
+        └── Improve
 ```
-
-Phase 1 requires your input. Phase 2 is fully automated — agents wait for work and start when issues/PRs appear.
 
 ---
 
-## 🚀 Launch Pipeline
+## 🖥️ Zellij Tabs
 
-```bash
-./scripts/start-pipeline.sh
+| Tab | Key | Content |
+|-----|-----|---------|
+| **Pipeline** | Alt+1 | Orchestrator — dynamically assigns 12 panes |
+| **Control** | Alt+2 | TUI control panel — status, stop/restart, logs, current work |
+| **Kiro** | Alt+3 | Interactive kiro-cli — use `/slash-commands` manually |
+
+### Control Panel
+
+```
+  🎛️  K I R O   C O N T R O L   P A N E L  🎛️
+
+  18:30:00  Total: 12  ▶ 3  ✕ 0  💤 5
+
+  ┌─────┬──────────────────┬──────────────┬──────────────────────────┐
+  │  #  │ Agent            │ State        │ Detail                   │
+  ├─────┼──────────────────┼──────────────┼──────────────────────────┤
+  │  1  │ 🖥️  Dev-Server    │ 🔄 running   │ cycle #12                │
+  │  2  │ 🔨 Impl-1        │ 🔄 running   │ cycle #5                 │
+  │  3  │ 🔍 Review-3      │ 😴 sleeping  │ next in 10s              │
+  └─────┴──────────────────┴──────────────┴──────────────────────────┘
+
+  ⌨️  Actions
+  [s] Stop agent    [r] Restart agent    [a] Stop all
+  [l] View log      [o] Orchestrator     [q] Quit panel
+
+  📋 Current Work
+  Issues (in progress):
+    #42 feat: add user authentication ← Impl-1
+  Pull Requests:
+    #45 [APPROVED] feat: add login page ← Impl-3
 ```
 
-<table>
-<tr>
-<td align="center">🖥️<br><b>Dev-Server</b><br><sub>start dev servers</sub></td>
-<td align="center">🔨<br><b>Impl-1</b><br><sub>issue → impl → PR</sub></td>
-<td align="center">🔨<br><b>Impl-2</b><br><sub>issue → impl → PR</sub></td>
-</tr>
-<tr>
-<td align="center">🔍<br><b>Review-1</b><br><sub>PR → review → merge</sub></td>
-<td align="center">🔍<br><b>Review-2</b><br><sub>PR → review → merge</sub></td>
-<td align="center">🔧<br><b>Fix-Review-1</b><br><sub>fix comments → push</sub></td>
-</tr>
-<tr>
-<td align="center">🔧<br><b>Fix-Review-2</b><br><sub>fix comments → push</sub></td>
-<td align="center">👀<br><b>Watch-Main</b><br><sub>main → E2E test</sub></td>
-<td align="center">🧪<br><b>E2E-Hunt</b><br><sub>Playwright patrol</sub></td>
-</tr>
-<tr>
-<td align="center" colspan="3">💡<br><b>Improve</b><br><sub>auto-generate improvement issues</sub></td>
-</tr>
-</table>
+---
 
-Each agent waits for work and starts automatically when issues/PRs appear.
+## 🤖 CI + Kiro Review
 
-### Keybindings
+PRs are automatically reviewed by [kiro-cli-review-action](https://github.com/konippi/kiro-cli-review-action) on GitHub Actions.
 
-| Key | Action |
-|-----|--------|
-| `Ctrl+h/j/k/l` | Move between panes (left/down/up/right) |
-| `Alt+1`, `Alt+2` | Switch tabs (Pipeline / Status) |
-| Mouse click | Focus pane (mouse mode enabled) |
+```yaml
+# .github/workflows/kiro-review.yml
+on:
+  pull_request: [opened, ready_for_review, synchronize]
+  issue_comment: [created]  # @kiro trigger
+```
+
+| Role | CI Kiro Review | Local Review Agent |
+|------|:-:|:-:|
+| Code review | ✅ | — |
+| Merge approved PRs | — | ✅ |
+| Dependabot PRs | — | ✅ |
 
 ---
 
@@ -133,64 +140,77 @@ Each agent waits for work and starts automatically when issues/PRs appear.
 GitHub Issue
     │
     ▼
-Agent 1,2: /implement ──→ PR (pre-commit: lint/test passed)
-                           │
-                           ▼
-                     Agent 3,4: /review
-                           │
-                      ┌────┴────┐
-                   🟢 LGTM   🔴 Fix needed
-                      │         │
-                      ▼         ▼
-                 merge    Agent 5,6: /fix-review
-                      │
-                      ▼
-                 main merged
-                      │
-                      ▼
-                 Agent 7: /watch-main (E2E verification)
-                      │
-                 Bug found? → issue → Agent 1,2 picks it up
-                                ▲
-                 Agent 8: /e2e-bug-hunt (Playwright patrol)
-
-Agent 9: /improve (auto-generate improvement issues, every 10 min)
-Agent 10: /dev-server (keep dev servers running)
+Orchestrator (polls every 30s, assigns roles to 12 panes)
+    │
+    ├── Impl agents → pick issue → implement → PR
+    │                                │
+    │                    CI: kiro-cli-review-action
+    │                                │
+    │                         ┌──────┴──────┐
+    │                      🟢 LGTM      🔴 Fix needed
+    │                         │              │
+    │                    Local Review    Fix-Review agent
+    │                    agent merges    fixes → re-push
+    │                         │
+    │                    main merged
+    │                         │
+    ├── Watch-Main → E2E verification → bug issues
+    ├── E2E-Hunt → Playwright patrol → bug issues
+    └── Improve → auto-generate improvement issues
 ```
-
-> All agents share `issue/task.md` for coordination to avoid conflicts.
 
 ---
 
 ## 📋 Prerequisites
 
 | Tool | Install | Required |
-|------|---------|----------|
+|------|---------|:---:|
 | [Kiro CLI](https://kiro.dev/docs/cli/) | See [downloads](https://kiro.dev/downloads/) | ✅ |
 | [zellij](https://zellij.dev/) | `brew install zellij` | ✅ |
 | [GitHub CLI](https://cli.github.com/) | `brew install gh` → `gh auth login` | ✅ |
-| [just](https://just.systems/) | `brew install just` | Optional (for GitLab switch) |
-
-> **Linux**: Replace `brew install` with your package manager or see each tool's install docs.
-> **Windows**: Use WSL2 or see each tool's Windows install docs.
+| [gum](https://github.com/charmbracelet/gum) | `brew install gum` | ✅ (for control panel) |
+| [jq](https://jqlang.github.io/jq/) | `brew install jq` | ✅ |
+| [just](https://just.systems/) | `brew install just` | Optional |
 
 ---
 
-## 🛡️ Built-in Rules
+## 🛡️ Guardrails
 
-The steering file (`.kiro/steering/development-rules.md`) enforces these rules on every agent, every turn:
+| Category | Rules |
+|----------|-------|
+| **Git safety** | No direct push to main. No `--force`. No `git branch -D`. Squash merge only. |
+| **Editor prevention** | `GIT_EDITOR=true` + `git config --global core.editor true` (3-layer) |
+| **Filesystem** | No operations above project root. No `cd ..` or `../` paths. |
+| **Issue limits** | improve: 3/cycle, e2e-bug-hunt: 5/cycle, watch-main: 3/cycle |
+| **Close protection** | `gh issue close` / `gh pr close` restricted to fix-review only |
+| **TDD** | Red → Green → Refactor. 3-layer tests required. |
+| **API rate limit** | Orchestrator caches GitHub API responses (25s TTL) |
+| **Logging** | All agent output persisted to `.agent-logs/` |
+| **Stale cleanup** | Agents prune merged worktrees on cycle start |
 
-| Category | Key Rules |
-|----------|-----------|
-| **TDD** | Red → Green → Refactor. No code without tests first. |
-| **Testing** | 3-layer: Unit (per function) + Integration (per API) + E2E (per user flow) |
-| **PR Gate** | Unit + Integration + E2E must pass. Missing tests = no merge. |
-| **Error Handling** | Unified API error format. Actionable messages. Resource cleanup. Error Boundary. |
-| **API Design** | Frontend ↔ Backend types always in sync. Validation on both ends. |
-| **Git** | Worktree isolation. Conventional Commits in English. Squash merge only. |
-| **Security** | No hardcoded secrets. Input validation. Parameterized queries. Least privilege. |
-| **Performance** | No N+1. No API calls in loops. Prevent unnecessary re-renders. |
-| **Parallel Agents** | GitHub issue assignee for exclusive control. `issue/task.md` as auxiliary record. |
+---
+
+## 📁 Skills
+
+| Skill | Category |
+|-------|----------|
+| `clean-ddd-hexagonal` | Backend architecture |
+| `bulletproof-react` | Frontend architecture |
+| `frontend-design` | UI design |
+| `baseline-ui` | Tailwind constraints |
+| `fixing-accessibility` | Accessibility |
+| `fixing-metadata` | SEO/OGP |
+| `fixing-motion-performance` | Animation performance |
+| `quality-guidelines` | Code quality |
+| `terraform-style-guide` | IaC (Terraform) |
+| `aws-cdk-development` | IaC (CDK) |
+| `ci-cd-pipeline-patterns` | CI/CD |
+| `database-migration` | DB schema changes |
+| `monitoring-observability` | Monitoring/alerting |
+| `react-native-best-practices` | Mobile (React Native) |
+| `etl-pipeline` | Data pipelines |
+
+All skills are available as `/slash-commands` in the interactive Kiro tab.
 
 ---
 
@@ -199,63 +219,29 @@ The steering file (`.kiro/steering/development-rules.md`) enforces these rules o
 ```
 .kiro/
 ├── steering/development-rules.md  # Rules (loaded every turn)
-├── skills/                        # Reference (on-demand)
-│   ├── clean-ddd-hexagonal/       #   DDD + Clean Architecture
-│   ├── frontend-design/           #   UI design guide
-│   ├── baseline-ui/               #   Tailwind constraints
-│   ├── fixing-accessibility/      #   Accessibility checklist
-│   ├── fixing-metadata/           #   SEO/OGP checklist
-│   └── fixing-motion-performance/ #   Animation performance
+├── skills/                        # 15 skills (on-demand)
 ├── prompts/                       # Workflows (invoke with /name)
 │   ├── implement.md               #   issue → impl → PR loop
-│   ├── review.md                  #   7-point strict review
-│   ├── fix-review.md       #   Fix review comments
-│   ├── dev-server.md              #   Keep dev servers running
-│   ├── watch-main.md              #   Monitor main → E2E
-│   ├── improve.md                 #   Auto-generate improvement issues
-│   ├── 8-agent-pipeline.md        #   Pipeline guide
-│   └── ...                        #   brainstorming, pr, etc.
-└── agents/default.json            # Agent config
+│   ├── review.md                  #   merge + Dependabot
+│   ├── fix-review.md              #   fix review comments
+│   ├── dev-server.md              #   keep dev servers running
+│   ├── watch-main.md              #   monitor main → E2E
+│   ├── e2e-bug-hunt.md            #   Playwright patrol
+│   ├── improve.md                 #   auto-generate issues
+│   └── ...
+├── agents/
+│   ├── default.json               #   default agent config
+│   └── code-reviewer.json         #   CI review agent config
+└── settings.json                  #   trust settings
 scripts/
-├── start-pipeline.sh              # Launcher
+├── start-pipeline.sh              # Launcher (INCEPTION → pipeline)
+├── orchestrator.sh                # Dynamic role allocation
 ├── agent.sh                       # Agent loop wrapper
+├── control-panel.sh               # TUI control panel (gum)
+├── dashboard.sh                   # Status dashboard
 └── pipeline.kdl                   # zellij layout
-```
-
----
-
-## 🔄 Steering / Skills / Prompts
-
-| | Steering | Skills | Prompts |
-|---|:---:|:---:|:---:|
-| **Loading** | Full text every turn | Metadata only → full on demand | Full text on `/name` |
-| **Certainty** | 100% | Agent decides | 100% |
-| **Use for** | Rules, conventions | Reference docs | Task workflows |
-
----
-
-## 🔧 Customization
-
-```bash
-# Remove unused skills
-rm -rf .kiro/skills/clean-ddd-hexagonal
-
-# Remove unused prompts
-rm .kiro/prompts/improve.md
-
-# Add your own
-mkdir .kiro/skills/my-guide       # + SKILL.md with frontmatter
-touch .kiro/prompts/my-workflow.md
-
-# Switch language
-# /to-japanese — translate prompts/steering to Japanese
-# /to-english  — translate prompts/steering to English
-```
-
-**For GitLab:**
-```bash
-just to-gitlab   # gh → glab
-just to-github   # revert
+.github/workflows/
+└── kiro-review.yml                # CI: kiro-cli-review-action
 ```
 
 ---
