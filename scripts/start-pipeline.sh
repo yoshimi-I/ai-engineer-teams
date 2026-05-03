@@ -56,10 +56,12 @@ if echo "$REMOTE_URL" | grep -q "kiro-engineer-teams"; then
   echo "  ⚠️  テンプレートリポジトリを直接使用しています"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
-  echo "  新しいプロジェクト用のリポジトリを作成しますか？"
+  echo "  新しいプロジェクト用のリポジトリを作成します。"
   echo ""
-  read -p "  リポジトリ名を入力 (空でスキップ): " REPO_NAME
-  if [[ -n "$REPO_NAME" ]]; then
+  DEFAULT_REPO="$(basename "$PWD")"
+  read -p "  リポジトリ名 (${DEFAULT_REPO}): " REPO_NAME
+  REPO_NAME="${REPO_NAME:-$DEFAULT_REPO}"
+  {
     read -p "  公開設定 (1: private, 2: public) [1]: " VISIBILITY
     VIS_FLAG="--private"
     [[ "$VISIBILITY" == "2" ]] && VIS_FLAG="--public"
@@ -81,7 +83,7 @@ if echo "$REMOTE_URL" | grep -q "kiro-engineer-teams"; then
     gh repo create "$REPO_NAME" $VIS_FLAG --source=. --remote origin --push
     echo "  ✔ リポジトリを作成しました: $(gh repo view --json url --jq '.url')"
     echo ""
-  fi
+  }
 fi
 
 if ! gh auth status &>/dev/null; then
