@@ -56,7 +56,7 @@ update_pane_status() {
     [ -z "$name" ] && continue
     local mtime=0
     [ -f "${STATUS_DIR}/${name}.json" ] && mtime=$(stat -f%m "${STATUS_DIR}/${name}.json" 2>/dev/null || stat -c%Y "${STATUS_DIR}/${name}.json" 2>/dev/null || echo 0)
-    if [ $((now - mtime)) -lt 60 ]; then
+    if [ $((now - mtime)) -lt 300 ]; then
       echo "${name}|${role}|${pid}|alive" >> "$tmp"
     else
       echo "${name}|${role}|${pid}|stopped" >> "$tmp"
