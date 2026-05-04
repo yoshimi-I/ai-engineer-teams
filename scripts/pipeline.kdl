@@ -17,24 +17,24 @@ keybinds {
 
 layout {
     cwd "__PROJECT_CWD__"
-    tab name="Pipeline" {
-        pane split_direction="vertical" {
-            pane command="bash" name="Orchestrator" size="50%" {
-                args "-c" "./scripts/orchestrator.sh"
+    tab name="Pipeline" focus=true {
+        pane split_direction="horizontal" {
+            pane split_direction="vertical" size="50%" {
+                pane command="bash" name="Control Panel" size="40%" {
+                    args "-c" "./scripts/control-panel.sh"
+                }
+                pane command="bash" name="Orchestrator" size="60%" {
+                    args "-c" "./scripts/orchestrator.sh"
+                }
             }
-            pane command="bash" name="Agents" size="50%" {
-                args "-c" "echo 'Agent panes will appear here.'; while true; do sleep 3600; done"
+            pane split_direction="vertical" size="50%" {
+                pane command="bash" name="Operator" size="40%" {
+                    args "-c" "./scripts/operator.sh"
+                }
+                pane command="bash" name="Agents" size="60%" {
+                    args "-c" "echo 'Agent panes will appear here.'; while true; do sleep 3600; done"
+                }
             }
-        }
-    }
-    tab name="Operator" {
-        pane command="bash" name="Operator" {
-            args "-c" "./scripts/operator.sh"
-        }
-    }
-    tab name="Control" {
-        pane command="bash" name="Control Panel" {
-            args "-c" "./scripts/control-panel.sh"
         }
     }
 }
