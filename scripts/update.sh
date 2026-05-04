@@ -47,6 +47,21 @@ for f in "${TARGETS[@]}"; do
   fi
 done
 
+# Update script libraries (overwrite pipeline-managed shell helpers)
+if [ -d "${SRC}/scripts/lib" ]; then
+  mkdir -p "scripts/lib"
+  while IFS= read -r src_file; do
+    rel="${src_file#${SRC}/}"
+    mkdir -p "$(dirname "$rel")"
+    if [ -f "$rel" ] && diff -q "$rel" "$src_file" >/dev/null 2>&1; then
+      continue
+    fi
+    cp "$src_file" "$rel"
+    echo "  ✅ ${rel}"
+    updated=$((updated + 1))
+  done < <(find "${SRC}/scripts/lib" -type f | sort)
+fi
+
 # Update prompts (overwrite pipeline-managed prompts)
 if [ -d "${SRC}/.kiro/prompts" ]; then
   mkdir -p ".kiro/prompts"

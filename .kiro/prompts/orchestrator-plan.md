@@ -56,8 +56,8 @@ Return **only a single-line JSON object**. Do not include Markdown fences, prose
 - Do not launch `improve` while any unassigned implementation issue exists.
 - Do not launch `watch-main` unless the context explicitly says watch-main automation is enabled.
 - Do not launch `improve` unless the context explicitly says improve automation is enabled.
-- Launch `review` when open PRs need review/merge attention and no `review` pane is active.
-- Launch `fix-review` only if at least one PR has `CHANGES_REQUESTED` and no `fix-review` pane is active.
+- Launch `review` when `pull_requests.review_ready_count` is greater than 0 and no `review` pane is active.
+- Launch `fix-review` only if `pull_requests.fix_review_ready_count` is greater than 0 and no `fix-review` pane is active.
 - Launch `e2e` for targeted browser verification when a dev server is active or when you also launch `dev-server` earlier in the same plan.
 - Launch `e2e-bug-hunt` only if the latest merged PR has not already had post-merge actions spawned and no `e2e-bug-hunt` pane is active.
 - Launch `watch-main` only after a new merge when dev server is active or when you also launch `dev-server` earlier in the same plan.
@@ -75,8 +75,8 @@ Use stable, role-based names:
 
 - `dev-server`
 - `implement-issue-N` where N is the GitHub issue number from `ready_issue_numbers`.
-- `review`
-- `fix-review`
+- `review-pr-N` where N is the GitHub PR number from `review_pr_numbers`.
+- `fix-review-pr-N` where N is the GitHub PR number from `fix_review_pr_numbers`.
 - `e2e`
 - `e2e-hunt`
 - `watch-main`
@@ -90,7 +90,10 @@ Use stable, role-based names:
 - `implement`: work on ready implementation issues. Scale this up or down based on real parallelism.
 - When launching `implement`, use issue-numbered pane names from `ready_issue_numbers` such as `implement-issue-42`. Do not use generic names like `implement-1`.
 - `review`: inspect/merge PRs and handle approved PRs; avoid duplicating CI review when it is already in progress.
+- When launching `review`, use PR-numbered pane names from `review_pr_numbers` such as `review-pr-42`. Do not use generic names like `review`.
 - `fix-review`: fix PRs with requested changes.
+- When launching `fix-review`, use PR-numbered pane names from `fix_review_pr_numbers` such as `fix-review-pr-42`. Do not use generic names like `fix-review`.
+- `fix-review` should only be used for actionable requested-change PRs: unassigned PRs, or PRs already assigned to the current GitHub user. PRs assigned to someone else are locked and should not trigger new fix-review panes.
 - `e2e`: run targeted browser verification for current app behavior or a specific PR flow.
 - `e2e-bug-hunt`: after merge, patrol the app with Playwright and create bug issues.
 - `watch-main`: post-merge verification and regression issue creation.
@@ -104,6 +107,8 @@ The user message contains a JSON context with:
 - active panes
 - GitHub issue summary
 - ready issue numbers
+- review PR numbers
+- fix-review PR numbers
 - PR summary
 - latest merged PR
 - post-merge state

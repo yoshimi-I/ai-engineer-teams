@@ -3,6 +3,15 @@
 
 ユーザーの指示を待たず、即座にレビュー指摘のあるPRを自動検出して修正を開始する。PRのレビューコメント（🔴 修正必須）を自動取得し、指摘を1つずつ修正→push→再レビュー待ちを繰り返す。
 
+## OrchestratorからPR番号を割り当てられた場合
+
+プロンプト末尾の `## Orchestrator assignment` に `GitHub PR #<number>` が含まれる場合は、そのPRだけを処理する。
+
+- 対象PRが既にclosed/mergedなら終了する
+- 対象PRが `CHANGES_REQUESTED` でなくなっているなら終了する
+- 対象PRが自分以外のassigneeでロックされているなら終了する
+- 他のPRを自動選択しない
+
 ## 1サイクルの処理
 
 ### Step 1: 修正が必要なPRを検出（多層検出）
@@ -36,16 +45,24 @@ gh pr view <number> --json reviews,comments
 
 対象PRを見つけたら、着手前にassigneeでロックする:
 ```bash
-# 既にassigneeがいたらスキップ（他のFix-Reviewが作業中）
+# 自分以外のassigneeがいたらスキップ（他のFix-Reviewが作業中）
+ME=$(gh api user --jq '.login')
 ASSIGNEE=$(gh pr view <number> --json assignees --jq '.assignees[].login' 2>/dev/null)
-if [[ -n "$ASSIGNEE" ]]; then
+if [[ -n "$ASSIGNEE" ]] && ! echo "$ASSIGNEE" | grep -qx "$ME"; then
   echo "PR #<number> は $ASSIGNEE が作業中。スキップ。"
   # 次の対象PRを探す
 fi
 
-# assigneeがいなければ自分をアサインしてロック
-gh pr edit <number> --add-assignee @me
+# assigneeが空、または自分がassigneeならこのPRを処理する
+if [[ -z "$ASSIGNEE" ]]; then
+  gh pr edit <number> --add-assignee @me
+fi
 ```
+
+重要:
+- assigneeが自分（`gh api user --jq '.login'`）の場合は、過去サイクルのロック継続または自分の作業なのでスキップしない
+- assigneeが自分以外の場合のみスキップする
+- 対象PRが全て自分以外にロックされている場合は、何もせず終了する
 
 修正完了後（merge or 次サイクルへ移行時）にassigneeを外す:
 ```bash
