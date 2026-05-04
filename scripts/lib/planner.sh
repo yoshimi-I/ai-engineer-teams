@@ -100,6 +100,116 @@ operator_request_json() {
   fi
 }
 
+clear_operator_request() {
+  [ -n "${OPERATOR_REQUEST_FILE:-}" ] || return 0
+  jq -n \
+    --arg ts "$(date '+%H:%M:%S')" \
+    '{status:"handled", ts:$ts, request:"", intent:"general", target:"", priority:"normal"}' \
+    > "$OPERATOR_REQUEST_FILE"
+}
+
+operator_target_issue_number() {
+  local target="$1"
+  if [[ "$target" =~ ^#?([0-9]+)$ ]]; then
+    echo "${BASH_REMATCH[1]}"
+  elif [[ "$target" =~ issue-([0-9]+) ]]; then
+    echo "${BASH_REMATCH[1]}"
+  fi
+}
+
+handle_operator_request() {
+  local req status intent target request issue role pane_name
+  req=$(operator_request_json)
+  status=$(jq -r '.status // "empty"' <<< "$req" 2>/dev/null || echo empty)
+  [ "$status" = "open" ] || return 1
+
+  intent=$(jq -r '.intent // "general"' <<< "$req")
+  target=$(jq -r '.target // ""' <<< "$req")
+  request=$(jq -r '.request // ""' <<< "$req")
+
+  case "$intent" in
+    launch_role|prioritize_issue)
+      issue=$(operator_target_issue_number "$target")
+      if [ -n "$issue" ]; then
+        pane_name="implement-issue-${issue}"
+        if pane_name_active "$pane_name"; then
+          record_decision "operator" "already active:${pane_name}" "$request"
+          clear_operator_request
+          return 0
+        fi
+        if add_pane "$pane_name" "implement" "$(implement_context_for_issue "$issue")" "operator: ${request:-requested issue #${issue}}"; then
+          record_decision "operator" "launched:${pane_name}" "$request"
+          clear_operator_request
+          return 0
+        fi
+        record_decision "operator" "launch failed:${pane_name}" "$request"
+        return 0
+      fi
+
+      role="$target"
+      case "$role" in
+        review)
+          local review_pr
+          review_pr=$(next_review_pr_number)
+          [ -n "$review_pr" ] || { record_decision "operator" "no reviewable PR" "$request"; clear_operator_request; return 0; }
+          pane_name="review-pr-${review_pr}"
+          if add_pane "$pane_name" "review" "$(review_context_for_pr "$review_pr")" "operator: ${request:-launch review}"; then
+            record_decision "operator" "launched:${pane_name}" "$request"
+            clear_operator_request
+            return 0
+          fi
+          record_decision "operator" "launch failed:${pane_name}" "$request"
+          return 0
+          ;;
+        fix-review)
+          local fix_pr
+          fix_pr=$(next_fix_review_pr_number)
+          [ -n "$fix_pr" ] || { record_decision "operator" "no actionable review changes" "$request"; clear_operator_request; return 0; }
+          pane_name="fix-review-pr-${fix_pr}"
+          if add_pane "$pane_name" "fix-review" "$(fix_review_context_for_pr "$fix_pr")" "operator: ${request:-launch fix-review}"; then
+            record_decision "operator" "launched:${pane_name}" "$request"
+            clear_operator_request
+            return 0
+          fi
+          record_decision "operator" "launch failed:${pane_name}" "$request"
+          return 0
+          ;;
+        e2e-bug-hunt)
+          pane_name="e2e-hunt"
+          if add_pane "$pane_name" "$role" "" "operator: ${request:-launch $role}"; then
+            record_decision "operator" "launched:${pane_name}" "$request"
+            clear_operator_request
+            return 0
+          fi
+          record_decision "operator" "launch failed:${pane_name}" "$request"
+          return 0
+          ;;
+        dev-server|e2e|watch-main|improve)
+          if add_pane "$role" "$role" "" "operator: ${request:-launch $role}"; then
+            record_decision "operator" "launched:${role}" "$request"
+            clear_operator_request
+            return 0
+          fi
+          record_decision "operator" "launch failed:${role}" "$request"
+          return 0
+          ;;
+      esac
+      ;;
+    stop_role)
+      role="$target"
+      if valid_role "$role"; then
+        kill_role "$role"
+        reconcile_panes
+        record_decision "operator" "stopped:${role}" "$request"
+        clear_operator_request
+        return 0
+      fi
+      ;;
+  esac
+
+  return 1
+}
+
 implement_context_for_issue() {
   local issue="$1"
   printf 'You are assigned to GitHub issue #%s. Work only on issue #%s in this cycle. Do not auto-select another issue unless this issue is already closed, assigned to someone else, or already has an open PR.' "$issue" "$issue"
@@ -421,6 +531,10 @@ fallback_scale() {
 scale() {
   update_pane_status
   local alive; alive=$(total_alive)
+
+  if handle_operator_request; then
+    return
+  fi
 
   if limit_reached "$alive" "$MAX_ALIVE"; then
     record_decision "guard" "max alive reached" "${alive}/${MAX_ALIVE} panes active"
