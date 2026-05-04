@@ -94,6 +94,22 @@ record_registry_entry() {
   echo "${name}|${role}|${pane}|${status}" >> "$PANE_REGISTRY"
 }
 
+reconcile_panes() {
+  local panes tmp name id role pane
+  panes=$(zellij_panes_json)
+  tmp=$(registry_tmp)
+  : > "$tmp"
+  while IFS=$'\t' read -r name id; do
+    [ -n "$name" ] || continue
+    [ -n "$id" ] || continue
+    role=$(role_from_name "$name")
+    [ -n "$role" ] || continue
+    pane="terminal_${id}"
+    echo "${name}|${role}|${pane}|alive" >> "$tmp"
+  done < <(jq -r '.[] | select(.exited | not) | [('"$pane_name_expr"'), (.id | tostring)] | @tsv' <<< "$panes" 2>/dev/null)
+  mv "$tmp" "$PANE_REGISTRY"
+}
+
 rename_zellij_pane() {
   local pane="$1" name="$2"
   [ -n "$pane" ] || return 0
@@ -102,22 +118,7 @@ rename_zellij_pane() {
 }
 
 adopt_existing_panes() {
-  local panes name id role pane reg_name existing_pane
-  panes=$(zellij_panes_json)
-  while IFS=$'\t' read -r name id; do
-    [ -n "$name" ] || continue
-    [ -n "$id" ] || continue
-    role=$(role_from_name "$name")
-    [ -n "$role" ] || continue
-    pane="terminal_${id}"
-    reg_name="$name"
-    existing_pane=$(awk -F'|' -v agent="$reg_name" '$1 == agent { print $3; exit }' "$PANE_REGISTRY")
-    if [ -n "$existing_pane" ] && [ "$existing_pane" != "$pane" ]; then
-      reg_name="${name}-${id}"
-    fi
-    rename_zellij_pane "$pane" "$reg_name"
-    record_registry_entry "$reg_name" "$role" "$pane" "alive"
-  done < <(jq -r '.[] | select(.exited | not) | [('"$pane_name_expr"'), (.id | tostring)] | @tsv' <<< "$panes" 2>/dev/null)
+  reconcile_panes
 }
 
 singleton_role() {
@@ -192,41 +193,15 @@ pane_matches_registry() {
 }
 
 update_pane_status() {
-  adopt_existing_panes
-  local tmp
-  tmp=$(registry_tmp)
-  : > "$tmp"
-  local now; now=$(date +%s)
-  while IFS='|' read -r name role pane status; do
-    if [ -z "$name" ]; then
-      case "$role" in
-        dev-server|e2e|watch-main|improve) name="$role" ;;
-        review) name="review" ;;
-        fix-review) name="fix-review" ;;
-        e2e-bug-hunt) name="e2e-hunt" ;;
-        implement) name="$(next_implement_name)" ;;
-        *) name="unknown-${pane#terminal_}" ;;
-      esac
-    fi
-    if ! pane_matches_registry "$name" "$role" "$pane"; then
-      continue
-    fi
-    local mtime=0
-    [ -f "${STATUS_DIR}/${name}.json" ] && mtime=$(stat -f%m "${STATUS_DIR}/${name}.json" 2>/dev/null || stat -c%Y "${STATUS_DIR}/${name}.json" 2>/dev/null || echo 0)
-    if [ $((now - mtime)) -lt 300 ]; then
-      echo "${name}|${role}|${pane}|alive" >> "$tmp"
-    else
-      echo "${name}|${role}|${pane}|stopped" >> "$tmp"
-    fi
-  done < "$PANE_REGISTRY"
-  mv "$tmp" "$PANE_REGISTRY"
+  reconcile_panes
   dedupe_singleton_role "dev-server"
+  reconcile_panes
   check_dev_server_health
 }
 
 add_pane() {
   local name="$1" role="$2" context="${3:-}" reason="${4:-}"
-  adopt_existing_panes
+  reconcile_panes
   if singleton_role "$role"; then
     dedupe_singleton_role "$role"
     while IFS='|' read -r n r _pane s; do
@@ -297,6 +272,7 @@ add_pane() {
   fi
   rename_zellij_pane "$pane" "$name"
   record_registry_entry "$name" "$role" "$pane" "alive"
+  reconcile_panes
 }
 
 kill_role() {

@@ -18,15 +18,13 @@ keybinds {
 layout {
     cwd "__PROJECT_CWD__"
     tab name="Pipeline" {
-        pane split_direction="horizontal" {
-            pane split_direction="vertical" {
-                pane command="bash" name="Orchestrator" {
-                    args "-c" "./scripts/orchestrator.sh"
-                }
-                pane command="bash" name="Operator" {
-                    args "-c" "./scripts/operator.sh"
-                }
-            }
+        pane command="bash" name="Orchestrator" {
+            args "-c" "./scripts/orchestrator.sh"
+        }
+    }
+    tab name="Operator" {
+        pane command="bash" name="Operator" {
+            args "-c" "./scripts/operator.sh"
         }
     }
     tab name="Agents" {
