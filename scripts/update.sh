@@ -18,21 +18,6 @@ SRC="${TMP}/kiro-engineer-teams-${BRANCH}"
 
 # Files to update (overwrite) — update.sh is excluded and handled last
 TARGETS=(
-  "scripts/agent.sh"
-  "scripts/orchestrator.sh"
-  "scripts/operator.sh"
-  "scripts/reset-project.sh"
-  "scripts/dashboard.sh"
-  "scripts/control-panel.sh"
-  "scripts/start-pipeline.sh"
-  "scripts/pipeline.kdl"
-  "scripts/setup.sh"
-  "scripts/lib/dev-server.sh"
-  "scripts/lib/github.sh"
-  "scripts/lib/orchestrator-status.sh"
-  "scripts/lib/panes.sh"
-  "scripts/lib/planner.sh"
-  "scripts/lib/render.sh"
   ".github/workflows/kiro-review.yml"
   ".github/PULL_REQUEST_TEMPLATE.md"
   ".github/ISSUE_TEMPLATE/bug_report.md"
@@ -55,11 +40,14 @@ for f in "${TARGETS[@]}"; do
   fi
 done
 
-# Update script libraries (overwrite pipeline-managed shell helpers)
-if [ -d "${SRC}/scripts/lib" ]; then
-  mkdir -p "scripts/lib"
+# Sync entire directories via wildcard
+for dir in scripts scripts/lib .kiro/prompts .kiro/skills .kiro/agents; do
+  [ -d "${SRC}/${dir}" ] || continue
+  mkdir -p "$dir"
   while IFS= read -r src_file; do
     rel="${src_file#${SRC}/}"
+    # Skip update.sh itself (handled last for self-update)
+    [ "$rel" = "scripts/update.sh" ] && continue
     mkdir -p "$(dirname "$rel")"
     if [ -f "$rel" ] && diff -q "$rel" "$src_file" >/dev/null 2>&1; then
       continue
@@ -67,38 +55,8 @@ if [ -d "${SRC}/scripts/lib" ]; then
     cp "$src_file" "$rel"
     echo "  ✅ ${rel}"
     updated=$((updated + 1))
-  done < <(find "${SRC}/scripts/lib" -type f | sort)
-fi
-
-# Update prompts (overwrite pipeline-managed prompts)
-if [ -d "${SRC}/.kiro/prompts" ]; then
-  mkdir -p ".kiro/prompts"
-  while IFS= read -r src_file; do
-    rel="${src_file#${SRC}/}"
-    mkdir -p "$(dirname "$rel")"
-    if [ -f "$rel" ] && diff -q "$rel" "$src_file" >/dev/null 2>&1; then
-      continue
-    fi
-    cp "$src_file" "$rel"
-    echo "  ✅ ${rel}"
-    updated=$((updated + 1))
-  done < <(find "${SRC}/.kiro/prompts" -type f | sort)
-fi
-
-# Update skills (overwrite pipeline-managed skills)
-if [ -d "${SRC}/.kiro/skills" ]; then
-  mkdir -p ".kiro/skills"
-  while IFS= read -r src_file; do
-    rel="${src_file#${SRC}/}"
-    mkdir -p "$(dirname "$rel")"
-    if [ -f "$rel" ] && diff -q "$rel" "$src_file" >/dev/null 2>&1; then
-      continue
-    fi
-    cp "$src_file" "$rel"
-    echo "  ✅ ${rel}"
-    updated=$((updated + 1))
-  done < <(find "${SRC}/.kiro/skills" -type f | sort)
-fi
+  done < <(find "${SRC}/${dir}" -maxdepth 1 -type f | sort)
+done
 
 # Update steering defaults only when project-specific settings are still empty.
 STEERING_SRC="${SRC}/.kiro/steering/development-rules.md"
