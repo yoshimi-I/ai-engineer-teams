@@ -9,6 +9,7 @@ export GIT_EDITOR=true
 export EDITOR=true
 export VISUAL=true
 export GIT_SEQUENCE_EDITOR=true
+export npm_config_yes=true
 
 # Force no-editor at git config level (survives subprocesses that reset env)
 git config --global core.editor true
