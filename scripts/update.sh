@@ -20,6 +20,7 @@ SRC="${TMP}/kiro-engineer-teams-${BRANCH}"
 TARGETS=(
   "scripts/agent.sh"
   "scripts/orchestrator.sh"
+  "scripts/operator.sh"
   "scripts/dashboard.sh"
   "scripts/control-panel.sh"
   "scripts/start-pipeline.sh"

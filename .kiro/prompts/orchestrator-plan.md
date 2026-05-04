@@ -62,6 +62,8 @@ Return **only a single-line JSON object**. Do not include Markdown fences, prose
 - Launch `e2e-bug-hunt` only if the latest merged PR has not already had post-merge actions spawned and no `e2e-bug-hunt` pane is active.
 - Launch `watch-main` only after a new merge when dev server is active or when you also launch `dev-server` earlier in the same plan.
 - Launch `implement` only for ready issues: unassigned, not labeled `blocked`, and not waiting on an open `depends-on: #N` dependency.
+- Ready issues may be unassigned or already assigned to the current GitHub user. Treat self-assigned ready issues as actionable recovery work.
+- If `operator_request.status` is `open`, consider it a user directive. Honor it when it does not violate hard safety rules, and explain any skip in `skip`.
 - Multiple `implement` panes are allowed when multiple ready issues can run in parallel.
 - If ready issues appear independent and touch different areas, launch multiple `implement` panes in the same plan.
 - If ready issues are likely to conflict, share broad setup files, or need sequencing despite missing explicit dependencies, launch fewer panes and explain the skipped work.
@@ -105,6 +107,7 @@ The user message contains a JSON context with:
 
 - limits
 - active panes
+- operator request
 - GitHub issue summary
 - ready issue numbers
 - review PR numbers

@@ -92,6 +92,14 @@ next_ready_issue_number() {
   ready_issue_numbers_json | jq -r '.[0] // ""'
 }
 
+operator_request_json() {
+  if [ -f "${OPERATOR_REQUEST_FILE:-}" ]; then
+    jq -c '. // {status:"empty"}' "$OPERATOR_REQUEST_FILE" 2>/dev/null || jq -n '{status:"invalid"}'
+  else
+    jq -n '{status:"empty"}'
+  fi
+}
+
 implement_context_for_issue() {
   local issue="$1"
   printf 'You are assigned to GitHub issue #%s. Work only on issue #%s in this cycle. Do not auto-select another issue unless this issue is already closed, assigned to someone else, or already has an open PR.' "$issue" "$issue"
@@ -121,6 +129,7 @@ build_ai_context() {
     --argjson dev_health "$dev_health" \
     --arg latest_merged_pr "${LATEST_MERGED_PR:-}" \
     --argjson post_merge_spawned "$post_merge_spawned" \
+    --argjson operator_request "$(operator_request_json)" \
     --argjson max_alive "$MAX_ALIVE" \
     --argjson max_implement "$MAX_IMPLEMENT" \
     --argjson ready_issue_numbers "$(ready_issue_numbers_json)" \
@@ -142,6 +151,7 @@ build_ai_context() {
       review_pr_numbers: $review_pr_numbers,
       fix_review_pr_numbers: $fix_review_pr_numbers,
       active_panes: $active,
+      operator_request: $operator_request,
       issues: {
         unassigned_count: ([$issues[] | select(.assignees | length == 0)] | length),
         ready_count: (

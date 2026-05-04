@@ -82,10 +82,16 @@ pipeline_tab_id() {
     | head -n 1
 }
 
+agents_tab_id() {
+  zellij action list-tabs --json 2>/dev/null \
+    | jq -r '.[] | select(.name == "Agents") | .tab_id' 2>/dev/null \
+    | head -n 1
+}
+
 open_agent_pane() {
   local selection="$1" prompt="$2"
   local tab_id pane
-  tab_id=$(pipeline_tab_id)
+  tab_id=$(agents_tab_id)
   if [[ -n "$tab_id" && "$tab_id" != "null" ]]; then
     pane=$(zellij action new-pane --tab-id "$tab_id" --name "$selection" --cwd "$(pwd)" --close-on-exit \
       -- bash -lc "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'")
