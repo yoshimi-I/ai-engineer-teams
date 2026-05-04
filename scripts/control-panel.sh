@@ -5,7 +5,7 @@ set -euo pipefail
 
 STATUS_DIR=".agent-status"
 PANE_REGISTRY="${STATUS_DIR}/.panes"
-REFRESH=3
+REFRESH=60
 
 # Colors
 R='\033[0m'
