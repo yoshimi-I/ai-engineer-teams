@@ -257,10 +257,10 @@ add_pane() {
   context_b64=$(agent_arg_b64 "$context")
   reason_b64=$(agent_arg_b64 "$reason")
   if [ -n "$AGENTS_TAB_ID" ] && [ "$AGENTS_TAB_ID" != "null" ]; then
-    pane=$(zellij action new-pane --tab-id "$AGENTS_TAB_ID" --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
+    pane=$(zellij action new-pane --tab-id "$AGENTS_TAB_ID" --name "$name" --cwd "$PROJECT_CWD" \
       -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   else
-    pane=$(zellij action new-pane --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
+    pane=$(zellij action new-pane --name "$name" --cwd "$PROJECT_CWD" \
       -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   fi
   if [ -z "$pane" ] || ! pane_exists "$pane"; then
