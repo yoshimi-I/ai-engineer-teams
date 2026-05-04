@@ -15,6 +15,12 @@
 
 ## 1サイクルの処理
 
+0. Playwrightがインストールされているか確認。未インストールなら:
+   ```bash
+   pnpm add -Dw @playwright/test
+   npx playwright install --with-deps chromium
+   ```
+   `playwright.config.ts` が存在しない場合はプロジェクトの dev server URL に合わせて作成する。
 1. サイクル番号に応じたシナリオでPlaywrightテストを動的生成
 2. 各ステップでスクリーンショットを撮影
 3. スクリーンショットを1枚ずつ目視確認（要素重なり、テキスト切れ、表示崩壊等）

@@ -15,10 +15,20 @@
 
 ## 開始前の準備（必須）
 
-1. ルーティング定義を読む（App.tsx, router.ts等）→ 全ルートを把握
-2. 既存E2Eテストを読む（e2e/）→ テストパターン・ヘルパーを把握
-3. Playwright設定を読む（playwright.config.ts）→ baseURL, webServer, timeout確認
-4. 既存issueを取得 → 重複防止
+1. Playwrightがインストールされているか確認:
+   ```bash
+   npx playwright --version 2>/dev/null || echo "NOT_INSTALLED"
+   ```
+   未インストールの場合は自分でセットアップする:
+   ```bash
+   pnpm add -Dw @playwright/test
+   npx playwright install --with-deps chromium
+   ```
+   `playwright.config.ts` が存在しない場合は、プロジェクトの dev server URL に合わせて作成する。
+2. ルーティング定義を読む（App.tsx, router.ts等）→ 全ルートを把握
+3. 既存E2Eテストを読む（e2e/）→ テストパターン・ヘルパーを把握
+4. Playwright設定を読む（playwright.config.ts）→ baseURL, webServer, timeout確認
+5. 既存issueを取得 → 重複防止
 
 **注意**: サーバーはDev-Serverエージェントが別ペインで起動済み。自分でサーバーを起動してはならない。
 
