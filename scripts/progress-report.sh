@@ -64,7 +64,7 @@ render() {
 
   # Open PR details
   local pr_details
-  pr_details=$(gh pr list --json number,title,reviewDecision,headRefName \
+  pr_details=$(gh pr list --json number,title,reviewDecision \
     --jq '.[] | "    #\(.number) [\(.reviewDecision // "PENDING")] \(.title)"' 2>/dev/null || true)
   if [ -n "$pr_details" ]; then
     echo -e "  ${BOLD}📝 Open PRs${R}"
@@ -72,13 +72,18 @@ render() {
     echo ""
   fi
 
-  # Recent merges
-  local recent
-  recent=$(gh pr list --state merged --limit 5 --json number,title,mergedAt \
-    --jq '.[] | "    #\(.number) \(.title) (\(.mergedAt | split("T")[0]))"' 2>/dev/null || true)
-  if [ -n "$recent" ]; then
-    echo -e "  ${BOLD}✅ 直近のマージ${R}"
-    echo -e "${DIM}${recent}${R}"
+  # Timeline: merged PRs with time, showing what feature was completed
+  local timeline
+  timeline=$(gh pr list --state merged --limit 20 --json number,title,mergedAt,closingIssuesReferences \
+    --jq '
+      sort_by(.mergedAt) | reverse | .[] |
+      (.mergedAt | split("T") | .[0] as $d | .[1] | split(".")[0] | "\($d) \(.)") as $time |
+      (.closingIssuesReferences | map("#\(.number)") | join(",")) as $issues |
+      "    \($time)  ✅ #\(.number) \(.title)\(if $issues != "" then " → closes \($issues)" else "" end)"
+    ' 2>/dev/null || true)
+  if [ -n "$timeline" ]; then
+    echo -e "  ${BOLD}📜 完了タイムライン${R}"
+    echo -e "${DIM}${timeline}${R}"
     echo ""
   fi
 
