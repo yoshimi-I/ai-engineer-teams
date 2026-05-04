@@ -259,6 +259,9 @@ add_pane() {
   local tab_args=()
   if [ -n "$PIPELINE_TAB_ID" ] && [ "$PIPELINE_TAB_ID" != "null" ]; then
     tab_args=(--tab-id "$PIPELINE_TAB_ID")
+    if [ "$role" = "dev-server" ]; then
+      tab_args+=(--direction down)
+    fi
   fi
   pane=$(zellij action new-pane "${tab_args[@]}" --close-on-exit --name "$name" --cwd "$PROJECT_CWD" \
     -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
