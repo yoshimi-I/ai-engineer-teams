@@ -143,6 +143,7 @@ handle_operator_request() {
           return 0
         fi
         record_decision "operator" "launch failed:${pane_name}" "$request"
+        clear_operator_request
         return 0
       fi
 
@@ -159,6 +160,7 @@ handle_operator_request() {
             return 0
           fi
           record_decision "operator" "launch failed:${pane_name}" "$request"
+          clear_operator_request
           return 0
           ;;
         fix-review)
@@ -172,6 +174,7 @@ handle_operator_request() {
             return 0
           fi
           record_decision "operator" "launch failed:${pane_name}" "$request"
+          clear_operator_request
           return 0
           ;;
         e2e-bug-hunt)
@@ -182,6 +185,7 @@ handle_operator_request() {
             return 0
           fi
           record_decision "operator" "launch failed:${pane_name}" "$request"
+          clear_operator_request
           return 0
           ;;
         dev-server|e2e|watch-main|improve)
@@ -191,6 +195,7 @@ handle_operator_request() {
             return 0
           fi
           record_decision "operator" "launch failed:${role}" "$request"
+          clear_operator_request
           return 0
           ;;
       esac
