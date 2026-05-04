@@ -253,24 +253,14 @@ add_pane() {
       errors: 0,
       ts: $ts
     }' > "${STATUS_DIR}/${name}.json"
-  resolve_pipeline_tab_id
   resolve_agents_tab_id
   local pane context_b64 reason_b64
   context_b64=$(agent_arg_b64 "$context")
   reason_b64=$(agent_arg_b64 "$reason")
   local tab_args=()
-  case "$role" in
-    dev-server|feature-discovery)
-      if [ -n "$AGENTS_TAB_ID" ] && [ "$AGENTS_TAB_ID" != "null" ]; then
-        tab_args=(--tab-id "$AGENTS_TAB_ID")
-      fi
-      ;;
-    *)
-      if [ -n "$PIPELINE_TAB_ID" ] && [ "$PIPELINE_TAB_ID" != "null" ]; then
-        tab_args=(--tab-id "$PIPELINE_TAB_ID")
-      fi
-      ;;
-  esac
+  if [ -n "$AGENTS_TAB_ID" ] && [ "$AGENTS_TAB_ID" != "null" ]; then
+    tab_args=(--tab-id "$AGENTS_TAB_ID")
+  fi
   pane=$(zellij action new-pane "${tab_args[@]}" --close-on-exit --name "$name" --cwd "$PROJECT_CWD" \
     -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   if [ -z "$pane" ] || ! pane_exists "$pane"; then

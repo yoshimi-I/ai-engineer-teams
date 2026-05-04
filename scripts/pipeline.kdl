@@ -28,18 +28,6 @@ layout {
                 }
             }
             pane split_direction="horizontal" size="50%" {
-                pane command="bash" name="Agents" {
-                    args "-c" "echo 'Agent panes will appear here.'; while true; do sleep 3600; done"
-                }
-            }
-        }
-    }
-    tab name="Agents" {
-        pane split_direction="vertical" {
-            pane command="bash" name="Agent Area" size="50%" {
-                args "-c" "echo 'Agent panes will appear here.'; while true; do sleep 3600; done"
-            }
-            pane split_direction="horizontal" size="50%" {
                 pane command="bash" name="Control Panel" size="50%" {
                     args "-c" "./scripts/control-panel.sh"
                 }
@@ -47,6 +35,11 @@ layout {
                     args "-c" "./scripts/operator.sh"
                 }
             }
+        }
+    }
+    tab name="Agents" {
+        pane command="bash" name="Agent Area" {
+            args "-c" "echo 'Agent panes will appear here.'; while true; do sleep 3600; done"
         }
     }
 }
