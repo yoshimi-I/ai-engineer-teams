@@ -12,7 +12,8 @@ gh_cached() {
           jq -e 'type == "array"' "$cache_file" >/dev/null 2>&1 && cat "$cache_file" && return
           ;;
         gh_user|latest_merged_pr)
-          [ "$(cat "$cache_file")" != "0" ] && cat "$cache_file" && return
+          local val; val=$(cat "$cache_file")
+          [ -n "$val" ] && [ "$val" != "0" ] && echo "$val" && return
           ;;
         *)
           cat "$cache_file" && return
@@ -63,4 +64,24 @@ refresh_github() {
     --jq '.[0].number // ""')
   HAS_MERGES=false
   [ -n "${LATEST_MERGED_PR:-}" ] && HAS_MERGES=true
+
+  auto_unblock_issues
+}
+
+auto_unblock_issues() {
+  local unblock_numbers
+  unblock_numbers=$(jq -r '
+    [.[].number] as $open
+    | .[]
+    | select([.labels[]?.name] | index("blocked"))
+    | select(
+        ((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
+          | ($deps | length) == 0 or ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))
+    | .number
+  ' <<< "${ISSUES_JSON:-[]}" 2>/dev/null)
+  local n
+  for n in $unblock_numbers; do
+    gh issue edit "$n" --remove-label blocked 2>/dev/null &
+  done
+  wait
 }
