@@ -93,10 +93,10 @@ open_agent_pane() {
   local tab_id pane
   tab_id=$(agents_tab_id)
   if [[ -n "$tab_id" && "$tab_id" != "null" ]]; then
-    pane=$(zellij action new-pane --tab-id "$tab_id" --name "$selection" --cwd "$(pwd)" --close-on-exit \
+    pane=$(zellij action new-pane --tab-id "$tab_id" --name "$selection" --cwd "$(pwd)" \
       -- bash -lc "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'")
   else
-    pane=$(zellij action new-pane --name "$selection" --cwd "$(pwd)" --close-on-exit \
+    pane=$(zellij action new-pane --name "$selection" --cwd "$(pwd)" \
       -- bash -lc "AGENT_ID='${selection}' AGENT_ONCE=true AGENT_INTERVAL=10 ./scripts/agent.sh '${prompt}'")
   fi
   zellij action rename-pane --pane-id "$pane" "$selection" 2>/dev/null || true
