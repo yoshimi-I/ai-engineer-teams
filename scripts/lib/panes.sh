@@ -33,6 +33,15 @@ resolve_agents_tab_id() {
   AGENTS_TAB_ID=$(zellij action list-tabs --json 2>/dev/null \
     | jq -r '.[] | select(.name == "Agents") | .tab_id' 2>/dev/null \
     | head -n 1)
+
+  if [ -z "$AGENTS_TAB_ID" ] || [ "$AGENTS_TAB_ID" = "null" ]; then
+    resolve_pipeline_tab_id
+    AGENTS_TAB_ID=$(zellij action new-tab --name "Agents" --cwd "$PROJECT_CWD" \
+      -- bash -lc "echo 'Agent panes will be created here by the orchestrator.'; while true; do sleep 3600; done" 2>/dev/null || true)
+    if [ -n "$PIPELINE_TAB_ID" ] && [ "$PIPELINE_TAB_ID" != "null" ]; then
+      zellij action go-to-tab-by-id "$PIPELINE_TAB_ID" 2>/dev/null || true
+    fi
+  fi
 }
 
 pane_exists() {
