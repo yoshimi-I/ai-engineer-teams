@@ -48,7 +48,10 @@ refresh_github() {
   ISSUES=$(jq 'length' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
   READY_ISSUES=$(jq --arg me "${GH_USER:-}" '
     [.[].number] as $open
-    | [.[] | select((.assignees | length == 0) or ([.assignees[]?.login] | index($me)))
+    | [.[] | select(
+        (.assignees | length == 0)
+        or ($me != "" and ([.assignees[]?.login] | index($me)))
+        or ($me == ""))
       | select(([.labels[]?.name] | index("blocked") | not))
       | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
         | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]

@@ -53,7 +53,7 @@ fix_review_pr_numbers_json() {
   active=$(active_pr_numbers_json "fix-review" "fix-review")
   jq --arg me "${GH_USER:-}" --argjson active "$active" '
     [.[] | select(.reviewDecision == "CHANGES_REQUESTED")
-      | select((.assignees | length == 0) or ([.assignees[]?.login] | index($me)))
+      | select((.assignees | length == 0) or ($me != "" and ([.assignees[]?.login] | index($me))) or ($me == ""))
       | select((.number as $n | $active | index($n) | not))
       | .number]
   ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo "[]"
@@ -79,7 +79,10 @@ ready_issue_numbers_json() {
     --arg me "${GH_USER:-}" \
     --argjson active "$active" '
     [.[].number] as $open
-    | [.[] | select((.assignees | length == 0) or ([.assignees[]?.login] | index($me)))
+    | [.[] | select(
+        (.assignees | length == 0)
+        or ($me != "" and ([.assignees[]?.login] | index($me)))
+        or ($me == ""))
       | select(([.labels[]?.name] | index("blocked") | not))
       | select((.number as $n | $active | index($n) | not))
       | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
@@ -271,7 +274,10 @@ build_ai_context() {
         unassigned_count: ([$issues[] | select(.assignees | length == 0)] | length),
         ready_count: (
           [$issues[].number] as $open
-          | [$issues[] | select((.assignees | length == 0) or ([.assignees[]?.login] | index($me)))
+          | [$issues[] | select(
+              (.assignees | length == 0)
+              or ($me != "" and ([.assignees[]?.login] | index($me)))
+              or ($me == ""))
             | select(([.labels[]?.name] | index("blocked") | not))
             | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
               | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]
