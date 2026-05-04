@@ -28,7 +28,10 @@ layout {
                 }
             }
             pane split_direction="horizontal" size="50%" {
-                pane command="bash" name="Agents" {
+                pane command="bash" name="Progress Report" size="50%" {
+                    args "-c" "./scripts/progress-report.sh"
+                }
+                pane command="bash" name="Agents" size="50%" {
                     args "-c" "echo 'Agent panes will appear here.'; while true; do sleep 3600; done"
                 }
             }
