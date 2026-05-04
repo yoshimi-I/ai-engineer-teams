@@ -323,7 +323,7 @@ $context" 2>/dev/null || true)
 
 valid_role() {
   case "$1" in
-    dev-server|implement|review|fix-review|e2e|e2e-bug-hunt|watch-main|improve) return 0 ;;
+    dev-server|implement|review|fix-review|e2e|e2e-bug-hunt|watch-main|improve|feature-discovery) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -531,6 +531,13 @@ fallback_scale() {
       fi
     fi
     [ -n "$launched" ] && mark_post_merge_spawned
+  fi
+
+  # Issue が 0 件なら feature-discovery を起動して新機能を提案→issue作成
+  if [ "${ISSUES:-0}" -eq 0 ] && ! role_active "feature-discovery" && below_limit "$(total_alive)" "$MAX_ALIVE"; then
+    if add_pane "feature-discovery" "feature-discovery" "" "オープン issue が 0 件のため、新機能を調査して issue を作成する。"; then
+      launched="${launched} feature-discovery"
+    fi
   fi
 
   if [ -n "$launched" ]; then

@@ -83,6 +83,7 @@ role_from_name() {
     e2e-hunt) echo "e2e-bug-hunt" ;;
     watch-main) echo "watch-main" ;;
     improve) echo "improve" ;;
+    feature-discovery) echo "feature-discovery" ;;
     implement-*) echo "implement" ;;
     *) echo "" ;;
   esac
@@ -136,7 +137,7 @@ adopt_existing_panes() {
 
 singleton_role() {
   case "$1" in
-    dev-server|e2e|e2e-bug-hunt|watch-main|improve) return 0 ;;
+    dev-server|e2e|e2e-bug-hunt|watch-main|improve|feature-discovery) return 0 ;;
     *) return 1 ;;
   esac
 }
