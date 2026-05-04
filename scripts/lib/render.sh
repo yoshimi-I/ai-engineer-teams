@@ -111,7 +111,7 @@ render() {
         --jq '.[] | select(.assignees | length > 0) | "  #\(.number) \(.title) ← \(.assignees[0].login)"' 2>/dev/null || true
       echo "OPEN_PRS:"
       gh pr list --json number,title,headRefName,reviewDecision \
-        --jq '.[] | "  #\(.number) [\(.reviewDecision // "PENDING")] \(.title) (\(.headRefName))"' 2>/dev/null || true
+        --jq '.[] | "  #\(.number) [\(.reviewDecision // "PENDING" | if . == "CHANGES_REQUESTED" then "修正必須" elif . == "APPROVED" then "承認済み" elif . == "REVIEW_REQUIRED" then "レビュー待ち" else "未レビュー" end)] \(.title) (\(.headRefName))"' 2>/dev/null || true
     } > "$summary_file" 2>/dev/null || true
   fi
 

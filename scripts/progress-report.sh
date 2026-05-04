@@ -65,7 +65,7 @@ render() {
   # Open PR details
   local pr_details
   pr_details=$(gh pr list --json number,title,reviewDecision \
-    --jq '.[] | "    #\(.number) [\(.reviewDecision // "PENDING")] \(.title)"' 2>/dev/null || true)
+    --jq '.[] | "    #\(.number) [\(.reviewDecision // "PENDING" | if . == "CHANGES_REQUESTED" then "修正必須" elif . == "APPROVED" then "承認済み" elif . == "REVIEW_REQUIRED" then "レビュー待ち" else "未レビュー" end)] \(.title)"' 2>/dev/null || true)
   if [ -n "$pr_details" ]; then
     echo -e "  ${BOLD}📝 Open PRs${R}"
     echo -e "${DIM}${pr_details}${R}"
@@ -76,10 +76,26 @@ render() {
   local timeline
   timeline=$(gh pr list --state merged --limit 20 --json number,title,mergedAt,closingIssuesReferences \
     --jq '
+      def jp_prefix:
+        if startswith("feat") then "🆕 機能追加"
+        elif startswith("fix") then "🐛 バグ修正"
+        elif startswith("chore") then "🔧 整備"
+        elif startswith("ci") then "⚙️ CI/CD"
+        elif startswith("infra") then "☁️ インフラ"
+        elif startswith("docs") then "📝 ドキュメント"
+        elif startswith("refactor") then "♻️ リファクタ"
+        elif startswith("test") then "🧪 テスト"
+        elif startswith("style") then "🎨 スタイル"
+        elif startswith("perf") then "⚡ 性能改善"
+        else "📦 その他" end;
+      def strip_prefix:
+        capture("^[a-z]+(?:\\([^)]*\\))?[!]?:\\s*(?<rest>.+)") // {rest: .} | .rest;
       sort_by(.mergedAt) | reverse | .[] |
       (.mergedAt | split("T") | .[0] as $d | .[1] | split(".")[0] | "\($d) \(.)") as $time |
       (.closingIssuesReferences | map("#\(.number)") | join(",")) as $issues |
-      "    \($time)  ✅ #\(.number) \(.title)\(if $issues != "" then " → closes \($issues)" else "" end)"
+      (.title | jp_prefix) as $label |
+      (.title | strip_prefix) as $desc |
+      "    \($time)  \($label): \($desc)\(if $issues != "" then " (closes \($issues))" else "" end)"
     ' 2>/dev/null || true)
   if [ -n "$timeline" ]; then
     echo -e "  ${BOLD}📜 完了タイムライン${R}"
