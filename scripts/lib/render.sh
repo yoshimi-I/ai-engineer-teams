@@ -23,6 +23,15 @@ render() {
     fi
   fi
   echo -e "  \033[35m🧠 ${LAST_PLAN_SOURCE}\033[0m  ${LAST_DECISION_SUMMARY}  \033[2m${LAST_DECISION_DETAIL} (${LAST_DECISION_TS:---:--:--}) next:${TICK_INTERVAL}s\033[0m"
+  if [ -f "${OPERATOR_REQUEST_FILE:-}" ]; then
+    local op_status op_request op_target
+    op_status=$(jq -r '.status // "empty"' "$OPERATOR_REQUEST_FILE" 2>/dev/null || echo invalid)
+    if [ "$op_status" = "open" ]; then
+      op_request=$(jq -r '.request // ""' "$OPERATOR_REQUEST_FILE" 2>/dev/null || echo "")
+      op_target=$(jq -r '.target // ""' "$OPERATOR_REQUEST_FILE" 2>/dev/null || echo "")
+      echo -e "  \033[35m💬 operator:\033[0m \033[2m${op_target:+${op_target} }${op_request:0:120}\033[0m"
+    fi
+  fi
   echo ""
 
   printf "  \033[2m┌──────────────────────┬──────────────┬────────┬────────────────────────────────────────────────────────┐\033[0m\n"

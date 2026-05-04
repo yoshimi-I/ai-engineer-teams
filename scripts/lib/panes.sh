@@ -25,6 +25,16 @@ resolve_pipeline_tab_id() {
   fi
 }
 
+resolve_agents_tab_id() {
+  if [ -n "$AGENTS_TAB_ID" ]; then
+    return
+  fi
+
+  AGENTS_TAB_ID=$(zellij action list-tabs --json 2>/dev/null \
+    | jq -r '.[] | select(.name == "Agents") | .tab_id' 2>/dev/null \
+    | head -n 1)
+}
+
 pane_exists() {
   local pane="$1"
   local id
@@ -254,12 +264,12 @@ add_pane() {
       errors: 0,
       ts: $ts
     }' > "${STATUS_DIR}/${name}.json"
-  resolve_pipeline_tab_id
+  resolve_agents_tab_id
   local pane context_env reason_env
   context_env=$(printf '%q' "$context")
   reason_env=$(printf '%q' "$reason")
-  if [ -n "$PIPELINE_TAB_ID" ] && [ "$PIPELINE_TAB_ID" != "null" ]; then
-    pane=$(zellij action new-pane --tab-id "$PIPELINE_TAB_ID" --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
+  if [ -n "$AGENTS_TAB_ID" ] && [ "$AGENTS_TAB_ID" != "null" ]; then
+    pane=$(zellij action new-pane --tab-id "$AGENTS_TAB_ID" --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
       -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT=${context_env} AGENT_REASON=${reason_env} AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   else
     pane=$(zellij action new-pane --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
