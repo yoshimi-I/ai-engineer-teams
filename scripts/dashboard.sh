@@ -72,7 +72,7 @@ progress_bar() {
 
 while true; do
   clear
-  mapfile -t AGENTS < <(discover_agents)
+  AGENTS=(); while IFS= read -r _a; do AGENTS+=("$_a"); done < <(discover_agents)
 
   # Header
   echo -e "${BOLD}${CYAN}"

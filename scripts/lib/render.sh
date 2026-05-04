@@ -183,10 +183,11 @@ render() {
     echo -e "  \033[35m判断元:\033[0m \033[2m${LAST_PLAN_SOURCE}\033[0m"
     echo -e "  \033[32m判断:\033[0m \033[2m${LAST_DECISION_SUMMARY} ${LAST_DECISION_DETAIL}\033[0m"
     if [ -f "${CACHE_DIR}/orchestrator_plan.raw" ]; then
-      local raw_preview
-      raw_preview=$(tr '\n' ' ' < "${CACHE_DIR}/orchestrator_plan.raw" | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-180)
+      local raw_preview cols
+      cols=$(tput cols 2>/dev/null || echo 120)
+      raw_preview=$(tr '\n' ' ' < "${CACHE_DIR}/orchestrator_plan.raw" | sed 's/[[:space:]][[:space:]]*/ /g')
       [ -n "$raw_preview" ] || raw_preview="empty response from AI planner"
-      echo -e "  \033[33mAI応答:\033[0m \033[2m${raw_preview}\033[0m"
+      echo -e "  \033[33mAI応答:\033[0m \033[2m$(echo "$raw_preview" | fold -s -w $((cols - 4)))\033[0m"
     fi
     echo ""
   fi

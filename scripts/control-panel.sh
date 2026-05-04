@@ -105,7 +105,7 @@ open_agent_pane() {
 
 show_panel() {
   clear
-  mapfile -t AGENTS < <(discover_agents)
+  AGENTS=(); while IFS= read -r _a; do AGENTS+=("$_a"); done < <(discover_agents)
   # Header
   echo -e "${BOLD}${CYAN}"
   echo "  ╔══════════════════════════════════════════════════════════════════╗"
@@ -205,7 +205,7 @@ show_panel() {
 }
 
 stop_agent() {
-  mapfile -t AGENTS < <(discover_agents)
+  AGENTS=(); while IFS= read -r _a; do AGENTS+=("$_a"); done < <(discover_agents)
   local selection
   selection=$(printf '%s\n' "${AGENTS[@]}" | gum choose --header "Select agent to stop:")
   [[ -z "$selection" ]] && return
@@ -225,7 +225,7 @@ JSON
 }
 
 restart_agent() {
-  mapfile -t AGENTS < <(discover_agents)
+  AGENTS=(); while IFS= read -r _a; do AGENTS+=("$_a"); done < <(discover_agents)
   local selection
   selection=$(printf '%s\n' "${AGENTS[@]}" | gum choose --header "Select agent to restart:")
   [[ -z "$selection" ]] && return
@@ -252,7 +252,7 @@ restart_agent() {
 
 stop_all() {
   if gum confirm "Stop all agents?"; then
-    mapfile -t AGENTS < <(discover_agents)
+    AGENTS=(); while IFS= read -r _a; do AGENTS+=("$_a"); done < <(discover_agents)
     for id in "${AGENTS[@]}"; do
       local pane
       pane=$(pane_for_agent "$id" || true)
@@ -271,7 +271,7 @@ JSON
 }
 
 view_log() {
-  mapfile -t AGENTS < <(discover_agents)
+  AGENTS=(); while IFS= read -r _a; do AGENTS+=("$_a"); done < <(discover_agents)
   local selection
   selection=$(printf '%s\n' "${AGENTS[@]}" | gum choose --header "Select agent log:")
   [[ -z "$selection" ]] && return
