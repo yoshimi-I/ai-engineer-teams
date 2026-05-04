@@ -336,7 +336,7 @@ execute_ai_plan() {
     if role_active "$role"; then
       kill_role "$role"
       changed=$((changed + 1))
-      launched_roles="${launched_roles} stopped-${role}(${reason:-no reason})"
+      launched_roles="${launched_roles} ${role}を停止(${reason:-理由なし})"
     fi
   done < <(jq -r '.stop[]? | [.role, (.reason // "")] | @tsv' <<< "$plan" 2>/dev/null)
 
@@ -346,7 +346,7 @@ execute_ai_plan() {
       continue
     fi
     if limit_reached "$(total_alive)" "$MAX_ALIVE"; then
-      skipped="${skipped} max-alive"
+      skipped="${skipped} 上限到達:稼働pane数"
       break
     fi
     if [ "$role" != "implement" ] && singleton_role "$role" && role_active "$role"; then
@@ -355,15 +355,15 @@ execute_ai_plan() {
     fi
     case "$role" in
       dev-server)
-        if [ "$AUTO_DEV_SERVER" != "true" ]; then skipped="${skipped} dev-disabled"; continue; fi
-        if ! has_dev_target; then skipped="${skipped} no-dev-target"; continue; fi
+        if [ "$AUTO_DEV_SERVER" != "true" ]; then skipped="${skipped} dev-server自動起動なし"; continue; fi
+        if ! has_dev_target; then skipped="${skipped} dev対象なし"; continue; fi
         ;;
       implement)
-        if [ "${READY_ISSUES:-0}" -le 0 ]; then skipped="${skipped} no-ready-issues"; continue; fi
-        if limit_reached "$(count_alive "implement")" "$MAX_IMPLEMENT"; then skipped="${skipped} max-implement"; continue; fi
-        if [ "$launched_implement" -ge "${READY_ISSUES:-0}" ]; then skipped="${skipped} no-more-ready-issues"; continue; fi
+        if [ "${READY_ISSUES:-0}" -le 0 ]; then skipped="${skipped} ready issueなし"; continue; fi
+        if limit_reached "$(count_alive "implement")" "$MAX_IMPLEMENT"; then skipped="${skipped} 実装pane上限"; continue; fi
+        if [ "$launched_implement" -ge "${READY_ISSUES:-0}" ]; then skipped="${skipped} 追加ready issueなし"; continue; fi
         issue_num="$(next_ready_issue_number)"
-        if [ -z "$issue_num" ]; then skipped="${skipped} no-ready-issue-number"; continue; fi
+        if [ -z "$issue_num" ]; then skipped="${skipped} ready issue番号なし"; continue; fi
         name="implement-issue-${issue_num}"
         launched_implement=$((launched_implement + 1))
         ;;
@@ -374,13 +374,13 @@ execute_ai_plan() {
         if [[ "$name" =~ ^fix-review-pr-([0-9]+)$ ]]; then
           pr_num="${BASH_REMATCH[1]}"
           if ! json_has_number "$pr_num" "$fix_candidates"; then
-            skipped="${skipped} not-actionable:${name}"
+            skipped="${skipped} 修正対象外:${name}"
             continue
           fi
         else
           pr_num="$(jq -r '.[0] // ""' <<< "$fix_candidates")"
         fi
-        if [ -z "$pr_num" ]; then skipped="${skipped} no-actionable-review-changes"; continue; fi
+        if [ -z "$pr_num" ]; then skipped="${skipped} 修正可能なレビュー指摘なし"; continue; fi
         name="fix-review-pr-${pr_num}"
         ;;
       review)
@@ -390,39 +390,39 @@ execute_ai_plan() {
         if [[ "$name" =~ ^review-pr-([0-9]+)$ ]]; then
           pr_num="${BASH_REMATCH[1]}"
           if ! json_has_number "$pr_num" "$review_candidates"; then
-            skipped="${skipped} not-reviewable:${name}"
+            skipped="${skipped} レビュー対象外:${name}"
             continue
           fi
         else
           pr_num="$(jq -r '.[0] // ""' <<< "$review_candidates")"
         fi
-        if [ -z "$pr_num" ]; then skipped="${skipped} no-reviewable-pr"; continue; fi
+        if [ -z "$pr_num" ]; then skipped="${skipped} レビュー対象PRなし"; continue; fi
         name="review-pr-${pr_num}"
         ;;
       e2e)
-        if ! role_active "dev-server"; then skipped="${skipped} no-dev-server"; continue; fi
+        if ! role_active "dev-server"; then skipped="${skipped} dev-server未起動"; continue; fi
         ;;
       e2e-bug-hunt)
-        if ! role_active "dev-server"; then skipped="${skipped} no-dev-server"; continue; fi
-        if ! post_merge_due; then skipped="${skipped} no-new-merge"; continue; fi
+        if ! role_active "dev-server"; then skipped="${skipped} dev-server未起動"; continue; fi
+        if ! post_merge_due; then skipped="${skipped} 新規mergeなし"; continue; fi
         ;;
       watch-main)
-        if ! role_active "dev-server"; then skipped="${skipped} no-dev-server"; continue; fi
+        if ! role_active "dev-server"; then skipped="${skipped} dev-server未起動"; continue; fi
         if [ "$AUTO_WATCH_MAIN" != "true" ] || ! post_merge_due; then
-          skipped="${skipped} watch-disabled"
+          skipped="${skipped} watch-main条件未成立"
           continue
         fi
         ;;
       improve)
         if [ "$AUTO_IMPROVE" != "true" ] || [ "${ISSUES:-0}" -ne 0 ]; then
-          skipped="${skipped} improve-disabled-or-issues"
+          skipped="${skipped} improve条件未成立"
           continue
         fi
         ;;
     esac
     [ -n "$name" ] && [ "$name" != "null" ] || name="$role"
     if pane_name_active "$name"; then
-      skipped="${skipped} active-name:${name}"
+      skipped="${skipped} 既に起動:${name}"
       continue
     fi
     context=""
@@ -438,7 +438,7 @@ execute_ai_plan() {
       launched=$((launched + 1))
       launched_roles="${launched_roles} ${name}:${role}"
     else
-      skipped="${skipped} launch-failed:${name}"
+      skipped="${skipped} 起動失敗:${name}"
     fi
   done < <(jq -r '.actions[]? | [.role, (.name // .role), (.reason // "")] | @tsv' <<< "$plan" 2>/dev/null)
 
@@ -447,14 +447,14 @@ execute_ai_plan() {
   fi
 
   if [ "$changed" -gt 0 ]; then
-    record_decision "ai" "changed:${launched_roles# }" "skipped:${skipped# }"
+    record_decision "ai" "変更:${launched_roles# }" "見送り:${skipped# }"
     return 0
   fi
 
   local skip_reasons
   skip_reasons=$(jq -r '[.skip[]? | .role + ":" + .reason] | join(" | ")' <<< "$plan" 2>/dev/null)
-  [ -n "$skip_reasons" ] && [ "$skip_reasons" != "null" ] || skip_reasons="skipped:${skipped# }"
-  record_decision "ai" "no pane launched" "$skip_reasons"
+  [ -n "$skip_reasons" ] && [ "$skip_reasons" != "null" ] || skip_reasons="見送り:${skipped# }"
+  record_decision "ai" "pane作成なし" "$skip_reasons"
   return 1
 }
 
@@ -470,7 +470,7 @@ fallback_scale() {
 
   local desired=0
   if [ "$AUTO_DEV_SERVER" = "true" ] && has_dev_target && ! role_active "dev-server" && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-    if add_pane "dev-server" "dev-server" "" "fallback: dev target exists and dev-server is not active"; then
+    if add_pane "dev-server" "dev-server" "" "開発サーバー対象があり、dev-server pane が未起動のため作成する。"; then
       launched="${launched} dev-server"
     fi
   fi
@@ -486,7 +486,7 @@ fallback_scale() {
     issue_num="$(next_ready_issue_number)"
     [ -n "$issue_num" ] || break
     impl_name="implement-issue-${issue_num}"
-    if add_pane "$impl_name" "implement" "$(implement_context_for_issue "$issue_num")" "fallback: ready issue #${issue_num}"; then
+    if add_pane "$impl_name" "implement" "$(implement_context_for_issue "$issue_num")" "ready issue #${issue_num} があり、依存待ちではないため実装 pane を作成する。"; then
       launched="${launched} ${impl_name}"
       cur_impl=$((cur_impl + 1))
     else
@@ -496,31 +496,31 @@ fallback_scale() {
 
   pr_num="$(next_review_pr_number)"
   if [ -n "$pr_num" ] && [ "$cur_review" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-    if add_pane "review-pr-${pr_num}" "review" "$(review_context_for_pr "$pr_num")" "fallback: PR #${pr_num} needs review/merge handling"; then
+    if add_pane "review-pr-${pr_num}" "review" "$(review_context_for_pr "$pr_num")" "PR #${pr_num} がレビューまたはマージ判断待ちのため review pane を作成する。"; then
       launched="${launched} review-pr-${pr_num}"
     fi
   fi
 
   pr_num="$(next_fix_review_pr_number)"
   if [ -n "$pr_num" ] && [ "$cur_fix" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-    if add_pane "fix-review-pr-${pr_num}" "fix-review" "$(fix_review_context_for_pr "$pr_num")" "fallback: PR #${pr_num} has actionable requested changes"; then
+    if add_pane "fix-review-pr-${pr_num}" "fix-review" "$(fix_review_context_for_pr "$pr_num")" "PR #${pr_num} に対応可能な requested changes があるため fix-review pane を作成する。"; then
       launched="${launched} fix-review-pr-${pr_num}"
     fi
   fi
 
   if post_merge_due && role_active "dev-server" && below_limit "$(total_alive)" "$MAX_ALIVE"; then
     if [ "$cur_e2e" -eq 0 ]; then
-      if add_pane "e2e-hunt" "e2e-bug-hunt" "" "fallback: new merge detected and dev-server is active"; then
+      if add_pane "e2e-hunt" "e2e-bug-hunt" "" "新しい merge を検出し、dev-server が稼働中のため E2E bug hunt pane を作成する。"; then
         launched="${launched} e2e-hunt"
       fi
     fi
     if [ "$AUTO_WATCH_MAIN" = "true" ] && [ "$cur_watch" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-      if add_pane "watch-main" "watch-main" "" "fallback: watch-main enabled after merge"; then
+      if add_pane "watch-main" "watch-main" "" "merge 後監視が有効なため watch-main pane を作成する。"; then
         launched="${launched} watch-main"
       fi
     fi
     if [ "$AUTO_IMPROVE" = "true" ] && [ "$cur_imp" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-      if add_pane "improve" "improve" "" "fallback: improve enabled after merge"; then
+      if add_pane "improve" "improve" "" "実装 work が空で improve 自動起動が有効なため improve pane を作成する。"; then
         launched="${launched} improve"
       fi
     fi
@@ -528,27 +528,27 @@ fallback_scale() {
   fi
 
   if [ -n "$launched" ]; then
-    record_decision "fallback" "launched:${launched# }" "conservative rule matched"
+    record_decision "fallback" "作成:${launched# }" "安全側の fallback ルールに一致したため pane を作成した。"
   else
     local idle_detail=""
     if [ "$AUTO_DEV_SERVER" != "true" ]; then
-      idle_detail="${idle_detail} dev-server automation disabled;"
+      idle_detail="${idle_detail} dev-server 自動起動が無効;"
     elif ! has_dev_target; then
-      idle_detail="${idle_detail} no dev target;"
+      idle_detail="${idle_detail} 開発サーバー対象なし;"
     elif role_active "dev-server"; then
-      idle_detail="${idle_detail} dev-server already active;"
+      idle_detail="${idle_detail} dev-server は既に稼働中;"
     else
-      idle_detail="${idle_detail} dev-server launch not needed;"
+      idle_detail="${idle_detail} dev-server 作成不要;"
     fi
-    [ "${READY_ISSUES:-0}" -le 0 ] && idle_detail="${idle_detail} no ready issues;"
-    [ -z "$(next_review_pr_number)" ] && idle_detail="${idle_detail} no reviewable PRs;"
-    [ -z "$(next_fix_review_pr_number)" ] && idle_detail="${idle_detail} no requested-change PRs;"
+    [ "${READY_ISSUES:-0}" -le 0 ] && idle_detail="${idle_detail} ready issue なし;"
+    [ -z "$(next_review_pr_number)" ] && idle_detail="${idle_detail} レビュー対象 PR なし;"
+    [ -z "$(next_fix_review_pr_number)" ] && idle_detail="${idle_detail} 対応可能な requested changes なし;"
     if ! post_merge_due; then
-      idle_detail="${idle_detail} no new post-merge work;"
+      idle_detail="${idle_detail} 新規 merge 後作業なし;"
     elif ! role_active "dev-server"; then
-      idle_detail="${idle_detail} post-merge work waits for dev-server;"
+      idle_detail="${idle_detail} merge 後作業は dev-server 待ち;"
     fi
-    record_decision "fallback" "idle" "${idle_detail# }"
+    record_decision "fallback" "待機" "${idle_detail# }"
   fi
 }
 

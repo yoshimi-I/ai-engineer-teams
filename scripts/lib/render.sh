@@ -123,27 +123,66 @@ render() {
   fi
 
   if [ -f "$AI_PLAN_FILE" ]; then
-    echo -e "  \033[1m🧠 Last AI Plan\033[0m"
-    local actions skips
-    actions=$(jq -r '[.actions[]? | (.name // .role) + ":" + .role + (if .reason then " (" + .reason + ")" else "" end)] | join(" | ")' "$AI_PLAN_FILE" 2>/dev/null)
-    stops=$(jq -r '[.stop[]? | .role + (if .reason then " (" + .reason + ")" else "" end)] | join(" | ")' "$AI_PLAN_FILE" 2>/dev/null)
-    skips=$(jq -r '[.skip[]? | .role + ":" + .reason] | join(" | ")' "$AI_PLAN_FILE" 2>/dev/null)
-    [ -n "$actions" ] && [ "$actions" != "null" ] || actions="none"
-    [ -n "$stops" ] && [ "$stops" != "null" ] || stops="none"
-    [ -n "$skips" ] && [ "$skips" != "null" ] || skips="none"
-    echo -e "  \033[32mActions:\033[0m \033[2m${actions}\033[0m"
-    echo -e "  \033[31mStops:\033[0m \033[2m${stops}\033[0m"
-    echo -e "  \033[33mSkipped:\033[0m \033[2m${skips:0:140}\033[0m"
+    echo -e "  \033[1m🧭 オーケストレーション方針\033[0m"
+    local actions stops skips
+    actions=$(jq -r '
+      def role_label:
+        if . == "dev-server" then "開発サーバー"
+        elif . == "implement" then "実装"
+        elif . == "review" then "レビュー"
+        elif . == "fix-review" then "レビュー修正"
+        elif . == "e2e" then "E2E"
+        elif . == "e2e-bug-hunt" then "E2E巡回"
+        elif . == "watch-main" then "main監視"
+        elif . == "improve" then "改善提案"
+        else . end;
+      [.actions[]? | "  - " + ((.name // .role) | tostring) + "（" + (.role | role_label) + "）を作成: " + (.reason // "理由なし")]
+      | .[]?
+    ' "$AI_PLAN_FILE" 2>/dev/null)
+    stops=$(jq -r '
+      def role_label:
+        if . == "dev-server" then "開発サーバー"
+        elif . == "implement" then "実装"
+        elif . == "review" then "レビュー"
+        elif . == "fix-review" then "レビュー修正"
+        elif . == "e2e" then "E2E"
+        elif . == "e2e-bug-hunt" then "E2E巡回"
+        elif . == "watch-main" then "main監視"
+        elif . == "improve" then "改善提案"
+        else . end;
+      [.stop[]? | "  - " + (.role | role_label) + "を停止: " + (.reason // "理由なし")]
+      | .[]?
+    ' "$AI_PLAN_FILE" 2>/dev/null)
+    skips=$(jq -r '
+      def role_label:
+        if . == "dev-server" then "開発サーバー"
+        elif . == "implement" then "実装"
+        elif . == "review" then "レビュー"
+        elif . == "fix-review" then "レビュー修正"
+        elif . == "e2e" then "E2E"
+        elif . == "e2e-bug-hunt" then "E2E巡回"
+        elif . == "watch-main" then "main監視"
+        elif . == "improve" then "改善提案"
+        else . end;
+      [.skip[]? | "  - " + (.role | role_label) + "を見送り: " + (.reason // "理由なし")]
+      | .[]?
+    ' "$AI_PLAN_FILE" 2>/dev/null)
+    echo -e "  \033[32m作成するpane:\033[0m"
+    if [ -n "$actions" ]; then echo -e "\033[2m${actions}\033[0m"; else echo -e "  \033[2m- なし\033[0m"; fi
+    echo -e "  \033[31m閉じるpane:\033[0m"
+    if [ -n "$stops" ]; then echo -e "\033[2m${stops}\033[0m"; else echo -e "  \033[2m- なし\033[0m"; fi
+    echo -e "  \033[33m見送り:\033[0m"
+    if [ -n "$skips" ]; then echo -e "\033[2m${skips}\033[0m"; else echo -e "  \033[2m- なし\033[0m"; fi
     echo ""
   elif [ -f "${CACHE_DIR}/orchestrator_plan.raw" ] || [ -f "$DECISION_FILE" ]; then
-    echo -e "  \033[1m🧠 Planner Diagnostics\033[0m"
-    echo -e "  \033[35mSource:\033[0m \033[2m${LAST_PLAN_SOURCE}\033[0m"
-    echo -e "  \033[32mDecision:\033[0m \033[2m${LAST_DECISION_SUMMARY} ${LAST_DECISION_DETAIL}\033[0m"
+    echo -e "  \033[1m🧭 オーケストレーション方針\033[0m"
+    echo -e "  \033[35m判断元:\033[0m \033[2m${LAST_PLAN_SOURCE}\033[0m"
+    echo -e "  \033[32m判断:\033[0m \033[2m${LAST_DECISION_SUMMARY} ${LAST_DECISION_DETAIL}\033[0m"
     if [ -f "${CACHE_DIR}/orchestrator_plan.raw" ]; then
       local raw_preview
       raw_preview=$(tr '\n' ' ' < "${CACHE_DIR}/orchestrator_plan.raw" | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-180)
       [ -n "$raw_preview" ] || raw_preview="empty response from AI planner"
-      echo -e "  \033[33mAI raw:\033[0m \033[2m${raw_preview}\033[0m"
+      echo -e "  \033[33mAI応答:\033[0m \033[2m${raw_preview}\033[0m"
     fi
     echo ""
   fi
