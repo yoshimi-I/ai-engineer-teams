@@ -190,6 +190,9 @@ while true; do
   cycle=$((cycle + 1))
   echo "━━━ Cycle #${cycle} [$(date '+%H:%M:%S')] ━━━"
 
+  # Pull latest main before each cycle
+  git pull --rebase origin main --quiet 2>/dev/null || true
+
   # Reset context for new cycle
   CURRENT_ISSUE=""
   CURRENT_PR=""
