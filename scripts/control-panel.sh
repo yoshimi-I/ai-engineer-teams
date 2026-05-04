@@ -299,9 +299,42 @@ toggle_orchestrator() {
   sleep 1
 }
 
+STALL_THRESHOLD="${CTRL_STALL_THRESHOLD:-600}"
+OPERATOR_REQUEST="${STATUS_DIR}/operator-request.json"
+
+check_stalled_agents() {
+  local now stalled_list=""
+  now=$(date +%s)
+  AGENTS=(); while IFS= read -r _a; do AGENTS+=("$_a"); done < <(discover_agents)
+  for id in "${AGENTS[@]}"; do
+    local f="${STATUS_DIR}/${id}.json"
+    [ -f "$f" ] || continue
+    local epoch state
+    epoch=$(jq -r '.epoch // 0' "$f" 2>/dev/null || echo 0)
+    state=$(jq -r '.state // ""' "$f" 2>/dev/null || echo "")
+    [ "$epoch" -gt 0 ] || continue
+    local age=$(( now - epoch ))
+    if [ "$age" -ge "$STALL_THRESHOLD" ] && [[ "$state" == *running* ]]; then
+      stalled_list="${stalled_list}${id}(${age}s) "
+    fi
+  done
+  if [ -n "$stalled_list" ]; then
+    local cur_status
+    cur_status=$(jq -r '.status // "empty"' "$OPERATOR_REQUEST" 2>/dev/null || echo empty)
+    if [ "$cur_status" != "open" ]; then
+      jq -n \
+        --arg ts "$(date '+%H:%M:%S')" \
+        --arg request "STALL DETECTED: ${stalled_list}— auto-reported by control panel" \
+        '{status:"open",ts:$ts,request:$request,intent:"general",target:"",priority:"high"}' \
+        > "$OPERATOR_REQUEST"
+    fi
+  fi
+}
+
 # Main loop
 while true; do
   show_panel
+  check_stalled_agents
 
   # Read single key with timeout
   if read -rsn1 -t "$REFRESH" key; then

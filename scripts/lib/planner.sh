@@ -201,6 +201,16 @@ handle_operator_request() {
           clear_operator_request
           return 0
           ;;
+        create-issue|feature-discovery)
+          if add_pane "$role" "$role" "$request" "operator: ${request:-launch $role}"; then
+            record_decision "operator" "launched:${role}" "$request"
+            clear_operator_request
+            return 0
+          fi
+          record_decision "operator" "launch failed:${role}" "$request"
+          clear_operator_request
+          return 0
+          ;;
       esac
       ;;
     stop_role)
@@ -209,6 +219,21 @@ handle_operator_request() {
         kill_role "$role"
         reconcile_panes
         record_decision "operator" "stopped:${role}" "$request"
+        clear_operator_request
+        return 0
+      fi
+      ;;
+    general)
+      if [ -n "$request" ]; then
+        pane_name="create-issue"
+        if ! pane_name_active "$pane_name"; then
+          if add_pane "$pane_name" "create-issue" "$request" "operator: ${request}"; then
+            record_decision "operator" "launched:${pane_name}" "$request"
+            clear_operator_request
+            return 0
+          fi
+        fi
+        record_decision "operator" "general request noted" "$request"
         clear_operator_request
         return 0
       fi
@@ -323,7 +348,7 @@ $context" 2>/dev/null || true)
 
 valid_role() {
   case "$1" in
-    dev-server|implement|review|fix-review|e2e|e2e-bug-hunt|watch-main|improve|feature-discovery) return 0 ;;
+    dev-server|implement|review|fix-review|e2e|e2e-bug-hunt|watch-main|improve|feature-discovery|create-issue) return 0 ;;
     *) return 1 ;;
   esac
 }
