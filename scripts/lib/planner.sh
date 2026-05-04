@@ -304,6 +304,7 @@ ai_plan() {
 
 Context JSON:
 $context" 2>/dev/null || true)
+  printf '%s\n' "$raw" > "${CACHE_DIR}/orchestrator_plan.raw"
   plan=$(printf '%s\n' "$raw" | extract_json_object)
   if jq -e '.actions and (.actions | type == "array")' >/dev/null 2>&1 <<< "$plan"; then
     printf '%s\n' "$plan" > "$AI_PLAN_FILE"
@@ -529,7 +530,25 @@ fallback_scale() {
   if [ -n "$launched" ]; then
     record_decision "fallback" "launched:${launched# }" "conservative rule matched"
   else
-    record_decision "fallback" "idle" "no rule matched"
+    local idle_detail=""
+    if [ "$AUTO_DEV_SERVER" != "true" ]; then
+      idle_detail="${idle_detail} dev-server automation disabled;"
+    elif ! has_dev_target; then
+      idle_detail="${idle_detail} no dev target;"
+    elif role_active "dev-server"; then
+      idle_detail="${idle_detail} dev-server already active;"
+    else
+      idle_detail="${idle_detail} dev-server launch not needed;"
+    fi
+    [ "${READY_ISSUES:-0}" -le 0 ] && idle_detail="${idle_detail} no ready issues;"
+    [ -z "$(next_review_pr_number)" ] && idle_detail="${idle_detail} no reviewable PRs;"
+    [ -z "$(next_fix_review_pr_number)" ] && idle_detail="${idle_detail} no requested-change PRs;"
+    if ! post_merge_due; then
+      idle_detail="${idle_detail} no new post-merge work;"
+    elif ! role_active "dev-server"; then
+      idle_detail="${idle_detail} post-merge work waits for dev-server;"
+    fi
+    record_decision "fallback" "idle" "${idle_detail# }"
   fi
 }
 

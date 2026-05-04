@@ -23,6 +23,13 @@ render() {
     fi
   fi
   echo -e "  \033[35m🧠 ${LAST_PLAN_SOURCE}\033[0m  ${LAST_DECISION_SUMMARY}  \033[2m${LAST_DECISION_DETAIL} (${LAST_DECISION_TS:---:--:--}) next:${TICK_INTERVAL}s\033[0m"
+  local gh_err
+  gh_err=$(find "$CACHE_DIR" -maxdepth 1 -name '*.err' -type f -print -quit 2>/dev/null)
+  if [ -n "$gh_err" ]; then
+    local gh_msg
+    gh_msg=$(tr '\n' ' ' < "$gh_err" | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-140)
+    echo -e "  \033[33m⚠ github:\033[0m \033[2m${gh_msg}\033[0m"
+  fi
   if [ -f "${OPERATOR_REQUEST_FILE:-}" ]; then
     local op_status op_request op_target
     op_status=$(jq -r '.status // "empty"' "$OPERATOR_REQUEST_FILE" 2>/dev/null || echo invalid)
@@ -127,6 +134,17 @@ render() {
     echo -e "  \033[32mActions:\033[0m \033[2m${actions}\033[0m"
     echo -e "  \033[31mStops:\033[0m \033[2m${stops}\033[0m"
     echo -e "  \033[33mSkipped:\033[0m \033[2m${skips:0:140}\033[0m"
+    echo ""
+  elif [ -f "${CACHE_DIR}/orchestrator_plan.raw" ] || [ -f "$DECISION_FILE" ]; then
+    echo -e "  \033[1m🧠 Planner Diagnostics\033[0m"
+    echo -e "  \033[35mSource:\033[0m \033[2m${LAST_PLAN_SOURCE}\033[0m"
+    echo -e "  \033[32mDecision:\033[0m \033[2m${LAST_DECISION_SUMMARY} ${LAST_DECISION_DETAIL}\033[0m"
+    if [ -f "${CACHE_DIR}/orchestrator_plan.raw" ]; then
+      local raw_preview
+      raw_preview=$(tr '\n' ' ' < "${CACHE_DIR}/orchestrator_plan.raw" | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-180)
+      [ -n "$raw_preview" ] || raw_preview="empty response from AI planner"
+      echo -e "  \033[33mAI raw:\033[0m \033[2m${raw_preview}\033[0m"
+    fi
     echo ""
   fi
 }

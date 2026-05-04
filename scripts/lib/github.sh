@@ -3,12 +3,41 @@
 gh_cached() {
   local key="$1"; shift
   local cache_file="${CACHE_DIR}/${key}"
+  local err_file="${CACHE_DIR}/${key}.err"
   if [ -f "$cache_file" ]; then
     local age=$(( $(date +%s) - $(stat -f%m "$cache_file" 2>/dev/null || stat -c%Y "$cache_file" 2>/dev/null || echo 0) ))
-    [ $age -lt $CACHE_TTL ] && cat "$cache_file" && return
+    if [ $age -lt $CACHE_TTL ]; then
+      case "$key" in
+        issues_json|prs_json)
+          jq -e 'type == "array"' "$cache_file" >/dev/null 2>&1 && cat "$cache_file" && return
+          ;;
+        gh_user|latest_merged_pr)
+          [ "$(cat "$cache_file")" != "0" ] && cat "$cache_file" && return
+          ;;
+        *)
+          cat "$cache_file" && return
+          ;;
+      esac
+    fi
   fi
-  local result; result=$("$@" 2>/dev/null || echo "0")
-  echo "$result" > "$cache_file"; echo "$result"
+
+  local default result
+  case "$key" in
+    issues_json|prs_json) default="[]" ;;
+    latest_merged_pr|gh_user) default="" ;;
+    *) default="0" ;;
+  esac
+
+  if result=$("$@" 2>"$err_file"); then
+    rm -f "$err_file"
+    echo "$result" > "$cache_file"
+    echo "$result"
+    return
+  fi
+
+  # Keep the UI structurally valid even when gh auth/network is broken.
+  echo "$default" > "$cache_file"
+  echo "$default"
 }
 
 refresh_github() {
