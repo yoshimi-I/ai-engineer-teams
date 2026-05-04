@@ -19,7 +19,7 @@ layout {
     cwd "__PROJECT_CWD__"
     tab name="Pipeline" focus=true {
         pane split_direction="vertical" {
-            pane split_direction="horizontal" size="40%" {
+            pane split_direction="horizontal" size="50%" {
                 pane command="bash" name="Control Panel" size="50%" {
                     args "-c" "./scripts/control-panel.sh"
                 }
