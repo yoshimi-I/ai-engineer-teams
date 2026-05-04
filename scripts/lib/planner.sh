@@ -76,9 +76,10 @@ ready_issue_numbers_json() {
   local active
   active=$(active_implement_issues_json)
   jq \
+    --arg me "${GH_USER:-}" \
     --argjson active "$active" '
     [.[].number] as $open
-    | [.[] | select(.assignees | length == 0)
+    | [.[] | select((.assignees | length == 0) or ([.assignees[]?.login] | index($me)))
       | select(([.labels[]?.name] | index("blocked") | not))
       | select((.number as $n | $active | index($n) | not))
       | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
@@ -126,6 +127,7 @@ build_ai_context() {
     --argjson review_pr_numbers "$(review_pr_numbers_json)" \
     --argjson fix_review_pr_numbers "$(fix_review_pr_numbers_json)" \
     --arg next_implement "$(next_implement_name)" \
+    --arg me "${GH_USER:-}" \
     --argjson has_dev_target "$(has_dev_target && echo true || echo false)" \
     --argjson auto_dev_server "$([ "$AUTO_DEV_SERVER" = "true" ] && echo true || echo false)" \
     --argjson auto_watch_main "$([ "$AUTO_WATCH_MAIN" = "true" ] && echo true || echo false)" \
@@ -144,7 +146,7 @@ build_ai_context() {
         unassigned_count: ([$issues[] | select(.assignees | length == 0)] | length),
         ready_count: (
           [$issues[].number] as $open
-          | [$issues[] | select(.assignees | length == 0)
+          | [$issues[] | select((.assignees | length == 0) or ([.assignees[]?.login] | index($me)))
             | select(([.labels[]?.name] | index("blocked") | not))
             | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
               | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]
@@ -305,10 +307,13 @@ execute_ai_plan() {
     elif [ "$role" = "fix-review" ] && [[ "$name" =~ ^fix-review-pr-([0-9]+)$ ]]; then
       context="$(fix_review_context_for_pr "${BASH_REMATCH[1]}")"
     fi
-    add_pane "$name" "$role" "$context" "$reason"
-    changed=$((changed + 1))
-    launched=$((launched + 1))
-    launched_roles="${launched_roles} ${name}:${role}"
+    if add_pane "$name" "$role" "$context" "$reason"; then
+      changed=$((changed + 1))
+      launched=$((launched + 1))
+      launched_roles="${launched_roles} ${name}:${role}"
+    else
+      skipped="${skipped} launch-failed:${name}"
+    fi
   done < <(jq -r '.actions[]? | [.role, (.name // .role), (.reason // "")] | @tsv' <<< "$plan" 2>/dev/null)
 
   if jq -e '.actions[]? | .role == "e2e" or .role == "e2e-bug-hunt" or .role == "watch-main" or .role == "improve"' >/dev/null 2>&1 <<< "$plan"; then
@@ -339,8 +344,9 @@ fallback_scale() {
 
   local desired=0
   if [ "$AUTO_DEV_SERVER" = "true" ] && has_dev_target && ! role_active "dev-server" && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-    add_pane "dev-server" "dev-server" "" "fallback: dev target exists and dev-server is not active"
-    launched="${launched} dev-server"
+    if add_pane "dev-server" "dev-server" "" "fallback: dev target exists and dev-server is not active"; then
+      launched="${launched} dev-server"
+    fi
   fi
 
   if [ "${READY_ISSUES:-0}" -gt 0 ]; then
@@ -354,35 +360,43 @@ fallback_scale() {
     issue_num="$(next_ready_issue_number)"
     [ -n "$issue_num" ] || break
     impl_name="implement-issue-${issue_num}"
-    add_pane "$impl_name" "implement" "$(implement_context_for_issue "$issue_num")" "fallback: ready issue #${issue_num}"
-    launched="${launched} ${impl_name}"
-    cur_impl=$((cur_impl + 1))
+    if add_pane "$impl_name" "implement" "$(implement_context_for_issue "$issue_num")" "fallback: ready issue #${issue_num}"; then
+      launched="${launched} ${impl_name}"
+      cur_impl=$((cur_impl + 1))
+    else
+      break
+    fi
   done
 
   pr_num="$(next_review_pr_number)"
   if [ -n "$pr_num" ] && [ "$cur_review" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-    add_pane "review-pr-${pr_num}" "review" "$(review_context_for_pr "$pr_num")" "fallback: PR #${pr_num} needs review/merge handling"
-    launched="${launched} review-pr-${pr_num}"
+    if add_pane "review-pr-${pr_num}" "review" "$(review_context_for_pr "$pr_num")" "fallback: PR #${pr_num} needs review/merge handling"; then
+      launched="${launched} review-pr-${pr_num}"
+    fi
   fi
 
   pr_num="$(next_fix_review_pr_number)"
   if [ -n "$pr_num" ] && [ "$cur_fix" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-    add_pane "fix-review-pr-${pr_num}" "fix-review" "$(fix_review_context_for_pr "$pr_num")" "fallback: PR #${pr_num} has actionable requested changes"
-    launched="${launched} fix-review-pr-${pr_num}"
+    if add_pane "fix-review-pr-${pr_num}" "fix-review" "$(fix_review_context_for_pr "$pr_num")" "fallback: PR #${pr_num} has actionable requested changes"; then
+      launched="${launched} fix-review-pr-${pr_num}"
+    fi
   fi
 
   if post_merge_due && role_active "dev-server" && below_limit "$(total_alive)" "$MAX_ALIVE"; then
     if [ "$cur_e2e" -eq 0 ]; then
-      add_pane "e2e-hunt" "e2e-bug-hunt" "" "fallback: new merge detected and dev-server is active"
-      launched="${launched} e2e-hunt"
+      if add_pane "e2e-hunt" "e2e-bug-hunt" "" "fallback: new merge detected and dev-server is active"; then
+        launched="${launched} e2e-hunt"
+      fi
     fi
     if [ "$AUTO_WATCH_MAIN" = "true" ] && [ "$cur_watch" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-      add_pane "watch-main" "watch-main" "" "fallback: watch-main enabled after merge"
-      launched="${launched} watch-main"
+      if add_pane "watch-main" "watch-main" "" "fallback: watch-main enabled after merge"; then
+        launched="${launched} watch-main"
+      fi
     fi
     if [ "$AUTO_IMPROVE" = "true" ] && [ "$cur_imp" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-      add_pane "improve" "improve" "" "fallback: improve enabled after merge"
-      launched="${launched} improve"
+      if add_pane "improve" "improve" "" "fallback: improve enabled after merge"; then
+        launched="${launched} improve"
+      fi
     fi
     [ -n "$launched" ] && mark_post_merge_spawned
   fi

@@ -39,6 +39,18 @@ zellij_panes_json() {
   zellij action list-panes --json 2>/dev/null || echo "[]"
 }
 
+registry_tmp() {
+  mktemp "${PANE_REGISTRY}.XXXXXX"
+}
+
+pane_current_name() {
+  local pane="$1" id
+  id=$(pane_number "$pane")
+  zellij_panes_json \
+    | jq -r --argjson id "$id" '.[] | select(.id == $id and (.exited | not)) | ('"$pane_name_expr"')' 2>/dev/null \
+    | head -n 1
+}
+
 role_from_name() {
   case "$1" in
     dev-server) echo "dev-server" ;;
@@ -65,8 +77,10 @@ record_registry_entry() {
       *) name="unknown-${pane#terminal_}" ;;
     esac
   fi
-  grep -v "^${name}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
-  mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
+  local tmp
+  tmp=$(registry_tmp)
+  grep -v "^${name}|" "$PANE_REGISTRY" > "$tmp" 2>/dev/null || true
+  mv "$tmp" "$PANE_REGISTRY"
   echo "${name}|${role}|${pane}|${status}" >> "$PANE_REGISTRY"
 }
 
@@ -104,7 +118,8 @@ singleton_role() {
 }
 
 dedupe_singleton_role() {
-  local role="$1" seen="" tmp="${PANE_REGISTRY}.tmp"
+  local role="$1" seen="" tmp
+  tmp=$(registry_tmp)
   : > "$tmp"
   while IFS='|' read -r name r pane status; do
     [ -z "$name" ] && continue
@@ -148,9 +163,29 @@ pane_name_active() {
   awk -F'|' -v target="$target" '$1 == target && $4 == "alive" { found = 1 } END { exit found ? 0 : 1 }' "$PANE_REGISTRY"
 }
 
+pane_matches_registry() {
+  local expected_name="$1" expected_role="$2" pane="$3"
+  local current_name current_role
+  current_name=$(pane_current_name "$pane")
+  [ -n "$current_name" ] || return 1
+  current_role=$(role_from_name "$current_name")
+  [ "$current_role" = "$expected_role" ] || return 1
+
+  case "$expected_name" in
+    review-pr-*|fix-review-pr-*|implement-issue-*|dev-server|e2e|e2e-hunt|watch-main|improve)
+      [ "$current_name" = "$expected_name" ]
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
 update_pane_status() {
   adopt_existing_panes
-  local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
+  local tmp
+  tmp=$(registry_tmp)
+  : > "$tmp"
   local now; now=$(date +%s)
   while IFS='|' read -r name role pane status; do
     if [ -z "$name" ]; then
@@ -163,7 +198,7 @@ update_pane_status() {
         *) name="unknown-${pane#terminal_}" ;;
       esac
     fi
-    if ! pane_exists "$pane"; then
+    if ! pane_matches_registry "$name" "$role" "$pane"; then
       continue
     fi
     local mtime=0
@@ -192,8 +227,10 @@ add_pane() {
     [ "$n" = "$name" ] && [ "$s" = "alive" ] && return
   done < "$PANE_REGISTRY"
 
-  grep -v "^${name}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
-  mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
+  local tmp
+  tmp=$(registry_tmp)
+  grep -v "^${name}|" "$PANE_REGISTRY" > "$tmp" 2>/dev/null || true
+  mv "$tmp" "$PANE_REGISTRY"
 
   local status_pr=""
   if [[ "$name" =~ -pr-([0-9]+)$ ]]; then
@@ -228,13 +265,35 @@ add_pane() {
     pane=$(zellij action new-pane --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
       -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT=${context_env} AGENT_REASON=${reason_env} AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   fi
+  if [ -z "$pane" ] || ! pane_exists "$pane"; then
+    jq -n \
+      --arg agent "$name" \
+      --arg prompt "$role" \
+      --arg detail "failed to create zellij pane" \
+      --arg ts "$(date '+%H:%M:%S')" \
+      '{
+        agent: $agent,
+        prompt: $prompt,
+        state: "❌ failed",
+        detail: $detail,
+        issue: "",
+        pr: "",
+        branch: "",
+        cycle: 0,
+        errors: 1,
+        ts: $ts
+      }' > "${STATUS_DIR}/${name}.json"
+    return 1
+  fi
   rename_zellij_pane "$pane" "$name"
   record_registry_entry "$name" "$role" "$pane" "alive"
 }
 
 kill_role() {
   local role="$1"
-  local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
+  local tmp
+  tmp=$(registry_tmp)
+  : > "$tmp"
   while IFS='|' read -r name r pane status; do
     [ -z "$name" ] && continue
     if [ "$r" = "$role" ] && [ "$status" = "alive" ]; then

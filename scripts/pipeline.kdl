@@ -23,17 +23,15 @@ layout {
                 pane command="bash" name="Orchestrator" {
                     args "-c" "./scripts/orchestrator.sh"
                 }
+                pane command="kiro-cli" name="Operator" {
+                    args "chat" "--trust-all-tools"
+                }
             }
         }
     }
     tab name="Control" {
         pane command="bash" name="Control Panel" {
             args "-c" "./scripts/control-panel.sh"
-        }
-    }
-    tab name="Kiro" {
-        pane command="kiro-cli" name="Interactive" {
-            args "chat" "--trust-all-tools"
         }
     }
 }

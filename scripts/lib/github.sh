@@ -15,10 +15,10 @@ refresh_github() {
   ISSUES_JSON=$(gh_cached issues_json gh issue list --state open --limit 100 --json number,title,body,labels,assignees)
   PRS_JSON=$(gh_cached prs_json gh pr list --limit 30 --json number,title,headRefName,reviewDecision,author,assignees)
   GH_USER=$(gh_cached gh_user gh api user --jq '.login')
-  ISSUES=$(jq '[.[] | select(.assignees | length == 0)] | length' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
-  READY_ISSUES=$(jq '
+  ISSUES=$(jq 'length' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
+  READY_ISSUES=$(jq --arg me "${GH_USER:-}" '
     [.[].number] as $open
-    | [.[] | select(.assignees | length == 0)
+    | [.[] | select((.assignees | length == 0) or ([.assignees[]?.login] | index($me)))
       | select(([.labels[]?.name] | index("blocked") | not))
       | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
         | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]
