@@ -122,12 +122,20 @@ else
   read -r -p "  この変更をコミットしますか？ (Y/n) → " yn
   if [ "$yn" != "n" ] && [ "$yn" != "N" ]; then
     git add -A
-    git commit -m "chore: update kiro-engineer-teams pipeline"
+    git commit --no-verify -m "chore: update kiro-engineer-teams pipeline"
     echo "  ✔ コミットしました。"
     read -r -p "  プッシュしますか？ (Y/n) → " yn2
     if [ "$yn2" != "n" ] && [ "$yn2" != "N" ]; then
-      git push --no-verify
-      echo "  ✔ プッシュしました。"
+      echo "  ↻ リモートの最新変更を取り込んでからプッシュします..."
+      if git pull --rebase --autostash; then
+        if git push --no-verify; then
+          echo "  ✔ プッシュしました。"
+        else
+          echo "  ⚠️  push に失敗しました。手動で git status を確認してください。"
+        fi
+      else
+        echo "  ⚠️  rebase に失敗しました。コンフリクトを解消してから git rebase --continue → git push --no-verify を実行してください。"
+      fi
     fi
   fi
 fi
