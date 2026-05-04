@@ -30,6 +30,18 @@ LOG_FILE="${LOG_DIR}/${AGENT_NAME}.log"
 
 mkdir -p "$STATUS_DIR" "$LOG_DIR"
 
+decode_b64_arg() {
+  local value="$1"
+  [ -n "$value" ] || return 0
+  printf '%s' "$value" | base64 --decode 2>/dev/null \
+    || printf '%s' "$value" | base64 -d 2>/dev/null \
+    || printf '%s' "$value" | base64 -D 2>/dev/null \
+    || true
+}
+
+[ -n "${AGENT_CONTEXT_B64:-}" ] && AGENT_CONTEXT="$(decode_b64_arg "$AGENT_CONTEXT_B64")"
+[ -n "${AGENT_REASON_B64:-}" ] && AGENT_REASON="$(decode_b64_arg "$AGENT_REASON_B64")"
+
 # Keep zellij pane title stable even if the shell/program changes terminal title.
 printf '\033]2;%s\007' "$AGENT_NAME" 2>/dev/null || true
 if [ -n "${ZELLIJ_PANE_ID:-}" ]; then
@@ -47,9 +59,29 @@ CURRENT_BRANCH=""
 
 update_status() {
   local state="$1" detail="${2:-}"
-  cat > "$STATUS_FILE" <<JSON
-{"agent":"${AGENT_NAME}","prompt":"$PROMPT_NAME","state":"$state","detail":"$detail","issue":"${CURRENT_ISSUE}","pr":"${CURRENT_PR}","branch":"${CURRENT_BRANCH}","cycle":$cycle,"errors":$error_count,"ts":"$(date '+%H:%M:%S')"}
-JSON
+  jq -n \
+    --arg agent "$AGENT_NAME" \
+    --arg prompt "$PROMPT_NAME" \
+    --arg state "$state" \
+    --arg detail "$detail" \
+    --arg issue "$CURRENT_ISSUE" \
+    --arg pr "$CURRENT_PR" \
+    --arg branch "$CURRENT_BRANCH" \
+    --arg ts "$(date '+%H:%M:%S')" \
+    --argjson cycle "$cycle" \
+    --argjson errors "$error_count" \
+    '{
+      agent: $agent,
+      prompt: $prompt,
+      state: $state,
+      detail: $detail,
+      issue: $issue,
+      pr: $pr,
+      branch: $branch,
+      cycle: $cycle,
+      errors: $errors,
+      ts: $ts
+    }' > "$STATUS_FILE"
 }
 
 # Scan git state and GitHub to detect what this agent is working on
