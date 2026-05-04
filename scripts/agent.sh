@@ -69,6 +69,7 @@ update_status() {
     --arg pr "$CURRENT_PR" \
     --arg branch "$CURRENT_BRANCH" \
     --arg ts "$(date '+%H:%M:%S')" \
+    --argjson epoch "$(date +%s)" \
     --argjson cycle "$cycle" \
     --argjson errors "$error_count" \
     '{
@@ -81,7 +82,8 @@ update_status() {
       branch: $branch,
       cycle: $cycle,
       errors: $errors,
-      ts: $ts
+      ts: $ts,
+      epoch: $epoch
     }' > "$STATUS_FILE"
 }
 

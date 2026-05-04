@@ -206,11 +206,45 @@ pane_matches_registry() {
   esac
 }
 
+STALL_THRESHOLD="${ORCH_STALL_THRESHOLD:-600}"
+STALLED_PANES=""
+
+kill_stalled_panes() {
+  STALLED_PANES=""
+  local now tmp
+  now=$(date +%s)
+  tmp=$(registry_tmp)
+  : > "$tmp"
+  while IFS='|' read -r name role pane status; do
+    [ -z "$name" ] && continue
+    [ "$status" != "alive" ] && { echo "${name}|${role}|${pane}|${status}" >> "$tmp"; continue; }
+    local epoch=0 state=""
+    if [ -f "${STATUS_DIR}/${name}.json" ]; then
+      epoch=$(jq -r '.epoch // 0' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo 0)
+      state=$(jq -r '.state // ""' "${STATUS_DIR}/${name}.json" 2>/dev/null || echo "")
+    fi
+    local age=$(( now - epoch ))
+    if [ "$epoch" -gt 0 ] && [ "$age" -ge "$STALL_THRESHOLD" ] && [[ "$state" == *running* ]]; then
+      STALLED_PANES="${STALLED_PANES} ${name}(${age}s)"
+      zellij action close-pane --pane-id "$pane" 2>/dev/null || true
+      jq -n --arg agent "$name" --arg prompt "$role" \
+        --arg detail "stalled for ${age}s — auto-killed" \
+        --arg ts "$(date '+%H:%M:%S')" --argjson epoch "$now" \
+        '{agent:$agent,prompt:$prompt,state:"💀 stalled",detail:$detail,issue:"",pr:"",branch:"",cycle:0,errors:0,ts:$ts,epoch:$epoch}' \
+        > "${STATUS_DIR}/${name}.json"
+    else
+      echo "${name}|${role}|${pane}|${status}" >> "$tmp"
+    fi
+  done < "$PANE_REGISTRY"
+  mv "$tmp" "$PANE_REGISTRY"
+}
+
 update_pane_status() {
   reconcile_panes
   dedupe_singleton_role "dev-server"
   reconcile_panes
   check_dev_server_health
+  kill_stalled_panes
 }
 
 add_pane() {
