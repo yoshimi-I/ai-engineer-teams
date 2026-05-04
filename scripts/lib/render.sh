@@ -12,12 +12,16 @@ render() {
   local total; total=$(wc -l < "$PANE_REGISTRY" | tr -d ' ')
   echo -e "  \033[2m$(date '+%H:%M:%S')\033[0m  \033[32m▶ ${alive} 稼働\033[0m / ${total} 合計  📋 ready: \033[33m${READY_ISSUES:-?}\033[0m / open: \033[33m${ISSUES:-?}\033[0m  🔧 fixable: \033[31m${FIX_REVIEW_READY:-?}\033[0m / requested: \033[31m${CHANGES_REQ:-?}\033[0m  🔀 merge: $(if ${HAS_MERGES:-false}; then echo -e '\033[32m✓\033[0m'; else echo -e '\033[2m-\033[0m'; fi)"
   if [ -f "$DEV_HEALTH_FILE" ]; then
-    local dev_ok dev_url dev_panes
+    local dev_ok dev_url dev_panes dev_port_only dev_pane_ids
     dev_ok=$(jq -r '.healthy // false' "$DEV_HEALTH_FILE" 2>/dev/null || echo false)
     dev_url=$(jq -r '.url // ""' "$DEV_HEALTH_FILE" 2>/dev/null || echo "")
     dev_panes=$(jq -r '.pane_count // 0' "$DEV_HEALTH_FILE" 2>/dev/null || echo 0)
+    dev_port_only=$(jq -r '.port_only // false' "$DEV_HEALTH_FILE" 2>/dev/null || echo false)
+    dev_pane_ids=$(jq -r '[.pane_ids[]?] | join(",")' "$DEV_HEALTH_FILE" 2>/dev/null || echo "")
     if [ "$dev_ok" = "true" ]; then
-      echo -e "  🖥️  dev-server: \033[32mhealthy\033[0m ${dev_url}  panes:${dev_panes}"
+      echo -e "  🖥️  dev-server: \033[32mhealthy\033[0m ${dev_url}  panes:${dev_panes}${dev_pane_ids:+ (${dev_pane_ids})}"
+    elif [ "$dev_port_only" = "true" ]; then
+      echo -e "  🖥️  dev-server: \033[33mport only\033[0m ${dev_url}  panes:${dev_panes}  \033[2m古いサーバーが残っている可能性\033[0m"
     else
       echo -e "  🖥️  dev-server: \033[33mnot ready\033[0m  panes:${dev_panes}"
     fi
