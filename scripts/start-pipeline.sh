@@ -136,10 +136,8 @@ fi
 # ── Phase 1: INCEPTION (skip if already completed) ──
 INCEPTION_DONE=false
 if [[ -d "aidlc-docs/inception" ]] && ls aidlc-docs/inception/*/*.md &>/dev/null 2>&1; then
+  INCEPTION_DONE=true
   ISSUE_COUNT=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo "0")
-  if [[ "$ISSUE_COUNT" -gt 0 ]]; then
-    INCEPTION_DONE=true
-  fi
 fi
 
 if [[ "$INCEPTION_DONE" == "true" ]]; then
