@@ -24,6 +24,7 @@ STATUS_DIR=".agent-status"
 LOG_DIR=".agent-logs"
 AGENT_NAME="${AGENT_ID:-$PROMPT_NAME}"
 AGENT_CONTEXT="${AGENT_CONTEXT:-}"
+AGENT_REASON="${AGENT_REASON:-}"
 STATUS_FILE="${STATUS_DIR}/${AGENT_NAME}.json"
 LOG_FILE="${LOG_DIR}/${AGENT_NAME}.log"
 
@@ -139,12 +140,13 @@ wait_for_work() {
 echo "🚀 Agent [${PROMPT_NAME}] initialized"
 echo "   Prompt: ${PROMPT_FILE}"
 echo "   Interval: ${INTERVAL}s"
+[ -n "$AGENT_REASON" ] && echo "   Reason: ${AGENT_REASON}"
 echo ""
 
 # Phase 1: Wait for work
-update_status "⏳ waiting" ""
+update_status "⏳ waiting" "$AGENT_REASON"
 wait_for_work
-update_status "🟢 ready" ""
+update_status "🟢 ready" "$AGENT_REASON"
 echo "✅ Work detected. Starting agent loop."
 echo ""
 
@@ -157,7 +159,11 @@ while true; do
   CURRENT_ISSUE=""
   CURRENT_PR=""
   CURRENT_BRANCH=""
-  update_status "🔄 running" "cycle #${cycle}"
+  if [ -n "$AGENT_REASON" ]; then
+    update_status "🔄 running" "cycle #${cycle}: ${AGENT_REASON}"
+  else
+    update_status "🔄 running" "cycle #${cycle}"
+  fi
 
   PROMPT_BODY="$(cat "$PROMPT_FILE")"
   if [ -n "$AGENT_CONTEXT" ]; then
@@ -188,7 +194,11 @@ ${AGENT_CONTEXT}"
 
   # Once mode: exit after single cycle (for orchestrator)
   if [[ "$ONCE" == "true" ]]; then
-    update_status "⏹️ finished" "cycle #${cycle}"
+    if [ -n "$AGENT_REASON" ]; then
+      update_status "⏹️ finished" "cycle #${cycle}: ${AGENT_REASON}"
+    else
+      update_status "⏹️ finished" "cycle #${cycle}"
+    fi
     echo "🏁 Once mode — exiting."
     exit 0
   fi

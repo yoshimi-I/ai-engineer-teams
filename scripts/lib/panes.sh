@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+
+pane_number() {
+  local pane="$1"
+  echo "${pane#terminal_}"
+}
+
+resolve_pipeline_tab_id() {
+  if [ -n "$PIPELINE_TAB_ID" ]; then
+    return
+  fi
+
+  if [ -n "${ZELLIJ_PANE_ID:-}" ]; then
+    local current_id
+    current_id=$(pane_number "$ZELLIJ_PANE_ID")
+    PIPELINE_TAB_ID=$(zellij action list-panes --json 2>/dev/null \
+      | jq -r --argjson id "$current_id" '.[] | select(.id == $id) | .tab_id' 2>/dev/null \
+      | head -n 1)
+  fi
+
+  if [ -z "$PIPELINE_TAB_ID" ] || [ "$PIPELINE_TAB_ID" = "null" ]; then
+    PIPELINE_TAB_ID=$(zellij action list-tabs --json 2>/dev/null \
+      | jq -r '.[] | select(.name == "Pipeline") | .tab_id' 2>/dev/null \
+      | head -n 1)
+  fi
+}
+
+pane_exists() {
+  local pane="$1"
+  local id
+  id=$(pane_number "$pane")
+  zellij action list-panes --json 2>/dev/null \
+    | jq -e --argjson id "$id" '.[] | select(.id == $id and (.exited | not))' >/dev/null 2>&1
+}
+
+pane_name_expr='.name // .pane_name // .title // .command // ""'
+
+zellij_panes_json() {
+  zellij action list-panes --json 2>/dev/null || echo "[]"
+}
+
+role_from_name() {
+  case "$1" in
+    dev-server) echo "dev-server" ;;
+    review|review-pr-*) echo "review" ;;
+    fix-review|fix-review-pr-*) echo "fix-review" ;;
+    e2e) echo "e2e" ;;
+    e2e-hunt) echo "e2e-bug-hunt" ;;
+    watch-main) echo "watch-main" ;;
+    improve) echo "improve" ;;
+    implement-*) echo "implement" ;;
+    *) echo "" ;;
+  esac
+}
+
+record_registry_entry() {
+  local name="$1" role="$2" pane="$3" status="${4:-alive}"
+  if [ -z "$name" ]; then
+    case "$role" in
+      dev-server|e2e|watch-main|improve) name="$role" ;;
+      review) name="review" ;;
+      fix-review) name="fix-review" ;;
+      e2e-bug-hunt) name="e2e-hunt" ;;
+      implement) name="$(next_implement_name)" ;;
+      *) name="unknown-${pane#terminal_}" ;;
+    esac
+  fi
+  grep -v "^${name}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
+  mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
+  echo "${name}|${role}|${pane}|${status}" >> "$PANE_REGISTRY"
+}
+
+rename_zellij_pane() {
+  local pane="$1" name="$2"
+  [ -n "$pane" ] || return 0
+  [ -n "$name" ] || return 0
+  zellij action rename-pane --pane-id "$pane" "$name" 2>/dev/null || true
+}
+
+adopt_existing_panes() {
+  local panes name id role pane reg_name existing_pane
+  panes=$(zellij_panes_json)
+  while IFS=$'\t' read -r name id; do
+    [ -n "$name" ] || continue
+    [ -n "$id" ] || continue
+    role=$(role_from_name "$name")
+    [ -n "$role" ] || continue
+    pane="terminal_${id}"
+    reg_name="$name"
+    existing_pane=$(awk -F'|' -v agent="$reg_name" '$1 == agent { print $3; exit }' "$PANE_REGISTRY")
+    if [ -n "$existing_pane" ] && [ "$existing_pane" != "$pane" ]; then
+      reg_name="${name}-${id}"
+    fi
+    rename_zellij_pane "$pane" "$reg_name"
+    record_registry_entry "$reg_name" "$role" "$pane" "alive"
+  done < <(jq -r '.[] | select(.exited | not) | [('"$pane_name_expr"'), (.id | tostring)] | @tsv' <<< "$panes" 2>/dev/null)
+}
+
+singleton_role() {
+  case "$1" in
+    dev-server|e2e|e2e-bug-hunt|watch-main|improve) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+dedupe_singleton_role() {
+  local role="$1" seen="" tmp="${PANE_REGISTRY}.tmp"
+  : > "$tmp"
+  while IFS='|' read -r name r pane status; do
+    [ -z "$name" ] && continue
+    if [ "$r" = "$role" ] && [ "$status" = "alive" ]; then
+      if [ -z "$seen" ]; then
+        seen="$name"
+        echo "${name}|${r}|${pane}|${status}" >> "$tmp"
+      else
+        zellij action close-pane --pane-id "$pane" 2>/dev/null || true
+        cat > "${STATUS_DIR}/${name}.json" <<JSON
+{"agent":"${name}","prompt":"${role}","state":"⏹️ stopped","detail":"deduplicated singleton role","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
+JSON
+      fi
+    else
+      echo "${name}|${r}|${pane}|${status}" >> "$tmp"
+    fi
+  done < "$PANE_REGISTRY"
+  mv "$tmp" "$PANE_REGISTRY"
+}
+
+count_alive() {
+  local role="$1" count=0
+  while IFS='|' read -r name r _pane status; do
+    [ -z "$name" ] && continue
+    [ "$r" = "$role" ] && [ "$status" = "alive" ] && count=$((count + 1))
+  done < "$PANE_REGISTRY"
+  echo $count
+}
+
+total_alive() {
+  grep -c "|alive$" "$PANE_REGISTRY" 2>/dev/null || true
+}
+
+role_active() {
+  local role="$1"
+  [ "$(count_alive "$role")" -gt 0 ]
+}
+
+pane_name_active() {
+  local target="$1"
+  awk -F'|' -v target="$target" '$1 == target && $4 == "alive" { found = 1 } END { exit found ? 0 : 1 }' "$PANE_REGISTRY"
+}
+
+update_pane_status() {
+  adopt_existing_panes
+  local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
+  local now; now=$(date +%s)
+  while IFS='|' read -r name role pane status; do
+    if [ -z "$name" ]; then
+      case "$role" in
+        dev-server|e2e|watch-main|improve) name="$role" ;;
+        review) name="review" ;;
+        fix-review) name="fix-review" ;;
+        e2e-bug-hunt) name="e2e-hunt" ;;
+        implement) name="$(next_implement_name)" ;;
+        *) name="unknown-${pane#terminal_}" ;;
+      esac
+    fi
+    if ! pane_exists "$pane"; then
+      continue
+    fi
+    local mtime=0
+    [ -f "${STATUS_DIR}/${name}.json" ] && mtime=$(stat -f%m "${STATUS_DIR}/${name}.json" 2>/dev/null || stat -c%Y "${STATUS_DIR}/${name}.json" 2>/dev/null || echo 0)
+    if [ $((now - mtime)) -lt 300 ]; then
+      echo "${name}|${role}|${pane}|alive" >> "$tmp"
+    else
+      echo "${name}|${role}|${pane}|stopped" >> "$tmp"
+    fi
+  done < "$PANE_REGISTRY"
+  mv "$tmp" "$PANE_REGISTRY"
+  dedupe_singleton_role "dev-server"
+  check_dev_server_health
+}
+
+add_pane() {
+  local name="$1" role="$2" context="${3:-}" reason="${4:-}"
+  adopt_existing_panes
+  if singleton_role "$role"; then
+    dedupe_singleton_role "$role"
+    while IFS='|' read -r n r _pane s; do
+      [ "$r" = "$role" ] && [ "$s" = "alive" ] && return
+    done < "$PANE_REGISTRY"
+  fi
+  while IFS='|' read -r n r _pane s; do
+    [ "$n" = "$name" ] && [ "$s" = "alive" ] && return
+  done < "$PANE_REGISTRY"
+
+  grep -v "^${name}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
+  mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
+
+  local status_pr=""
+  if [[ "$name" =~ -pr-([0-9]+)$ ]]; then
+    status_pr="#${BASH_REMATCH[1]}"
+  fi
+  jq -n \
+    --arg agent "$name" \
+    --arg prompt "$role" \
+    --arg detail "$reason" \
+    --arg pr "$status_pr" \
+    --arg ts "$(date '+%H:%M:%S')" \
+    '{
+      agent: $agent,
+      prompt: $prompt,
+      state: "🚀 starting",
+      detail: $detail,
+      issue: "",
+      pr: $pr,
+      branch: "",
+      cycle: 0,
+      errors: 0,
+      ts: $ts
+    }' > "${STATUS_DIR}/${name}.json"
+  resolve_pipeline_tab_id
+  local pane context_env reason_env
+  context_env=$(printf '%q' "$context")
+  reason_env=$(printf '%q' "$reason")
+  if [ -n "$PIPELINE_TAB_ID" ] && [ "$PIPELINE_TAB_ID" != "null" ]; then
+    pane=$(zellij action new-pane --tab-id "$PIPELINE_TAB_ID" --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
+      -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT=${context_env} AGENT_REASON=${reason_env} AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
+  else
+    pane=$(zellij action new-pane --name "$name" --cwd "$PROJECT_CWD" --close-on-exit \
+      -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT=${context_env} AGENT_REASON=${reason_env} AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
+  fi
+  rename_zellij_pane "$pane" "$name"
+  record_registry_entry "$name" "$role" "$pane" "alive"
+}
+
+kill_role() {
+  local role="$1"
+  local tmp="${PANE_REGISTRY}.tmp"; : > "$tmp"
+  while IFS='|' read -r name r pane status; do
+    [ -z "$name" ] && continue
+    if [ "$r" = "$role" ] && [ "$status" = "alive" ]; then
+      zellij action close-pane --pane-id "$pane" 2>/dev/null || true
+      cat > "${STATUS_DIR}/${name}.json" <<JSON
+{"agent":"${name}","prompt":"${role}","state":"⏹️ stopped","detail":"no longer needed","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
+JSON
+    else
+      echo "${name}|${r}|${pane}|${status}" >> "$tmp"
+    fi
+  done < "$PANE_REGISTRY"
+  mv "$tmp" "$PANE_REGISTRY"
+}
+
+active_panes_json() {
+  jq -Rn '
+    [inputs
+      | select(length > 0)
+      | split("|")
+      | select(length >= 4)
+      | {name: .[0], role: .[1], pane: .[2], status: .[3]}]
+  ' < "$PANE_REGISTRY"
+}

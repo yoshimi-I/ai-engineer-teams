@@ -3,6 +3,16 @@
 
 ユーザーの指示を待たず、即座にオープンなPRを自動取得してレビューを開始する。PR番号の指定がなくても自分で選んで着手すること。
 
+## OrchestratorからPR番号を割り当てられた場合
+
+プロンプト末尾の `## Orchestrator assignment` に `GitHub PR #<number>` が含まれる場合は、そのPRだけを処理する。
+
+- 対象PRが既にclosed/mergedなら終了する
+- 対象PRが `CHANGES_REQUESTED` ならレビューせず終了する（`fix-review` の担当）
+- 対象PRが `APPROVED` ならCI確認後にマージ処理を行う
+- 対象PRがレビュー待ちなら、そのPRだけをレビューする
+- 他のPRを自動選択しない
+
 ## CI Kiro Review との役割分担
 
 GitHub Actions の `kiro-cli-review-action` がPRのコードレビューを自動実行する。
