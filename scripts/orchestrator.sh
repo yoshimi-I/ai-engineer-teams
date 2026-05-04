@@ -6,6 +6,7 @@ export GIT_EDITOR=true
 export EDITOR=true
 
 PROJECT_CWD="$(pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATUS_DIR=".agent-status"
 CACHE_DIR="${STATUS_DIR}/.cache"
 CACHE_TTL=25
@@ -33,12 +34,27 @@ LAST_PLAN_SOURCE="none"
 mkdir -p "$STATUS_DIR" "$CACHE_DIR"
 touch "$PANE_REGISTRY"
 
-source scripts/lib/orchestrator-status.sh
-source scripts/lib/github.sh
-source scripts/lib/dev-server.sh
-source scripts/lib/panes.sh
-source scripts/lib/planner.sh
-source scripts/lib/render.sh
+for lib in \
+  orchestrator-status.sh \
+  github.sh \
+  dev-server.sh \
+  panes.sh \
+  planner.sh \
+  render.sh
+do
+  if [ ! -f "${SCRIPT_DIR}/lib/${lib}" ]; then
+    echo "Missing ${SCRIPT_DIR}/lib/${lib}" >&2
+    echo "Run ./scripts/update.sh once more to install the split orchestrator libraries." >&2
+    exit 1
+  fi
+done
+
+source "${SCRIPT_DIR}/lib/orchestrator-status.sh"
+source "${SCRIPT_DIR}/lib/github.sh"
+source "${SCRIPT_DIR}/lib/dev-server.sh"
+source "${SCRIPT_DIR}/lib/panes.sh"
+source "${SCRIPT_DIR}/lib/planner.sh"
+source "${SCRIPT_DIR}/lib/render.sh"
 
 ISSUES=0
 READY_ISSUES=0

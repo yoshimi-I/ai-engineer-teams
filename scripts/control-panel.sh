@@ -69,8 +69,10 @@ pane_exists() {
 
 record_pane() {
   local agent="$1" prompt="$2" pane="$3" state="$4"
-  grep -v "^${agent}|" "$PANE_REGISTRY" > "${PANE_REGISTRY}.tmp" 2>/dev/null || true
-  mv "${PANE_REGISTRY}.tmp" "$PANE_REGISTRY"
+  local tmp
+  tmp=$(mktemp "${PANE_REGISTRY}.XXXXXX")
+  grep -v "^${agent}|" "$PANE_REGISTRY" > "$tmp" 2>/dev/null || true
+  mv "$tmp" "$PANE_REGISTRY"
   echo "${agent}|${prompt}|${pane}|${state}" >> "$PANE_REGISTRY"
 }
 
