@@ -22,8 +22,9 @@ candidate_dev_urls() {
 }
 
 check_dev_server_health() {
-  local url healthy_url="" pane_count
+  local url healthy_url="" pane_count pane_ids
   pane_count=$(count_alive "dev-server")
+  pane_ids=$(awk -F'|' '$2 == "dev-server" && $4 == "alive" {print $3}' "$PANE_REGISTRY" 2>/dev/null | paste -sd, -)
   while IFS= read -r url; do
     [ -n "$url" ] || continue
     if curl -fsS --max-time 1 "$url" >/dev/null 2>&1; then
@@ -34,11 +35,14 @@ check_dev_server_health() {
 
   jq -n \
     --argjson pane_count "$pane_count" \
+    --arg pane_ids "$pane_ids" \
     --arg url "$healthy_url" \
     --arg ts "$(date '+%H:%M:%S')" \
     '{
       pane_count: $pane_count,
-      healthy: ($url != ""),
+      pane_ids: ($pane_ids | split(",") | map(select(length > 0))),
+      healthy: ($pane_count > 0 and $url != ""),
+      port_only: ($pane_count == 0 and $url != ""),
       url: $url,
       ts: $ts
     }' > "$DEV_HEALTH_FILE"
