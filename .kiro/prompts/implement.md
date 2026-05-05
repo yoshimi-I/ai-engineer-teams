@@ -83,6 +83,15 @@ gh pr create --title "<Conventional Commit title>" --body "$(cat /tmp/pr-body-${
 
 `.github/PULL_REQUEST_TEMPLATE.md` が存在する場合は、必ずそのセクション構成に沿ってPR本文を作成する。チェック項目は実際に満たしたものだけ `[x]` にする。
 
+PR作成後、CIの結果を確認する:
+```bash
+sleep 30
+gh pr checks <PR番号> --watch --fail-fast 2>/dev/null || true
+gh pr checks <PR番号>
+```
+- CI全通過 → task.md更新して次のissueへ
+- CI失敗 → 失敗ログを確認し自分で修正してpush。最大3回まで再試行。
+
 PR作成後もworktreeはPRがmergeされるまで残す。勝手に削除しない。
 
 ## Issue進捗管理（必須・省略禁止）

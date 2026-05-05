@@ -143,6 +143,28 @@ git commit -m "fix: レビュー指摘を修正"
 git push origin $(git branch --show-current)
 ```
 
+### Step 5.5: CI確認（必須 — push後に必ず実行）
+
+push後、CIの結果を確認する。CIが通るまでこのPRの作業は完了しない。
+
+```bash
+# CI完了を待つ（最大5分）
+sleep 30
+gh pr checks <number> --watch --fail-fast 2>/dev/null || true
+gh pr checks <number>
+```
+
+- **CI全通過** → Step 6へ進む
+- **CI失敗** → 失敗したジョブのログを確認し、自分で修正する:
+  ```bash
+  gh run view <run-id> --log-failed
+  ```
+  修正後、再度 `git push` → CI確認を繰り返す。最大3回まで。
+- **3回修正してもCI通らない** → PRにコメントして次のPRへ進む:
+  ```bash
+  gh pr comment <number> --body "⚠️ CI修正を3回試みましたが解決できません。手動確認が必要です。"
+  ```
+
 ### Step 6: PRにコメント
 ```bash
 gh pr comment <number> --body "レビュー指摘を修正しました。再レビューをお願いします。"
