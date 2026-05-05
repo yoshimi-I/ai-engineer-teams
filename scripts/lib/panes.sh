@@ -291,6 +291,11 @@ add_pane() {
     [ "$n" = "$name" ] && [ "$s" = "alive" ] && return
   done < "$PANE_REGISTRY"
 
+  # Also check zellij directly for same-name pane (race condition guard)
+  if zellij_panes_json | jq -e --arg name "$name" '.[] | select(.exited | not) | select(('"$pane_name_expr"') == $name)' >/dev/null 2>&1; then
+    return
+  fi
+
   local tmp
   tmp=$(registry_tmp)
   grep -v "^${name}|" "$PANE_REGISTRY" > "$tmp" 2>/dev/null || true
