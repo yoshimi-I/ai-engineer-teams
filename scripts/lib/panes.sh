@@ -275,6 +275,11 @@ cleanup_zombie_status() {
 
 add_pane() {
   local name="$1" role="$2" context="${3:-}" reason="${4:-}"
+  # Guard: reject empty name
+  if [ -z "$name" ]; then
+    record_decision "error" "add_pane called with empty name" "role=${role}"
+    return 1
+  fi
   reconcile_panes
   if singleton_role "$role"; then
     dedupe_singleton_role "$role"

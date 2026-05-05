@@ -359,6 +359,8 @@ ai_plan() {
 Context JSON:
 $context" 2>/dev/null || true)
   printf '%s\n' "$raw" > "${CACHE_DIR}/orchestrator_plan.raw"
+  # Strip ANSI escape sequences before parsing
+  raw=$(printf '%s\n' "$raw" | sed $'s/\033\[[0-9;]*m//g' | sed $'s/\033\[[0-9;]*[A-Za-z]//g')
   plan=$(printf '%s\n' "$raw" | extract_json_object)
   if jq -e '.actions and (.actions | type == "array")' >/dev/null 2>&1 <<< "$plan"; then
     printf '%s\n' "$plan" > "$AI_PLAN_FILE"
