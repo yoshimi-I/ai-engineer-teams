@@ -322,7 +322,30 @@ build_ai_context() {
 }
 
 extract_json_object() {
-  sed -n '/^{/,/^}/p' | sed '1,$s/^```json$//;1,$s/^```$//'
+  # Try multiple extraction strategies
+  local input
+  input=$(cat)
+  # Strategy 1: find JSON between ```json ... ``` markers
+  local from_fence
+  from_fence=$(printf '%s\n' "$input" | sed -n '/^```json/,/^```/{/^```/d;p}')
+  if [ -n "$from_fence" ] && jq -e '.' >/dev/null 2>&1 <<< "$from_fence"; then
+    printf '%s\n' "$from_fence"
+    return
+  fi
+  # Strategy 2: find first { to last } (greedy)
+  local braces
+  braces=$(printf '%s\n' "$input" | sed -n '/{/,/}/p' | sed -n '1,/}[[:space:]]*$/p')
+  if [ -n "$braces" ] && jq -e '.' >/dev/null 2>&1 <<< "$braces"; then
+    printf '%s\n' "$braces"
+    return
+  fi
+  # Strategy 3: try the whole input as JSON
+  if jq -e '.' >/dev/null 2>&1 <<< "$input"; then
+    printf '%s\n' "$input"
+    return
+  fi
+  # Strategy 4: original approach
+  printf '%s\n' "$input" | sed -n '/^{/,/^}/p'
 }
 
 ai_plan() {

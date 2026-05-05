@@ -246,6 +246,31 @@ update_pane_status() {
   reconcile_panes
   check_dev_server_health
   kill_stalled_panes
+  cleanup_zombie_status
+}
+
+cleanup_zombie_status() {
+  local now
+  now=$(date +%s)
+  for f in "${STATUS_DIR}"/*.json; do
+    [ -f "$f" ] || continue
+    local name state epoch
+    name=$(jq -r '.agent // ""' "$f" 2>/dev/null || continue)
+    state=$(jq -r '.state // ""' "$f" 2>/dev/null || echo "")
+    epoch=$(jq -r '.epoch // 0' "$f" 2>/dev/null || echo 0)
+    [ -n "$name" ] || continue
+    # Only check running/waiting states
+    case "$state" in
+      *running*|*waiting*|*ready*) ;;
+      *) continue ;;
+    esac
+    # If this agent is in the registry as alive, it's fine
+    grep -q "^${name}|" "$PANE_REGISTRY" 2>/dev/null && continue
+    # Not in registry = pane is gone. Mark as finished.
+    jq --arg ts "$(date '+%H:%M:%S')" --argjson epoch "$now" \
+      '. + {state: "⏹️ finished", detail: "pane exited (auto-cleanup)", ts: $ts, epoch: $epoch}' \
+      "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  done
 }
 
 add_pane() {
