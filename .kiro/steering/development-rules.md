@@ -283,3 +283,22 @@ git worktree prune
 - PRがマージ済み or closeされたブランチのworktreeは削除する
 - 他エージェントのworktreeは触らない（assigneeで判断）
 - `git worktree remove` は自分が作成したworktreeのみ
+
+## ユーザー確認事項の通知
+
+ユーザーの判断が必要な場合（環境設定、シークレット、デプロイ承認、設計判断等）は `.agent-status/user-attention.json` に書き込む。Progress Report に赤文字で表示される。
+
+```bash
+# 追記する場合（既存の配列に追加）
+jq --arg from "$AGENT_NAME" --arg msg "確認内容" \
+  '. += [{from: $from, message: $msg, ts: (now | todate)}]' \
+  .agent-status/user-attention.json > .agent-status/user-attention.json.tmp \
+  && mv .agent-status/user-attention.json.tmp .agent-status/user-attention.json
+
+# ファイルが存在しない場合は新規作成
+echo '[{"from":"'$AGENT_NAME'","message":"確認内容","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}]' > .agent-status/user-attention.json
+```
+
+- ユーザーが Operator 経由で対応したら、Operator が該当エントリを削除する
+- 自分で解決できた場合は自分で該当エントリを削除する
+- 溜め込みすぎない（最大10件）

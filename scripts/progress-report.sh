@@ -13,6 +13,18 @@ render() {
   echo "  ╚════════════════════════════════════════════╝${R}"
   echo ""
 
+  # User attention items (red)
+  local attention_file="${STATUS_DIR}/user-attention.json"
+  if [ -f "$attention_file" ]; then
+    local items
+    items=$(jq -r '.[] | "    ⚠️  [\(.from)] \(.message)"' "$attention_file" 2>/dev/null || true)
+    if [ -n "$items" ]; then
+      echo -e "  ${BOLD}${RED}🚨 ユーザー確認事項${R}"
+      echo -e "${RED}${items}${R}"
+      echo ""
+    fi
+  fi
+
   # Issues
   local open closed total pct
   open=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo 0)
