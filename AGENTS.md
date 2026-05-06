@@ -1,6 +1,9 @@
 # Kiro Engineer Teams
 
-8-agent parallel development pipeline with AI-DLC INCEPTION planning.
+Auto-scaling agent development pipeline with AI-DLC INCEPTION planning.
+The orchestrator starts minimal and spawns additional zellij panes on
+demand based on open issues, PRs, and post-merge state — it is **not** a
+fixed "N agent" pool.
 
 ## First interaction
 
@@ -22,9 +25,20 @@ All rules are in `.kiro/steering/development-rules.md`. Key points:
 - 3-layer testing: unit + integration + E2E required
 - Git: worktree isolation, Conventional Commits (English), squash merge
 - PR comments and issues: always in English
-- Parallel agents: check `issue/task.md` before starting work
+- Parallel agents: assignee-based mutex on GitHub issues is the source of
+  truth. `issue/task.md` is an auxiliary local log.
 - Audit trail: all decisions recorded in `aidlc-docs/audit.md`
 
 ## After INCEPTION
 
-Run `./scripts/start-pipeline.sh` to launch 8-agent pipeline in zellij.
+Run `./scripts/start-pipeline.sh` (or `just start`) to launch the
+orchestrator in zellij. The orchestrator:
+
+- Starts minimal (no agent panes)
+- Adds `implement` panes when ready issues appear (AI planner decides count)
+- Adds `review` panes when APPROVED PRs need merge-manager handling
+- Adds `fix-review` panes when review changes / conflicts need fixing
+- Adds `e2e-hunt` / `ui-audit` / `watch-main` panes based on merge state
+  and env-var flags (`ORCH_AUTO_*`)
+
+See [README.md](README.md) for the full architecture and env-var reference.
