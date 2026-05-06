@@ -98,17 +98,19 @@ zellij_panes_json() {
 }
 
 close_agent_placeholder_panes() {
-  zellij_panes_json \
+  local pane_ids
+  pane_ids=$(zellij_panes_json \
     | jq -r '
         .[]
         | select(.exited | not)
-        | select(('"$pane_name_expr"') == "agent-placeholder" or ('"$pane_name_expr"') == "Agent Area")
-        | "terminal_\(.id)"
-      ' 2>/dev/null \
-    | while IFS= read -r placeholder_pane; do
-        [ -n "$placeholder_pane" ] || continue
-        zellij action close-pane --pane-id "$placeholder_pane" 2>/dev/null || true
-      done
+        | select((.title // .name // .pane_name // "") == "agent-placeholder" or (.title // .name // .pane_name // "") == "Agent Area")
+        | .id
+      ' 2>/dev/null)
+  local id
+  for id in $pane_ids; do
+    [ -n "$id" ] || continue
+    zellij action close-pane --pane-id "terminal_${id}" 2>/dev/null || true
+  done
 }
 
 registry_tmp() {
@@ -297,6 +299,7 @@ update_pane_status() {
   check_dev_server_health
   kill_stalled_panes
   cleanup_zombie_status
+  close_agent_placeholder_panes
 }
 
 cleanup_zombie_status() {
