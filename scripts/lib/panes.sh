@@ -98,12 +98,17 @@ zellij_panes_json() {
 }
 
 close_agent_placeholder_panes() {
+  # Close agent-placeholder/Agent Area panes (running or held)
+  # AND any held (exited) panes in the Agents tab
   local pane_ids
   pane_ids=$(zellij_panes_json \
     | jq -r '
         .[]
-        | select(.exited | not)
-        | select((.title // .name // .pane_name // "") == "agent-placeholder" or (.title // .name // .pane_name // "") == "Agent Area")
+        | select(
+            (.title // "") == "agent-placeholder" or
+            (.title // "") == "Agent Area" or
+            (.is_held == true and (.tab_name // "") == "Agents")
+          )
         | .id
       ' 2>/dev/null)
   local id
