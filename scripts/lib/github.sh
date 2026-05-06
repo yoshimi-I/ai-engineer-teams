@@ -69,7 +69,7 @@ normalize_prs_json() {
 
 refresh_github() {
   ISSUES_JSON=$(gh_cached issues_json gh issue list --state open --limit 500 --json number,title,body,labels,assignees)
-  PRS_JSON=$(gh_cached prs_json gh pr list --base "${INTEGRATION_BRANCH:-develop}" --limit 200 --json number,title,headRefName,baseRefName,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup,author,assignees)
+  PRS_JSON=$(gh_cached prs_json gh pr list --limit 200 --json number,title,headRefName,baseRefName,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup,author,assignees)
   PRS_STATE_JSON=$(normalize_prs_json)
   GH_USER=$(gh_cached gh_user gh api user --jq '.login')
 

@@ -355,14 +355,21 @@ add_pane() {
     [ "$n" = "$name" ] && [ "$s" = "alive" ] && return
   done < "$PANE_REGISTRY"
 
-  # Check status file — if not finished, don't re-create
+  # Check status file — if not finished and pane is still alive, don't re-create
   local status_file="${STATUS_DIR}/${name}.json"
   if [ -f "$status_file" ]; then
-    local cur_status
-    cur_status=$(jq -r '.status // ""' "$status_file" 2>/dev/null)
+    local cur_status cur_epoch
+    cur_status=$(jq -r '.state // .status // ""' "$status_file" 2>/dev/null)
+    cur_epoch=$(jq -r '.epoch // 0' "$status_file" 2>/dev/null)
     case "$cur_status" in
       *finished*|*failed*|*stopped*) ;; # ok to re-create
-      *) return ;; # still running/starting
+      *)
+        # If epoch is stale (>10min), treat as finished
+        local now_epoch; now_epoch=$(date +%s)
+        if [ "$((now_epoch - cur_epoch))" -lt "$STALL_THRESHOLD" ]; then
+          return # still running/starting recently
+        fi
+        ;;
     esac
   fi
 
