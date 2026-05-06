@@ -72,15 +72,29 @@ refresh_github() {
   PRS_JSON=$(gh_cached prs_json gh pr list --base "${INTEGRATION_BRANCH:-develop}" --limit 30 --json number,title,headRefName,baseRefName,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup,author,assignees)
   PRS_STATE_JSON=$(normalize_prs_json)
   GH_USER=$(gh_cached gh_user gh api user --jq '.login')
+
+  # Surface a single warning when gh auth cannot resolve the current user.
+  # In that case `ready_issue_numbers_json` intentionally restricts to
+  # unassigned issues to preserve the parallel-agent mutex — see its header
+  # comment. Logging once per refresh (not once per tick or once per jq
+  # call) keeps the signal useful without drowning stderr.
+  if [ -z "${GH_USER:-}" ] && command -v log >/dev/null 2>&1; then
+    log "WARN" "gh auth user could not be resolved — implement panes will only pick up unassigned issues. Run 'gh auth status' to diagnose."
+  fi
+
   # shellcheck disable=SC2034
   ISSUES=$(jq 'length' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
   # shellcheck disable=SC2034
+  # READY_ISSUES uses the same assignee-exclusion rule as ready_issue_numbers_json
+  # in planner.sh: unassigned OR assigned to the current GH_USER. When GH_USER
+  # cannot be resolved, we intentionally count ONLY unassigned issues. The old
+  # catch-all that returned every open issue in that state undermined the
+  # assignee-based mutex between parallel agents.
   READY_ISSUES=$(jq --arg me "${GH_USER:-}" '
     [.[].number] as $open
     | [.[] | select(
         (.assignees | length == 0)
-        or ($me != "" and ([.assignees[]?.login] | index($me)))
-        or ($me == ""))
+        or ($me != "" and ([.assignees[]?.login] | index($me))))
       | select(([.labels[]?.name] | index("blocked") | not))
       | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
         | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]

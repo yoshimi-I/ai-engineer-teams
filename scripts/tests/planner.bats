@@ -108,10 +108,12 @@ JSON
 ]" ]
 }
 
-@test "ready_issue_numbers_json includes everything when GH_USER cannot be resolved (starvation-avoidance)" {
-  # When GH_USER is empty (gh auth broken or API down), fall back to "all open
-  # issues are candidates" so the pipeline keeps making progress instead of
-  # silently stalling forever.
+@test "ready_issue_numbers_json restricts to unassigned issues when GH_USER cannot be resolved" {
+  # When gh auth is broken or the API rate-limits us, GH_USER is empty. In
+  # that degraded state the safer semantics is to only pick up unassigned
+  # issues so we do not accidentally collide with another agent's in-flight
+  # issue. The old "starvation-avoidance" behaviour that returned every open
+  # issue broke the assignee-based mutex between parallel implement panes.
   ISSUES_JSON=$(cat <<'JSON'
 [
   {"number": 10, "assignees": [], "labels": [], "body": ""},
@@ -125,8 +127,7 @@ JSON
   [ "$status" -eq 0 ]
   run bash -c "jq 'sort' <<<'$output'"
   [ "$output" = "[
-  10,
-  12
+  10
 ]" ]
 }
 

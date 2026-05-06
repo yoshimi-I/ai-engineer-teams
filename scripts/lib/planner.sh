@@ -72,6 +72,14 @@ json_has_number() {
 }
 
 ready_issue_numbers_json() {
+  # When GH_USER is empty (gh auth broken, rate-limited, or token-less),
+  # treat ONLY unassigned issues as ready. The previous catch-all that
+  # returned every open issue in this state was dangerous — it defeated the
+  # assignee-based exclusion contract, so multiple implement panes could
+  # accidentally grab the same issue another agent was already working on.
+  # We accept a smaller pool over a wrong pool. A one-shot warning is logged
+  # from `refresh_github` so orchestrator operators can notice the degraded
+  # state without this function flooding stderr every tick.
   local active
   active=$(active_implement_issues_json)
   jq \
@@ -80,8 +88,7 @@ ready_issue_numbers_json() {
     [.[].number] as $open
     | [.[] | select(
         (.assignees | length == 0)
-        or ($me != "" and ([.assignees[]?.login] | index($me)))
-        or ($me == ""))
+        or ($me != "" and ([.assignees[]?.login] | index($me))))
       | select(([.labels[]?.name] | index("blocked") | not))
       | select((.number as $n | $active | index($n) | not))
       | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
@@ -304,8 +311,7 @@ build_ai_context() {
           [$issues[].number] as $open
           | [$issues[] | select(
               (.assignees | length == 0)
-              or ($me != "" and ([.assignees[]?.login] | index($me)))
-              or ($me == ""))
+              or ($me != "" and ([.assignees[]?.login] | index($me))))
             | select(([.labels[]?.name] | index("blocked") | not))
             | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
               | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]
