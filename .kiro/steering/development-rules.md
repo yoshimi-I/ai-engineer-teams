@@ -19,57 +19,68 @@ description: 全タスクに適用されるコアルール
 
 ## 初期セットアップ
 
-以下の「プロジェクト固有設定」セクションが空（コメントのみ）の場合:
-1. `.kiro/skills/inception/SKILL.md` を読み、INCEPTIONワークフローを実行
-2. ユーザーをガイド: ワークスペース検出 → 要件分析 → ストーリー → アーキテクチャ
-3. 確定した技術スタックを「プロジェクト固有設定」セクションに記入
-4. `gh issue create` でGitHub issueを生成
-5. ユーザーに `./scripts/start-pipeline.sh` の実行を指示
+以下の「プロジェクト固有設定」セクションが未確定 (コメントまたは "TBD" のみ) の場合:
+1. `.kiro/skills/inception/SKILL.md` を読み、INCEPTION ワークフローを実行
+2. ワークスペース検出で既存コード・ツール・CI を把握
+3. 要件、制約、チームの好みをすり合わせ、技術スタックを決定
+4. 合意した技術スタック・ディレクトリ構成・検証コマンドを「プロジェクト固有設定」セクションに記入
+5. `gh issue create` で GitHub issue を生成
+6. ユーザーに `./scripts/start-pipeline.sh` の実行を指示
 
-設定が既に記入済みの場合はスキップ。
+設定が既に記入済みでも、既存コードと矛盾する場合は INCEPTION で見直す。
 
 ## プロジェクト固有設定
 
+<!--
+このテンプレートは意図的に空です。INCEPTION ワークフローがプロジェクトに
+合わせて埋めます。プロジェクトが Node/pnpm/Python/Go/Rust/Bash いずれでも
+動くよう、特定スタックを前提としないでください。
+-->
+
 ```
-# フロントエンド: React + Vite (packages/web, packages/extension)
-# バックエンド: Hono (packages/api)
-# 共有: packages/shared
-# パッケージマネージャ: pnpm (monorepo)
-# Lint: oxlint .
-# Typecheck: pnpm -r typecheck (tsc --build)
-# Test: pnpm -r test (vitest)
-# Build: pnpm -r build
-# Dead code: knip
+# 言語 / フレームワーク: TBD (INCEPTION で決定)
+# パッケージマネージャ: TBD
+# Lint コマンド: TBD
+# Typecheck コマンド: TBD
+# Test コマンド: TBD
+# Build コマンド: TBD
+# Dead code 検出: TBD (任意)
 # Git: Conventional Commits
 ```
 
-### 検証コマンド（コミット前に必ず実行）
+### 検証コマンド (コミット前に必ず実行)
+
+プロジェクト固有設定に書かれた Lint / Typecheck / Test コマンドをコミット前に実行する。
+未確定の場合は INCEPTION を先に終わらせること。
 
 ```bash
-# 全パッケージ共通
-oxlint .
-pnpm -r typecheck
-pnpm -r test
-
-# パッケージ単体（worktree内で対象パッケージのみ）
-cd packages/<name> && npx oxlint . && npx tsc --noEmit && npx vitest run
+# 例: プロジェクト固有設定から読み取ったコマンドを実行
+# $LINT_CMD
+# $TYPECHECK_CMD
+# $TEST_CMD
 ```
 
-## CI/CD ルール（GitHub Actions 必須）
+CI で実行されるチェックは必ずローカルでも通してから push する。CI 失敗 PR は implement エージェントが自身で修正する。
 
-### CI: PRごとに自動実行（必須）
+## CI/CD ルール
 
-PRを作成する前に、対象リポジトリに以下のCIワークフローが存在することを確認する。
-存在しない場合は `.github/workflows/ci.yml` を作成してからPRを出すこと。
+### CI: PR ごとに自動実行 (必須)
 
-必須ジョブ:
-1. **lint** — `oxlint .`
-2. **typecheck** — `pnpm -r typecheck`
-3. **test** — `pnpm -r test`
-4. **build** — `pnpm -r build`
+PR を作成する前に、対象リポジトリに CI ワークフローが存在することを確認する。
+存在しない場合は、プロジェクトのスタックに合わせて `.github/workflows/ci.yml` を作成してから PR を出す。
+
+必須ジョブ (プロジェクト固有設定に従って具体化):
+
+| ジョブ | 目的 | 実装例 |
+|--------|------|--------|
+| **lint** | 構文・スタイル | `eslint`, `oxlint`, `ruff`, `golangci-lint`, `shellcheck` 等 |
+| **typecheck** | 型検証 | `tsc`, `mypy`, `pyright` 等 (型言語のみ) |
+| **test** | ユニット/統合テスト | `vitest`, `jest`, `pytest`, `go test`, `cargo test`, `bats` 等 |
+| **build** | ビルド成功確認 | `tsc --build`, `vite build`, `cargo build`, `go build` 等 |
+
+ワークフローの最小例 (プロジェクトのスタックに合わせて置換する):
 
 ```yaml
-# .github/workflows/ci.yml の最低要件
 name: CI
 on:
   pull_request:
@@ -79,25 +90,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: oxlint .
-      - run: pnpm -r typecheck
-      - run: pnpm -r test
-      - run: pnpm -r build
+      # 以下はプロジェクトのスタックに合わせて書き換える
+      # Node + pnpm の例:
+      #   - uses: pnpm/action-setup@v4
+      #   - uses: actions/setup-node@v4
+      #     with: {node-version-file: .node-version, cache: pnpm}
+      #   - run: pnpm install --frozen-lockfile
+      #   - run: pnpm -r lint typecheck test build
+      # Python + uv の例:
+      #   - uses: astral-sh/setup-uv@v4
+      #   - run: uv sync && uv run ruff check && uv run pytest
+      # Bash のみの例 (このリポジトリ自身):
+      #   - run: sudo apt-get install -y shellcheck bats
+      #   - run: ./scripts/check.sh
 ```
 
-- **CI が全て通るまでマージ禁止** — branch protection rule で `ci` ジョブを required にする
-- review エージェントは CI ステータスを `gh pr checks <number>` で確認してからマージ判断する
-- CI 失敗した PR は implement エージェントが自分で修正する
+- **CI が全て通るまでマージ禁止** — branch protection rule で CI ジョブを required にする
+- review エージェントは CI ステータスを `gh pr checks <number>` で確認してからマージ判断
+- CI 失敗 PR は implement エージェントが自身で修正する
 
-### CD: IaC デプロイは CI/CD パイプラインに統合（必須）
+### CD: IaC デプロイは CI/CD パイプラインに統合 (必須)
 
-手動デプロイ・ローカルからの `terraform apply` / `cdk deploy` は禁止。
+IaC (Terraform / CDK / Pulumi 等) を使うプロジェクトのみ適用。
+
+手動デプロイ・ローカルからの `terraform apply` / `cdk deploy` / `pulumi up` は禁止。
 
 | 環境 | トリガー | 方法 |
 |------|---------|------|
@@ -105,17 +121,17 @@ jobs:
 | production | リリースタグ or 手動承認 | GitHub Actions + environment protection |
 
 ルール:
-- `terraform plan` / `cdk diff` は PR の CI で自動実行し、結果を PR コメントに貼る
-- `terraform apply` / `cdk deploy` は main 昇格後の CD ワークフローでのみ実行
+- `terraform plan` / `cdk diff` / `pulumi preview` は PR の CI で自動実行し、結果を PR コメントに貼る
+- `terraform apply` / `cdk deploy` / `pulumi up` は main 昇格後の CD ワークフローでのみ実行
 - エージェントがローカルで `apply` / `deploy` を実行してはならない
 - IaC 変更がある PR には `infra` ラベルを付与し、plan 結果のレビューを必須にする
-- シークレット（API キー、DB パスワード等）は GitHub Secrets / AWS Secrets Manager で管理。コードにハードコードしない
+- シークレットは GitHub Secrets / クラウド Secret Manager で管理。コードにハードコードしない
 
 ### GitLab プロジェクトの場合
 
-GitHub Actions の代わりに `.gitlab-ci.yml` で同等のパイプラインを定義する:
-- `lint`, `typecheck`, `test`, `build` の各ステージを定義
-- MR (Merge Request) に対して自動実行
+GitHub Actions の代わりに `.gitlab-ci.yml` で同等のパイプラインを定義:
+- lint / typecheck / test / build の各ステージ
+- MR に対して自動実行
 - IaC デプロイは `deploy` ステージで main 昇格後に実行
 - environment protection で production デプロイを制御
 

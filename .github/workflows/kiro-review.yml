@@ -72,19 +72,84 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-  # Auto-merge: only when a review is submitted as APPROVED
+  # Auto-merge: only when a review is submitted as APPROVED, AND:
+  #  1. the validate job on this PR's head SHA has succeeded, and
+  #  2. all non-in-progress check-runs have a successful conclusion, and
+  #  3. `gh pr merge` itself succeeds.
+  #
+  # We cannot use GitHub Actions `needs:` here because this job triggers on
+  # the `pull_request_review` event, which creates a separate workflow run
+  # from the one that ran `validate` on `pull_request`. Instead we query the
+  # Checks API for the PR's head SHA and gate on that explicitly.
+  #
+  # Failures are surfaced as workflow errors AND PR comments so approvers
+  # notice — the previous `|| echo` silently turned every merge failure into
+  # a green workflow.
   auto-merge:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: >-
       github.event_name == 'pull_request_review' &&
       github.event.review.state == 'approved' &&
       github.event.pull_request.base.ref == 'develop'
     steps:
+      - name: Gate on validate + all required checks
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # 1) The `validate` check-run must exist and have succeeded.
+          validate_conclusion=$(gh api "repos/${REPO}/commits/${SHA}/check-runs" \
+            --jq '[.check_runs[] | select(.name == "validate")] | map(.conclusion) | .[0] // "missing"')
+          echo "validate_conclusion=$validate_conclusion"
+          case "$validate_conclusion" in
+            success) ;;
+            missing)
+              echo "::error::validate check has not run on ${SHA}"
+              exit 1
+              ;;
+            *)
+              echo "::error::validate check did not succeed (conclusion=${validate_conclusion})"
+              exit 1
+              ;;
+          esac
+
+          # 2) No check-run may be in a failing state. In-progress / queued
+          # checks are allowed to block the merge; we surface that and exit
+          # non-zero so the reviewer can re-approve once checks clear.
+          failing=$(gh api "repos/${REPO}/commits/${SHA}/check-runs" \
+            --jq '[.check_runs[] | select(.conclusion != null and .conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped")] | map(.name) | join(",")')
+          if [ -n "$failing" ]; then
+            echo "::error::These checks are failing: ${failing}"
+            exit 1
+          fi
+
+          pending=$(gh api "repos/${REPO}/commits/${SHA}/check-runs" \
+            --jq '[.check_runs[] | select(.status != "completed") | select(.name != "auto-merge")] | map(.name) | join(",")')
+          if [ -n "$pending" ]; then
+            echo "::notice::Waiting on in-progress checks: ${pending}"
+            echo "::error::Not all checks have completed yet; will retry on the next approval/synchronize event"
+            exit 1
+          fi
+
       - name: Squash merge approved PR
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
-          pr=${{ github.event.pull_request.number }}
-          echo "Merging PR #$pr"
-          gh pr merge "$pr" --repo ${{ github.repository }} --squash --delete-branch \
-            || echo "Cannot merge PR #$pr yet (conflicts or pending checks)"
+          set -euo pipefail
+          echo "Merging PR #${PR}"
+          if ! gh pr merge "$PR" --repo "$REPO" --squash --delete-branch; then
+            # Explicit failure: surface a PR comment and fail the workflow so
+            # it shows up in the Actions dashboard.
+            gh pr comment "$PR" --repo "$REPO" --body \
+              "🔴 auto-merge failed after APPROVE. Check branch protection, merge conflicts, or required checks."
+            echo "::error::gh pr merge #${PR} failed"
+            exit 1
+          fi
