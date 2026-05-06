@@ -69,6 +69,7 @@ Write every `reason` value in Japanese. The operator UI shows these reasons dire
 - Launch `implement` only for ready issues: unassigned, not labeled `blocked`, and not waiting on an open `depends-on: #N` dependency.
 - Ready issues may be unassigned or already assigned to the current GitHub user. Treat self-assigned ready issues as actionable recovery work.
 - If `operator_request.status` is `open`, consider it a user directive. Honor it when it does not violate hard safety rules, and explain any skip in `skip`.
+- If the operator request reports a bug or error, launch a `create-issue` pane with `P0-critical` priority context immediately. User-reported bugs are highest priority.
 - Multiple `implement` panes are allowed when multiple ready issues can run in parallel.
 - If ready issues appear independent and touch different areas, launch multiple `implement` panes in the same plan.
 - If ready issues are likely to conflict, share broad setup files, or need sequencing despite missing explicit dependencies, launch fewer panes and explain the skipped work.
