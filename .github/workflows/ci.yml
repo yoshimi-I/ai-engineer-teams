@@ -1,0 +1,42 @@
+name: CI
+
+# Bash-centric CI for the kiro-engineer-teams template itself.
+#
+# The runtime of this repo is bash scripts + zellij + gh; there is no Node,
+# Python, or Go toolchain to bootstrap. This workflow runs the same three
+# gates that developers run locally via `./scripts/check.sh`:
+#   - bash syntax check
+#   - ShellCheck
+#   - BATS unit tests
+#
+# It duplicates the work in kiro-review.yml's `validate` job on purpose so
+# that PRs targeting branches other than `develop` (e.g. documentation PRs
+# going directly to main) are still gated.
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck + BATS
+        run: sudo apt-get update && sudo apt-get install -y shellcheck bats
+
+      - name: Check shell syntax
+        run: find scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
+
+      - name: Run ShellCheck
+        run: shellcheck -x -P scripts scripts/*.sh scripts/lib/*.sh
+
+      - name: Run BATS unit tests
+        run: bats scripts/tests/*.bats

@@ -117,16 +117,38 @@ if ! git remote get-url origin &>/dev/null; then
   exit 1
 fi
 
-# ── Check if this is the template repo itself ──
+# ── Check if this is the upstream template repo itself ──
+# We only trigger the scaffold-new-repo flow when the origin URL matches the
+# canonical upstream repository exactly. Matching on the substring
+# "kiro-engineer-teams" would also fire for forks and unrelated repos that
+# happen to contain the same string in their URL (e.g. myorg/kiro-engineer-teams-playground).
+# That misfire would delete LICENSE / docs / README and replace origin — highly
+# destructive on a fork.
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
-if echo "$REMOTE_URL" | grep -q "kiro-engineer-teams"; then
+UPSTREAM_TEMPLATE_REGEX='(^|[:/])yoshimi-I/kiro-engineer-teams(\.git)?/?$'
+IS_UPSTREAM_TEMPLATE=false
+if [[ "$REMOTE_URL" =~ $UPSTREAM_TEMPLATE_REGEX ]]; then
+  IS_UPSTREAM_TEMPLATE=true
+fi
+
+if [[ "$IS_UPSTREAM_TEMPLATE" == "true" ]]; then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  ⚠️  テンプレートリポジトリを直接使用しています"
+  echo "  ⚠️  アップストリームテンプレートリポジトリを直接使用しています"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
-  echo "  新しいプロジェクト用のリポジトリを作成します。"
+  echo "  origin: $REMOTE_URL"
   echo ""
+  echo "  このまま進めると、新しいプロジェクト用のリポジトリを作成し、"
+  echo "  origin を差し替えます。LICENSE / docs / README (テンプレ由来) も削除されます。"
+  echo ""
+  read -r -p "  新しいプロジェクトを作成しますか？ (y/N) → " CONFIRM
+  if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+    echo "  中止しました。origin を自分のプロジェクトに変更してから再実行してください:"
+    echo "    git remote set-url origin <your-repo-url>"
+    exit 0
+  fi
+
   DEFAULT_REPO="$(basename "$PWD")"
   read -r -p "  リポジトリ名 (${DEFAULT_REPO}): " REPO_NAME
   REPO_NAME="${REPO_NAME:-$DEFAULT_REPO}"
