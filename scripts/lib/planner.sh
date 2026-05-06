@@ -104,10 +104,10 @@ operator_request_json() {
 
 clear_operator_request() {
   [ -n "${OPERATOR_REQUEST_FILE:-}" ] || return 0
-  jq -n \
-    --arg ts "$(date '+%H:%M:%S')" \
+  # shellcheck disable=SC2016
+  atomic_write_json "$OPERATOR_REQUEST_FILE" \
     '{status:"handled", ts:$ts, request:"", intent:"general", target:"", priority:"normal"}' \
-    > "$OPERATOR_REQUEST_FILE"
+    --arg ts "$(date '+%H:%M:%S')"
 }
 
 operator_target_issue_number() {
@@ -330,31 +330,66 @@ build_ai_context() {
 }
 
 extract_json_object() {
-  # Try multiple extraction strategies
+  # Try multiple extraction strategies, ordered from most specific to most
+  # permissive. Each strategy is verified with jq before being accepted so we
+  # never return malformed JSON. Implemented with awk for portability across
+  # BSD sed (macOS) and GNU sed (Linux), which differ on `/X/,/Y/` address
+  # range semantics when X and Y match the same line.
   local input
   input=$(cat)
-  # Strategy 1: find JSON between ```json ... ``` markers
+
+  # Strategy 1: JSON inside ```json ... ``` fences.
   local from_fence
-  # shellcheck disable=SC2016
-  from_fence=$(printf '%s\n' "$input" | sed -n '/^```json/,/^```/{/^```/d;p}')
+  from_fence=$(printf '%s\n' "$input" | awk '
+    /^```json[[:space:]]*$/ { in_block=1; next }
+    /^```[[:space:]]*$/ && in_block { in_block=0; exit }
+    in_block { print }
+  ')
   if [ -n "$from_fence" ] && jq -e '.' >/dev/null 2>&1 <<< "$from_fence"; then
     printf '%s\n' "$from_fence"
-    return
+    return 0
   fi
-  # Strategy 2: find first { to last } (greedy)
-  local braces
-  braces=$(printf '%s\n' "$input" | sed -n '/{/,/}/p' | sed -n '1,/}[[:space:]]*$/p')
-  if [ -n "$braces" ] && jq -e '.' >/dev/null 2>&1 <<< "$braces"; then
-    printf '%s\n' "$braces"
-    return
-  fi
-  # Strategy 3: try the whole input as JSON
+
+  # Strategy 2: whole input as JSON (handles pure-JSON responses).
   if jq -e '.' >/dev/null 2>&1 <<< "$input"; then
     printf '%s\n' "$input"
-    return
+    return 0
   fi
-  # Strategy 4: original approach
-  printf '%s\n' "$input" | sed -n '/^{/,/^}/p'
+
+  # Strategy 3: first balanced `{...}` block (longest match). We scan the
+  # string character by character tracking brace depth and string state. This
+  # works on both BSD and GNU awk.
+  local balanced
+  balanced=$(printf '%s' "$input" | awk '
+    BEGIN { depth = 0; in_str = 0; esc = 0; started = 0 }
+    {
+      for (i = 1; i <= length($0); i++) {
+        c = substr($0, i, 1)
+        if (esc) { esc = 0; buf = buf c; continue }
+        if (c == "\\" && in_str) { esc = 1; buf = buf c; continue }
+        if (c == "\"") { in_str = !in_str; buf = buf c; continue }
+        if (in_str) { buf = buf c; continue }
+        if (c == "{") {
+          if (!started) { started = 1; buf = "" }
+          depth++
+          buf = buf c
+        } else if (c == "}") {
+          depth--
+          buf = buf c
+          if (started && depth == 0) { print buf; exit }
+        } else if (started) {
+          buf = buf c
+        }
+      }
+      if (started) buf = buf "\n"
+    }
+  ')
+  if [ -n "$balanced" ] && jq -e '.' >/dev/null 2>&1 <<< "$balanced"; then
+    printf '%s\n' "$balanced"
+    return 0
+  fi
+
+  return 1
 }
 
 ai_plan() {
@@ -367,12 +402,12 @@ ai_plan() {
 
 Context JSON:
 $context" 2>/dev/null || true)
-  printf '%s\n' "$raw" > "${CACHE_DIR}/orchestrator_plan.raw"
+  printf '%s\n' "$raw" | atomic_write "${CACHE_DIR}/orchestrator_plan.raw"
   # Strip ANSI escape sequences before parsing
   raw=$(printf '%s\n' "$raw" | sed $'s/\033\[[0-9;]*m//g' | sed $'s/\033\[[0-9;]*[A-Za-z]//g')
   plan=$(printf '%s\n' "$raw" | extract_json_object)
   if jq -e '.actions and (.actions | type == "array")' >/dev/null 2>&1 <<< "$plan"; then
-    printf '%s\n' "$plan" > "$AI_PLAN_FILE"
+    printf '%s\n' "$plan" | atomic_write "$AI_PLAN_FILE"
     printf '%s\n' "$plan"
     return 0
   fi

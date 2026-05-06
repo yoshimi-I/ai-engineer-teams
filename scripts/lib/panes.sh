@@ -1,5 +1,44 @@
 #!/usr/bin/env bash
 
+# write_pane_status_file <path> <agent> <prompt> <state> <detail> [pr] [issue] [branch] [cycle] [errors] [epoch]
+# Atomically writes an agent status JSON. All non-path args default to sensible
+# empty values so callers can pass only what they have. Uses atomic_write_json
+# from common.sh so concurrent readers never see partial files.
+write_pane_status_file() {
+  local path="$1" agent="$2" prompt="$3" state="$4" detail="${5:-}"
+  local pr="${6:-}" issue="${7:-}" branch="${8:-}"
+  local cycle="${9:-0}" errors="${10:-0}" epoch="${11:-}"
+  local ts
+  ts=$(date '+%H:%M:%S')
+  [ -z "$epoch" ] && epoch=$(date +%s)
+  # shellcheck disable=SC2016
+  atomic_write_json "$path" \
+    '{
+      agent: $agent,
+      prompt: $prompt,
+      state: $state,
+      detail: $detail,
+      issue: $issue,
+      pr: $pr,
+      branch: $branch,
+      cycle: $cycle,
+      errors: $errors,
+      ts: $ts,
+      epoch: $epoch
+    }' \
+    --arg agent "$agent" \
+    --arg prompt "$prompt" \
+    --arg state "$state" \
+    --arg detail "$detail" \
+    --arg issue "$issue" \
+    --arg pr "$pr" \
+    --arg branch "$branch" \
+    --argjson cycle "$cycle" \
+    --argjson errors "$errors" \
+    --arg ts "$ts" \
+    --argjson epoch "$epoch"
+}
+
 pane_number() {
   local pane="$1"
   echo "${pane#terminal_}"
@@ -171,9 +210,8 @@ dedupe_singleton_role() {
         echo "${name}|${r}|${pane}|${status}" >> "$tmp"
       else
         zellij action close-pane --pane-id "$pane" 2>/dev/null || true
-        cat > "${STATUS_DIR}/${name}.json" <<JSON
-{"agent":"${name}","prompt":"${role}","state":"⏹️ stopped","detail":"deduplicated singleton role","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
-JSON
+        write_pane_status_file "${STATUS_DIR}/${name}.json" "$name" "$role" \
+          "⏹️ stopped" "deduplicated singleton role"
       fi
     else
       echo "${name}|${r}|${pane}|${status}" >> "$tmp"
@@ -244,11 +282,8 @@ kill_stalled_panes() {
     if [ "$epoch" -gt 0 ] && [ "$age" -ge "$STALL_THRESHOLD" ] && [[ "$state" == *running* ]]; then
       STALLED_PANES="${STALLED_PANES} ${name}(${age}s)"
       zellij action close-pane --pane-id "$pane" 2>/dev/null || true
-      jq -n --arg agent "$name" --arg prompt "$role" \
-        --arg detail "stalled for ${age}s — auto-killed" \
-        --arg ts "$(date '+%H:%M:%S')" --argjson epoch "$now" \
-        '{agent:$agent,prompt:$prompt,state:"💀 stalled",detail:$detail,issue:"",pr:"",branch:"",cycle:0,errors:0,ts:$ts,epoch:$epoch}' \
-        > "${STATUS_DIR}/${name}.json"
+      write_pane_status_file "${STATUS_DIR}/${name}.json" "$name" "$role" \
+        "💀 stalled" "stalled for ${age}s — auto-killed" "" "" "" 0 0 "$now"
     else
       echo "${name}|${role}|${pane}|${status}" >> "$tmp"
     fi
@@ -283,9 +318,15 @@ cleanup_zombie_status() {
     # If this agent is in the registry as alive, it's fine
     grep -q "^${name}|" "$PANE_REGISTRY" 2>/dev/null && continue
     # Not in registry = pane is gone. Mark as finished.
-    jq --arg ts "$(date '+%H:%M:%S')" --argjson epoch "$now" \
+    local zombie_tmp
+    zombie_tmp=$(safe_tmp "$f") || continue
+    if jq --arg ts "$(date '+%H:%M:%S')" --argjson epoch "$now" \
       '. + {state: "⏹️ finished", detail: "pane exited (auto-cleanup)", ts: $ts, epoch: $epoch}' \
-      "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+      "$f" > "$zombie_tmp" 2>/dev/null; then
+      mv -f "$zombie_tmp" "$f" 2>/dev/null || rm -f "$zombie_tmp"
+    else
+      rm -f "$zombie_tmp"
+    fi
   done
 }
 
@@ -321,24 +362,8 @@ add_pane() {
   if [[ "$name" =~ -pr-([0-9]+)$ ]]; then
     status_pr="#${BASH_REMATCH[1]}"
   fi
-  jq -n \
-    --arg agent "$name" \
-    --arg prompt "$role" \
-    --arg detail "$reason" \
-    --arg pr "$status_pr" \
-    --arg ts "$(date '+%H:%M:%S')" \
-    '{
-      agent: $agent,
-      prompt: $prompt,
-      state: "🚀 starting",
-      detail: $detail,
-      issue: "",
-      pr: $pr,
-      branch: "",
-      cycle: 0,
-      errors: 0,
-      ts: $ts
-    }' > "${STATUS_DIR}/${name}.json"
+  write_pane_status_file "${STATUS_DIR}/${name}.json" "$name" "$role" \
+    "🚀 starting" "$reason" "$status_pr"
   resolve_agents_tab_id
   local pane context_b64 reason_b64
   context_b64=$(agent_arg_b64 "$context")
@@ -350,23 +375,8 @@ add_pane() {
   pane=$(zellij action new-pane "${tab_args[@]}" --close-on-exit --name "$name" --cwd "$PROJECT_CWD" \
     -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
   if [ -z "$pane" ] || ! pane_exists "$pane"; then
-    jq -n \
-      --arg agent "$name" \
-      --arg prompt "$role" \
-      --arg detail "failed to create zellij pane" \
-      --arg ts "$(date '+%H:%M:%S')" \
-      '{
-        agent: $agent,
-        prompt: $prompt,
-        state: "❌ failed",
-        detail: $detail,
-        issue: "",
-        pr: "",
-        branch: "",
-        cycle: 0,
-        errors: 1,
-        ts: $ts
-      }' > "${STATUS_DIR}/${name}.json"
+    write_pane_status_file "${STATUS_DIR}/${name}.json" "$name" "$role" \
+      "❌ failed" "failed to create zellij pane" "" "" "" 0 1
     return 1
   fi
   rename_zellij_pane "$pane" "$name"
@@ -384,9 +394,8 @@ kill_role() {
     [ -z "$name" ] && continue
     if [ "$r" = "$role" ] && [ "$status" = "alive" ]; then
       zellij action close-pane --pane-id "$pane" 2>/dev/null || true
-      cat > "${STATUS_DIR}/${name}.json" <<JSON
-{"agent":"${name}","prompt":"${role}","state":"⏹️ stopped","detail":"no longer needed","issue":"","pr":"","branch":"","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
-JSON
+      write_pane_status_file "${STATUS_DIR}/${name}.json" "$name" "$role" \
+        "⏹️ stopped" "no longer needed"
     else
       echo "${name}|${r}|${pane}|${status}" >> "$tmp"
     fi

@@ -2,12 +2,8 @@
 
 write_orchestrator_status() {
   local state="$1" detail="$2"
-  jq -n \
-    --arg state "$state" \
-    --arg detail "$detail" \
-    --arg ts "$(date '+%H:%M:%S')" \
-    --arg source "$LAST_PLAN_SOURCE" \
-    --arg summary "$LAST_DECISION_SUMMARY" \
+  # shellcheck disable=SC2016
+  atomic_write_json "$ORCH_STATUS_FILE" \
     '{
       agent: "orchestrator",
       prompt: "orchestrator-plan",
@@ -21,7 +17,12 @@ write_orchestrator_status() {
       ts: $ts,
       plan_source: $source,
       summary: $summary
-    }' > "$ORCH_STATUS_FILE"
+    }' \
+    --arg state "$state" \
+    --arg detail "$detail" \
+    --arg ts "$(date '+%H:%M:%S')" \
+    --arg source "$LAST_PLAN_SOURCE" \
+    --arg summary "$LAST_DECISION_SUMMARY"
 }
 
 record_decision() {
@@ -31,17 +32,8 @@ record_decision() {
   # shellcheck disable=SC2034
   LAST_DECISION_DETAIL="$detail"
   LAST_DECISION_TS="$(date '+%H:%M:%S')"
-  jq -n \
-    --arg source "$source" \
-    --arg summary "$summary" \
-    --arg detail "$detail" \
-    --arg ts "$LAST_DECISION_TS" \
-    --argjson alive "$(total_alive 2>/dev/null || echo 0)" \
-    --argjson issues "${ISSUES:-0}" \
-    --argjson ready_issues "${READY_ISSUES:-0}" \
-    --argjson changes "${CHANGES_REQ:-0}" \
-    --argjson fix_ready "${FIX_REVIEW_READY:-0}" \
-    --arg latest_merged_pr "${LATEST_MERGED_PR:-}" \
+  # shellcheck disable=SC2016
+  atomic_write_json "$DECISION_FILE" \
     '{
       source: $source,
       summary: $summary,
@@ -53,7 +45,17 @@ record_decision() {
       changes_requested: $changes,
       fix_review_ready: $fix_ready,
       latest_merged_pr: $latest_merged_pr
-    }' > "$DECISION_FILE"
+    }' \
+    --arg source "$source" \
+    --arg summary "$summary" \
+    --arg detail "$detail" \
+    --arg ts "$LAST_DECISION_TS" \
+    --argjson alive "$(total_alive 2>/dev/null || echo 0)" \
+    --argjson issues "${ISSUES:-0}" \
+    --argjson ready_issues "${READY_ISSUES:-0}" \
+    --argjson changes "${CHANGES_REQ:-0}" \
+    --argjson fix_ready "${FIX_REVIEW_READY:-0}" \
+    --arg latest_merged_pr "${LATEST_MERGED_PR:-}"
   write_orchestrator_status "🧠 deciding" "$summary"
 }
 
@@ -65,7 +67,8 @@ post_merge_due() {
 }
 
 mark_post_merge_spawned() {
-  [ -n "${LATEST_MERGED_PR:-}" ] && echo "$LATEST_MERGED_PR" > "$POST_MERGE_STATE"
+  [ -n "${LATEST_MERGED_PR:-}" ] || return 0
+  printf '%s' "$LATEST_MERGED_PR" | atomic_write "$POST_MERGE_STATE"
 }
 
 post_merge_already_spawned() {

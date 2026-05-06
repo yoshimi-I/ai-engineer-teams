@@ -21,12 +21,14 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
-      - name: Install ShellCheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Install ShellCheck + BATS
+        run: sudo apt-get update && sudo apt-get install -y shellcheck bats
       - name: Check shell syntax
         run: find scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
       - name: Run ShellCheck
         run: shellcheck -x -P scripts scripts/*.sh scripts/lib/*.sh
+      - name: Run BATS unit tests
+        run: bats scripts/tests/*.bats
 
   # Review: only on PR open or /review comment
   review:
