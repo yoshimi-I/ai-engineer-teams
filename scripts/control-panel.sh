@@ -357,9 +357,47 @@ check_stalled_agents() {
 }
 
 # Main loop
+ORCH_HEARTBEAT_THRESHOLD=30
+
+check_orchestrator_alive() {
+  local orch_file="${STATUS_DIR}/orchestrator.json"
+  # Check if orchestrator pane exists in zellij
+  local orch_pane_alive
+  orch_pane_alive=$(zellij action list-panes --json 2>/dev/null \
+    | jq '[.[] | select(.exited | not) | select(.title == "Orchestrator")] | length' 2>/dev/null || echo 0)
+
+  if [ "$orch_pane_alive" -eq 0 ]; then
+    echo -e "\033[31m⚠ Orchestrator pane is dead! Restarting...\033[0m"
+    local tab_id
+    tab_id=$(zellij action list-tabs --json 2>/dev/null \
+      | jq -r '.[] | select(.name == "Pipeline") | .position' 2>/dev/null | head -1)
+    if [ -n "$tab_id" ]; then
+      zellij action new-pane --name "Orchestrator" --cwd "$(pwd)" \
+        -- bash -c "./scripts/orchestrator.sh" 2>/dev/null || true
+    fi
+    return
+  fi
+
+  # Check heartbeat (orchestrator.json epoch freshness)
+  if [ -f "$orch_file" ]; then
+    local ts now age
+    ts=$(jq -r '.ts // ""' "$orch_file" 2>/dev/null || echo "")
+    if [ -z "$ts" ]; then return; fi
+    # Use file modification time as proxy
+    now=$(date +%s)
+    local mtime
+    mtime=$(stat -f%m "$orch_file" 2>/dev/null || stat -c%Y "$orch_file" 2>/dev/null || echo "$now")
+    age=$((now - mtime))
+    if [ "$age" -gt "$ORCH_HEARTBEAT_THRESHOLD" ]; then
+      echo -e "\033[33m⚠ Orchestrator heartbeat stale (${age}s)\033[0m"
+    fi
+  fi
+}
+
 while true; do
   show_panel
   check_stalled_agents
+  check_orchestrator_alive
 
   # Read single key with timeout
   if read -rsn1 -t "$REFRESH" key; then
