@@ -344,15 +344,24 @@ add_pane() {
     record_decision "error" "add_pane called with empty name" "role=${role}"
     return 1
   fi
+
+  # Lock file to prevent race condition between ticks
+  local lockfile="${STATUS_DIR}/.lock-${name}"
+  if [ -f "$lockfile" ]; then
+    local lock_age=$(($(date +%s) - $(stat -f %m "$lockfile" 2>/dev/null || echo 0)))
+    [ "$lock_age" -lt 60 ] && return
+  fi
+  touch "$lockfile"
+
   reconcile_panes
   if singleton_role "$role"; then
     dedupe_singleton_role "$role"
     while IFS='|' read -r n r _pane s; do
-      [ "$r" = "$role" ] && [ "$s" = "alive" ] && return
+      [ "$r" = "$role" ] && [ "$s" = "alive" ] && { rm -f "$lockfile"; return; }
     done < "$PANE_REGISTRY"
   fi
   while IFS='|' read -r n r _pane s; do
-    [ "$n" = "$name" ] && [ "$s" = "alive" ] && return
+    [ "$n" = "$name" ] && [ "$s" = "alive" ] && { rm -f "$lockfile"; return; }
   done < "$PANE_REGISTRY"
 
   # Check status file — if not finished and pane is still alive, don't re-create
