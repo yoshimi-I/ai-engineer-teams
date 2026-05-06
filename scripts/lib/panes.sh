@@ -58,6 +58,21 @@ zellij_panes_json() {
   zellij action list-panes --json 2>/dev/null || echo "[]"
 }
 
+close_agent_placeholder_panes() {
+  [ -n "$AGENTS_TAB_ID" ] && [ "$AGENTS_TAB_ID" != "null" ] || return 0
+  zellij_panes_json \
+    | jq -r --argjson tab "$AGENTS_TAB_ID" '
+        .[]
+        | select(.tab_id == $tab and (.exited | not))
+        | select(('"$pane_name_expr"') == "agent-placeholder" or ('"$pane_name_expr"') == "Agent Area")
+        | "terminal_\(.id)"
+      ' 2>/dev/null \
+    | while IFS= read -r placeholder_pane; do
+        [ -n "$placeholder_pane" ] || continue
+        zellij action close-pane --pane-id "$placeholder_pane" 2>/dev/null || true
+      done
+}
+
 registry_tmp() {
   mktemp "${PANE_REGISTRY}.XXXXXX"
 }
@@ -354,6 +369,7 @@ add_pane() {
     return 1
   fi
   rename_zellij_pane "$pane" "$name"
+  close_agent_placeholder_panes
   record_registry_entry "$name" "$role" "$pane" "alive"
   reconcile_panes
 }
