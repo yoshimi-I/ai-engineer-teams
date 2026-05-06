@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
-# Install prerequisites and clean up template files
+# Install prerequisites for the kiro-engineer-teams pipeline.
+#
+# This script ONLY installs tools (kiro-cli, zellij, gh, gum, jq, shellcheck,
+# bats-core, fswatch). It never removes user files. Template cleanup is
+# owned by scripts/start-pipeline.sh (which detects the upstream template
+# origin and asks for confirmation before scaffolding a new repo) and
+# scripts/init.sh (explicit one-shot scaffold).
+#
+# Before this change, this script ran an unconditional rm on LICENSE,
+# README.md, docs/README.ja.md, and docs/ whenever those files contained
+# the string "kiro-engineer-teams". That made `just setup` destroy
+# documentation and license files on a fresh clone — directly opposite
+# to what the Quick Start in README.md promises ("clone → just setup").
+#
 # Usage: ./scripts/setup.sh
 
 set -euo pipefail
@@ -22,19 +35,6 @@ version_ge() {
       exit 0
     }'
 }
-
-# ── Clean up template files (if cloned/degit'd) ──
-for f in README.md docs/README.ja.md LICENSE docs; do
-  if [[ -e "$f" ]]; then
-    # Only remove if it's the template's file (check for kiro-engineer-teams marker)
-    if grep -q "kiro-engineer-teams" "$f" 2>/dev/null; then
-      rm -rf "$f"
-      info "Removed template file: $f"
-    fi
-  fi
-done
-# Remove empty docs/ dir
-rmdir docs 2>/dev/null || true
 
 # ── Detect package manager ──
 if command -v brew &>/dev/null; then
