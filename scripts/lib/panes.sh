@@ -355,8 +355,19 @@ add_pane() {
     [ "$n" = "$name" ] && [ "$s" = "alive" ] && return
   done < "$PANE_REGISTRY"
 
-  # Also check zellij directly for same-name pane (race condition guard)
-  if zellij_panes_json | jq -e --arg name "$name" '.[] | select(.exited | not) | select(('"$pane_name_expr"') == $name)' >/dev/null 2>&1; then
+  # Check status file — if not finished, don't re-create
+  local status_file="${STATUS_DIR}/${name}.json"
+  if [ -f "$status_file" ]; then
+    local cur_status
+    cur_status=$(jq -r '.status // ""' "$status_file" 2>/dev/null)
+    case "$cur_status" in
+      *finished*|*failed*|*stopped*) ;; # ok to re-create
+      *) return ;; # still running/starting
+    esac
+  fi
+
+  # Also check zellij directly for same-name pane (including exited/held)
+  if zellij_panes_json | jq -e --arg name "$name" '.[] | select((.title // "") == $name)' >/dev/null 2>&1; then
     return
   fi
 
