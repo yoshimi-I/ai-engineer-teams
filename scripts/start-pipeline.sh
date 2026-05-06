@@ -79,7 +79,12 @@ publish_inception_artifacts() {
     branch="$current_branch"
   fi
 
-  git add -f aidlc-docs/ issue/ .kiro/steering/
+  # issue/task.md is intentionally excluded: it is a LOCAL auxiliary tracker
+  # (see .gitignore and .kiro/steering/development-rules.md). The source of
+  # truth for issue assignment is GitHub itself (assignee-based mutex).
+  # Pushing task.md would create merge conflicts between parallel agents and
+  # duplicate state already queryable via `gh issue list`.
+  git add -f aidlc-docs/ .kiro/steering/
   git commit -m "docs: add INCEPTION artifacts"
   git push -u origin "$branch"
 
@@ -90,7 +95,7 @@ publish_inception_artifacts() {
       --head "$branch" \
       --base "$INTEGRATION_BRANCH" \
       --title "docs: add INCEPTION artifacts" \
-      --body "Add INCEPTION artifacts so pipeline agents can access the project plan and issue tracker."
+      --body "Add INCEPTION artifacts (requirements / stories / design vision / architecture) so pipeline agents can access the project plan. issue/task.md is intentionally kept local — GitHub issue assignees are the source of truth for the parallel agent mutex."
     echo "  ✔ PRを作成しました: $(gh pr view "$branch" --json url --jq '.url')"
   fi
 }
@@ -166,11 +171,24 @@ if [[ "$IS_UPSTREAM_TEMPLATE" == "true" ]]; then
     for f in README.md AGENTS.md; do
       grep -q "kiro-engineer-teams" "$f" 2>/dev/null && rm -f "$f"
     done
-    git add -A
-    git commit -m "init: scaffold from kiro-engineer-teams" --allow-empty 2>/dev/null || true
 
-    # Replace template origin with new repo
-    git remote remove origin 2>/dev/null || true
+    # Wipe the template's git history so the new project starts from a single
+    # clean commit. Without this, the template's ~230+ commits (every fix,
+    # refactor, and test iteration we shipped upstream) would all be pushed
+    # into the user's brand-new repo, producing a confusing first-day log
+    # full of unrelated messages. See init.sh for the same pattern.
+    rm -rf .git
+    git init -q -b "$STABLE_BRANCH" 2>/dev/null || { git init -q && git symbolic-ref HEAD "refs/heads/${STABLE_BRANCH}"; }
+    git add -A
+    INIT_AUTHOR_NAME="$(git config --global user.name 2>/dev/null || echo 'kiro')"
+    INIT_AUTHOR_EMAIL="$(git config --global user.email 2>/dev/null || echo 'kiro@localhost')"
+    GIT_AUTHOR_NAME="$INIT_AUTHOR_NAME" \
+    GIT_AUTHOR_EMAIL="$INIT_AUTHOR_EMAIL" \
+    GIT_COMMITTER_NAME="$INIT_AUTHOR_NAME" \
+    GIT_COMMITTER_EMAIL="$INIT_AUTHOR_EMAIL" \
+      git commit -q -m "init: scaffold from kiro-engineer-teams" --allow-empty
+
+    # Create the remote repo and push the single init commit.
     gh repo create "$REPO_NAME" $VIS_FLAG --source=. --remote origin --push
     echo "  ✔ リポジトリを作成しました: $(gh repo view --json url --jq '.url')"
     echo ""
@@ -241,7 +259,11 @@ else
   kiro-cli chat --trust-all-tools "/inception"
 
   # ── Publish INCEPTION artifacts through a PR ──
-  INCEPTION_FILES=$(git ls-files --others --modified -- aidlc-docs/ issue/ .kiro/steering/ 2>/dev/null)
+  # issue/ is intentionally excluded: task.md is a local auxiliary tracker
+  # (already in .gitignore). GitHub issue assignees are the single source
+  # of truth for the parallel agent mutex. Pushing task.md would cause
+  # merge churn between agent worktrees.
+  INCEPTION_FILES=$(git ls-files --others --modified -- aidlc-docs/ .kiro/steering/ 2>/dev/null)
   if [[ -n "$INCEPTION_FILES" ]]; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -256,10 +278,10 @@ else
       echo "  PRをマージ後、もう一度 ./scripts/start-pipeline.sh を実行してください。"
       exit 0
     else
-      for pattern in aidlc-docs/ issue/; do
-        grep -qxF "$pattern" .gitignore 2>/dev/null || echo "$pattern" >> .gitignore
-      done
-      echo "  ✔ aidlc-docs/ と issue/ を .gitignore に追加しました。"
+      # Ensure aidlc-docs/ stays local if the user declined the PR.
+      # issue/task.md is already gitignored via the repository default.
+      grep -qxF "aidlc-docs/" .gitignore 2>/dev/null || echo "aidlc-docs/" >> .gitignore
+      echo "  ✔ aidlc-docs/ を .gitignore に追加しました (issue/task.md は既にローカル保持)。"
     fi
   fi
 
