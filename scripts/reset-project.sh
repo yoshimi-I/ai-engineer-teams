@@ -10,7 +10,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # 1. Close all open PRs
 echo ""
 echo "📌 Step 1: Close all open PRs"
-prs=$(gh pr list --repo "$REPO" --state open --json number --jq '.[].number')
+prs=$(gh pr list --repo "$REPO" --state open --limit 500 --json number --jq '.[].number')
 if [ -z "$prs" ]; then
   echo "  No open PRs."
 else
@@ -51,7 +51,7 @@ fi
 # 4. Unassign all open issues
 echo ""
 echo "👤 Step 4: Unassign all open issues"
-assigned=$(gh issue list --repo "$REPO" --state open --json number,assignees \
+assigned=$(gh issue list --repo "$REPO" --state open --limit 500 --json number,assignees \
   --jq '.[] | select(.assignees | length > 0) | .number')
 if [ -z "$assigned" ]; then
   echo "  No assigned issues."

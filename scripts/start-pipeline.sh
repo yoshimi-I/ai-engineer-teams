@@ -224,7 +224,7 @@ fi
 INCEPTION_DONE=false
 if [[ -d "aidlc-docs/inception" ]] && ls aidlc-docs/inception/*/*.md &>/dev/null 2>&1; then
   INCEPTION_DONE=true
-  ISSUE_COUNT=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo "0")
+  ISSUE_COUNT=$(gh issue list --state open --limit 500 --json number --jq 'length' 2>/dev/null || echo "0")
 fi
 
 if [[ "$INCEPTION_DONE" == "true" ]]; then
@@ -285,12 +285,12 @@ else
     fi
   fi
 
-  ISSUE_COUNT=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo "0")
+  ISSUE_COUNT=$(gh issue list --state open --limit 500 --json number --jq 'length' 2>/dev/null || echo "0")
 fi
 
 # ── Check issues exist ──
 if [[ -z "${ISSUE_COUNT:-}" ]]; then
-  ISSUE_COUNT=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo "0")
+  ISSUE_COUNT=$(gh issue list --state open --limit 500 --json number --jq 'length' 2>/dev/null || echo "0")
 fi
 if [[ "$ISSUE_COUNT" -eq 0 ]]; then
   echo ""

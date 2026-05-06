@@ -131,7 +131,7 @@ render() {
   if [ "$summary_age" -ge "$CACHE_TTL" ]; then
     {
       echo "ISSUES_IN_PROGRESS:"
-      gh issue list --state open --json number,title,assignees \
+      gh issue list --state open --limit 500 --json number,title,assignees \
         --jq '.[] | select(.assignees | length > 0) | "  #\(.number) \(.title) ← \(.assignees[0].login)"' 2>/dev/null || true
       echo "OPEN_PRS:"
       jq -r '.[] | "  #\(.number) [\(.pipelineState // "unknown") / \(.checksState // "unknown")] \(.title) (\(.headRefName))"' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || true

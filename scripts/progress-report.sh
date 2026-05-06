@@ -29,9 +29,12 @@ render() {
   echo ""
 
   # Issues
+  # `gh issue list` defaults to 30 results, which silently capped the counter
+  # at 30 even when the project had 40+ open issues. Always pass --limit with
+  # a large ceiling so the totals match reality.
   local open closed total pct
-  open=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo 0)
-  closed=$(gh issue list --state closed --json number --jq 'length' 2>/dev/null || echo 0)
+  open=$(gh issue list --state open --limit 500 --json number --jq 'length' 2>/dev/null || echo 0)
+  closed=$(gh issue list --state closed --limit 500 --json number --jq 'length' 2>/dev/null || echo 0)
   total=$((open + closed))
   pct=0; [ "$total" -gt 0 ] && pct=$((closed * 100 / total))
 
@@ -50,7 +53,7 @@ render() {
 
   # In-progress issues
   local in_progress
-  in_progress=$(gh issue list --state open --json number,title,assignees \
+  in_progress=$(gh issue list --state open --limit 500 --json number,title,assignees \
     --jq '.[] | select(.assignees | length > 0) | "    #\(.number) \(.title) ← \(.assignees[0].login)"' 2>/dev/null || true)
   if [ -n "$in_progress" ]; then
     echo -e "  ${BOLD}🔨 着手中${R}"
@@ -59,7 +62,7 @@ render() {
   fi
 
   local unassigned
-  unassigned=$(gh issue list --state open --json number,title,assignees \
+  unassigned=$(gh issue list --state open --limit 500 --json number,title,assignees \
     --jq '.[] | select(.assignees | length == 0) | "    #\(.number) \(.title)"' 2>/dev/null || true)
   if [ -n "$unassigned" ]; then
     echo -e "  ${BOLD}📭 未着手${R}"
@@ -69,8 +72,8 @@ render() {
 
   # PRs
   local pr_open pr_merged pr_total
-  pr_open=$(gh pr list --state open --json number --jq 'length' 2>/dev/null || echo 0)
-  pr_merged=$(gh pr list --state merged --json number --jq 'length' 2>/dev/null || echo 0)
+  pr_open=$(gh pr list --state open --limit 500 --json number --jq 'length' 2>/dev/null || echo 0)
+  pr_merged=$(gh pr list --state merged --limit 500 --json number --jq 'length' 2>/dev/null || echo 0)
   pr_total=$((pr_open + pr_merged))
 
   echo -e "  ${BOLD}🔀 Pull Requests${R}"
@@ -79,7 +82,7 @@ render() {
 
   # Open PR details
   local pr_details
-  pr_details=$(gh pr list --json number,title,reviewDecision \
+  pr_details=$(gh pr list --limit 500 --json number,title,reviewDecision \
     --jq '.[] | "    #\(.number) [\(.reviewDecision // "PENDING" | if . == "CHANGES_REQUESTED" then "修正必須" elif . == "APPROVED" then "承認済み" elif . == "REVIEW_REQUIRED" then "レビュー待ち" else "未レビュー" end)] \(.title)"' 2>/dev/null || true)
   if [ -n "$pr_details" ]; then
     echo -e "  ${BOLD}📝 Open PRs${R}"

@@ -111,7 +111,7 @@ scan_agent_context() {
   # Check for open PR from this branch
   if [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INTEGRATION_BRANCH" ]; then
     local pr_num
-    pr_num=$(gh pr list --head "$CURRENT_BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
+    pr_num=$(gh pr list --head "$CURRENT_BRANCH" --limit 1 --json number --jq '.[0].number' 2>/dev/null || echo "")
     [ -n "$pr_num" ] && CURRENT_PR="#${pr_num}"
   fi
 }
@@ -134,7 +134,7 @@ wait_for_work() {
       echo "⏳ Waiting for open issues..."
       while true; do
         update_status "⏳ waiting" "issues"
-        count=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo "0")
+        count=$(gh issue list --state open --limit 500 --json number --jq 'length' 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 30
       done
@@ -143,7 +143,7 @@ wait_for_work() {
       echo "⏳ Waiting for open PRs..."
       while true; do
         update_status "⏳ waiting" "PRs"
-        count=$(gh pr list --json number --jq 'length' 2>/dev/null || echo "0")
+        count=$(gh pr list --limit 1 --json number --jq 'length' 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 30
       done
@@ -152,7 +152,7 @@ wait_for_work() {
       echo "⏳ Waiting for PRs with review comments..."
       while true; do
         update_status "⏳ waiting" "review comments"
-        count=$(gh pr list --json number --jq 'length' 2>/dev/null || echo "0")
+        count=$(gh pr list --limit 1 --json number --jq 'length' 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 30
       done

@@ -176,9 +176,9 @@ show_panel() {
     mkdir -p "${STATUS_DIR}/.cache"
     {
       echo "issues:"
-      gh issue list --state open --json number,title,assignees --jq '.[] | select(.assignees | length > 0) | "  #\(.number) \(.title[:40]) ← \(.assignees[0].login)"' 2>/dev/null || true
+      gh issue list --state open --limit 500 --json number,title,assignees --jq '.[] | select(.assignees | length > 0) | "  #\(.number) \(.title[:40]) ← \(.assignees[0].login)"' 2>/dev/null || true
       echo "prs:"
-      gh pr list --json number,title,headRefName,author,reviewDecision --jq '.[] | "  #\(.number) [\(.reviewDecision // "PENDING")] \(.title[:40]) ← \(.author.login)"' 2>/dev/null || true
+      gh pr list --limit 500 --json number,title,headRefName,author,reviewDecision --jq '.[] | "  #\(.number) [\(.reviewDecision // "PENDING")] \(.title[:40]) ← \(.author.login)"' 2>/dev/null || true
     } > "$cache_file" 2>/dev/null
   fi
 
