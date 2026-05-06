@@ -26,6 +26,7 @@ icon_for() {
     fix-review)   echo "🔧" ;;
     watch-main)   echo "👀" ;;
     e2e-bug-hunt) echo "🧪" ;;
+    ui-audit)     echo "🎨" ;;
     improve)      echo "💡" ;;
     idle)         echo "💤" ;;
     *)            echo "⚙️ " ;;
@@ -234,7 +235,7 @@ restart_agent() {
   prompt=$(jq -r '.prompt // "idle"' "${STATUS_DIR}/${selection}.json" 2>/dev/null || echo "idle")
 
   if [[ "$prompt" == "idle" ]]; then
-    prompt=$(gum choose --header "Select role:" implement review fix-review watch-main e2e-bug-hunt improve dev-server)
+    prompt=$(gum choose --header "Select role:" implement review fix-review watch-main e2e-bug-hunt ui-audit improve dev-server)
     [[ -z "$prompt" ]] && return
   fi
 

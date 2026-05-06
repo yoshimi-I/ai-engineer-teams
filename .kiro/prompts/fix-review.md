@@ -22,7 +22,8 @@
 ```bash
 gh pr list --json number,title,headRefName,reviewDecision --limit 20
 ```
-`reviewDecision` が `CHANGES_REQUESTED` のPRを対象にする。
+`reviewDecision` が `CHANGES_REQUESTED`、または `mergeStateStatus` が `DIRTY` のPRを対象にする。
+`APPROVED` でも `mergeStateStatus` が `CLEAN` / `HAS_HOOKS` / `UNKNOWN` 以外なら、マージ前整備の対象にする。
 
 #### 層2: 最新レビューのstate
 `reviewDecision` が空や `REVIEW_REQUIRED` の場合でも、個別レビューに REQUEST_CHANGES がある場合がある:

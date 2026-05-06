@@ -14,6 +14,7 @@ icon_for() {
     fix-review)   echo "🔧" ;;
     watch-main)   echo "👀" ;;
     e2e-bug-hunt) echo "🧪" ;;
+    ui-audit)     echo "🎨" ;;
     improve)      echo "💡" ;;
     idle)         echo "💤" ;;
     *)            echo "⚙️ " ;;

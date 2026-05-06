@@ -42,7 +42,10 @@ review_pr_numbers_json() {
   local active
   active=$(active_pr_numbers_json "review" "review")
   jq --argjson active "$active" '
-    [.[] | select(.reviewDecision != "CHANGES_REQUESTED")
+    [.[] | select((.isDraft // false) | not)
+      | select(.reviewDecision != "CHANGES_REQUESTED")
+      | select((.mergeStateStatus // "UNKNOWN") != "DIRTY")
+      | select((.reviewDecision == "APPROVED" and ((.mergeStateStatus // "UNKNOWN") | IN("CLEAN", "HAS_HOOKS", "UNKNOWN") | not)) | not)
       | select((.number as $n | $active | index($n) | not))
       | .number]
   ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo "[]"
@@ -52,7 +55,10 @@ fix_review_pr_numbers_json() {
   local active
   active=$(active_pr_numbers_json "fix-review" "fix-review")
   jq --argjson active "$active" '
-    [.[] | select(.reviewDecision == "CHANGES_REQUESTED")
+    [.[] | select((.isDraft // false) | not)
+      | select(.reviewDecision == "CHANGES_REQUESTED"
+        or .mergeStateStatus == "DIRTY"
+        or (.reviewDecision == "APPROVED" and ((.mergeStateStatus // "UNKNOWN") | IN("CLEAN", "HAS_HOOKS", "UNKNOWN") | not)))
       | select((.number as $n | $active | index($n) | not))
       | .number]
   ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo "[]"
@@ -190,7 +196,7 @@ handle_operator_request() {
           clear_operator_request
           return 0
           ;;
-        dev-server|e2e|watch-main|improve)
+        dev-server|e2e|watch-main|improve|ui-audit)
           if add_pane "$role" "$role" "" "operator: ${request:-launch $role}"; then
             record_decision "operator" "launched:${role}" "$request"
             clear_operator_request
@@ -286,9 +292,10 @@ build_ai_context() {
     --argjson auto_dev_server "$([ "$AUTO_DEV_SERVER" = "true" ] && echo true || echo false)" \
     --argjson auto_watch_main "$([ "$AUTO_WATCH_MAIN" = "true" ] && echo true || echo false)" \
     --argjson auto_improve "$([ "$AUTO_IMPROVE" = "true" ] && echo true || echo false)" \
+    --argjson auto_ui_audit "$([ "$AUTO_UI_AUDIT" = "true" ] && echo true || echo false)" \
     '{
       limits: {max_alive: $max_alive, max_implement: $max_implement, max_fix_review: $max_fix_review},
-      automation: {dev_server: $auto_dev_server, watch_main: $auto_watch_main, improve: $auto_improve},
+      automation: {dev_server: $auto_dev_server, watch_main: $auto_watch_main, improve: $auto_improve, ui_audit: $auto_ui_audit},
       project: {has_dev_target: $has_dev_target, integration_branch: $integration_branch, stable_branch: $stable_branch},
       dev_server: $dev_health,
       next_names: {implement: $next_implement},
@@ -314,6 +321,8 @@ build_ai_context() {
       },
       pull_requests: {
         changes_requested_count: ([$prs[] | select(.reviewDecision == "CHANGES_REQUESTED")] | length),
+        conflict_count: ([$prs[] | select(.mergeStateStatus == "DIRTY")] | length),
+        blocked_merge_count: ([$prs[] | select((.reviewDecision == "APPROVED") and ((.mergeStateStatus // "UNKNOWN") | IN("CLEAN", "HAS_HOOKS", "UNKNOWN") | not))] | length),
         review_ready_count: ($review_pr_numbers | length),
         fix_review_ready_count: ($fix_review_pr_numbers | length),
         open: $prs
@@ -376,7 +385,7 @@ $context" 2>/dev/null || true)
 
 valid_role() {
   case "$1" in
-    dev-server|implement|review|fix-review|e2e|e2e-bug-hunt|watch-main|improve|feature-discovery|create-issue) return 0 ;;
+    dev-server|implement|review|fix-review|e2e|e2e-bug-hunt|ui-audit|watch-main|improve|feature-discovery|create-issue) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -465,6 +474,11 @@ execute_ai_plan() {
         if ! role_active "dev-server"; then skipped="${skipped} dev-server未起動"; continue; fi
         if ! post_merge_due; then skipped="${skipped} 新規mergeなし"; continue; fi
         ;;
+      ui-audit)
+        if [ "$AUTO_UI_AUDIT" != "true" ]; then skipped="${skipped} ui-audit自動起動なし"; continue; fi
+        if ! role_active "dev-server"; then skipped="${skipped} dev-server未起動"; continue; fi
+        if ! post_merge_due; then skipped="${skipped} 新規mergeなし"; continue; fi
+        ;;
       watch-main)
         if ! role_active "dev-server"; then skipped="${skipped} dev-server未起動"; continue; fi
         if [ "$AUTO_WATCH_MAIN" != "true" ] || ! post_merge_due; then
@@ -501,7 +515,7 @@ execute_ai_plan() {
     fi
   done < <(jq -r '.actions[]? | [.role, (.name // .role), (.reason // "")] | @tsv' <<< "$plan" 2>/dev/null)
 
-  if jq -e '.actions[]? | .role == "e2e" or .role == "e2e-bug-hunt" or .role == "watch-main" or .role == "improve"' >/dev/null 2>&1 <<< "$plan"; then
+  if jq -e '.actions[]? | .role == "e2e" or .role == "e2e-bug-hunt" or .role == "ui-audit" or .role == "watch-main" or .role == "improve"' >/dev/null 2>&1 <<< "$plan"; then
     [ "$launched" -gt 0 ] && mark_post_merge_spawned
   fi
 
@@ -522,6 +536,7 @@ fallback_scale() {
   local cur_review; cur_review=$(count_alive "review")
   local cur_fix;  cur_fix=$(count_alive "fix-review")
   local cur_e2e;  cur_e2e=$(count_alive "e2e-bug-hunt")
+  local cur_ui;   cur_ui=$(count_alive "ui-audit")
   local cur_watch=0 cur_imp=0 issue_num pr_num
   local launched=""
   [ "$AUTO_WATCH_MAIN" = "true" ] && cur_watch=$(count_alive "watch-main")
@@ -580,6 +595,11 @@ fallback_scale() {
     if [ "$cur_e2e" -eq 0 ]; then
       if add_pane "e2e-hunt" "e2e-bug-hunt" "" "新しい merge を検出し、dev-server が稼働中のため E2E bug hunt pane を作成する。"; then
         launched="${launched} e2e-hunt"
+      fi
+    fi
+    if [ "$AUTO_UI_AUDIT" = "true" ] && [ "$cur_ui" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
+      if add_pane "ui-audit" "ui-audit" "" "新しい merge を検出し、良いデザイン品質を守るため UI/UX audit pane を作成する。"; then
+        launched="${launched} ui-audit"
       fi
     fi
     if [ "$AUTO_WATCH_MAIN" = "true" ] && [ "$cur_watch" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then

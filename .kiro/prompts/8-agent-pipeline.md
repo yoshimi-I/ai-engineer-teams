@@ -1,4 +1,3 @@
-
 # 8-Agent 並列自動化パイプライン
 
 8つのKiro CLIセッションを並列で起動し、issue→実装→レビュー→マージ→検証の全サイクルを自動化する。
@@ -13,7 +12,8 @@
 [Agent 5] /fix-review── 🔴指摘→修正→再push
 [Agent 6] /watch-main ─────── developマージ検出→E2E検証→main昇格 or バグissue
 [Agent 7] /e2e-bug-hunt ───── Playwright巡回→バグissue
-[Agent 8] /improve ─────────── コード分析→改善issue自動生成
+[Agent 8] /ui-audit ────────── デザイン品質監査→design-review issue
+[Agent 9] /improve ─────────── コード分析→改善issue自動生成
 
 ※ CI失敗はpre-commitで防止、発生時はImpl自身が修正
 共有状態: issue/task.md
@@ -48,8 +48,9 @@ Agent 1,2: /implement ──→ PR作成（pre-commitでlint/test通過済み）
                                         ▲
                                         │
                    Agent 7: /e2e-bug-hunt（Playwright巡回）
+                   Agent 8: /ui-audit（デザイン品質監査）
 
-Agent 8: /improve（10分間隔で改善issue自動生成）
+Agent 9: /improve（10分間隔で改善issue自動生成）
 ```
 
 ## 起動方法
@@ -78,16 +79,17 @@ kiro-cli chat → /improve
 
 ## 各エージェントの役割
 
-| # | プロンプト | 役割 | ポーリング間隔 |
-|---|-----------|------|---------------|
-| 1 | `/implement` | issueを取って実装→PR作成（ループ） | 即座に次へ |
-| 2 | `/implement` | 同上（並列で別issue） | 即座に次へ |
-| 3 | `/review` | open PRを取得→厳格レビュー→マージ + Dependabot PR処理 | 即座に次へ |
-| 4 | `/review` | 同上（並列で別PR） | 即座に次へ |
-| 5 | `/fix-review` | 🔴指摘のあるPRを修正→再push | 2分 |
-| 6 | `/watch-main` | developマージ検出→テスト+E2E検証→main昇格 or バグissue | 2分 |
-| 7 | `/e2e-bug-hunt` | Playwright全ページ巡回→バグissue | サイクル完了後 |
-| 8 | `/improve` | コード分析→改善issue自動生成 | 10分 |
+| #   | プロンプト      | 役割                                                   | ポーリング間隔 |
+| --- | --------------- | ------------------------------------------------------ | -------------- |
+| 1   | `/implement`    | issueを取って実装→PR作成（ループ）                     | 即座に次へ     |
+| 2   | `/implement`    | 同上（並列で別issue）                                  | 即座に次へ     |
+| 3   | `/review`       | open PRを取得→厳格レビュー→マージ + Dependabot PR処理  | 即座に次へ     |
+| 4   | `/review`       | 同上（並列で別PR）                                     | 即座に次へ     |
+| 5   | `/fix-review`   | 🔴指摘のあるPRを修正→再push                            | 2分            |
+| 6   | `/watch-main`   | developマージ検出→テスト+E2E検証→main昇格 or バグissue | 2分            |
+| 7   | `/e2e-bug-hunt` | Playwright全ページ巡回→バグissue                       | サイクル完了後 |
+| 8   | `/ui-audit`     | デザイン品質監査→design-review issue                   | merge後        |
+| 9   | `/improve`      | コード分析→改善issue自動生成                           | 10分           |
 
 ## CI失敗の対応方針
 
@@ -111,9 +113,9 @@ Fix-CIエージェントは廃止。代わりに:
 
 ## エスカレーション
 
-| エージェント | エスカレーション条件 | 方法 |
-|------------|-------------------|------|
-| `/fix-review` | 3回修正しても🔴 | PRにコメント |
-| `/e2e-bug-hunt` | アプリ起動不能 | 報告して停止 |
-| `/improve` | 改善ポイントが見つからない | スキップして次サイクルへ |
-| `/watch-main` | アプリ起動不能 | 報告して停止 |
+| エージェント    | エスカレーション条件       | 方法                     |
+| --------------- | -------------------------- | ------------------------ |
+| `/fix-review`   | 3回修正しても🔴            | PRにコメント             |
+| `/e2e-bug-hunt` | アプリ起動不能             | 報告して停止             |
+| `/improve`      | 改善ポイントが見つからない | スキップして次サイクルへ |
+| `/watch-main`   | アプリ起動不能             | 報告して停止             |

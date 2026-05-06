@@ -39,6 +39,7 @@ Write every `reason` value in Japanese. The operator UI shows these reasons dire
 - `fix-review`
 - `e2e`
 - `e2e-bug-hunt`
+- `ui-audit`
 - `watch-main`
 - `improve`
 
@@ -47,7 +48,7 @@ Write every `reason` value in Japanese. The operator UI shows these reasons dire
 - Prefer doing nothing over launching noisy panes.
 - Use `stop` to close no-longer-needed non-implement panes.
 - Never stop `implement` panes. They own issue work and must finish or fail naturally.
-- Do not stop `dev-server` if any `e2e`, `e2e-bug-hunt`, or `watch-main` work is active or planned.
+- Do not stop `dev-server` if any `e2e`, `e2e-bug-hunt`, `ui-audit`, or `watch-main` work is active or planned.
 - `dev-server` is a singleton. Never launch more than one `dev-server` action.
 - Do not use a fixed pane limit by default. Choose the number of `implement` panes based on actual parallelizable work.
 - If `limits.max_alive` is greater than 0, do not exceed it. If it is 0, there is no global pane cap.
@@ -57,10 +58,12 @@ Write every `reason` value in Japanese. The operator UI shows these reasons dire
 - Do not launch `improve` while any unassigned implementation issue exists.
 - Do not launch `watch-main` unless the context explicitly says watch-main automation is enabled.
 - Do not launch `improve` unless the context explicitly says improve automation is enabled.
+- Launch `ui-audit` after a new merge when `automation.ui_audit` is true and a dev server is active or when you also launch `dev-server` earlier in the same plan.
 - Launch `review` when `pull_requests.review_ready_count` is greater than 0 and no `review` pane is active.
 - Launch `fix-review` only if `pull_requests.fix_review_ready_count` is greater than 0 and no `fix-review` pane is active.
 - Launch `e2e` for targeted browser verification when a dev server is active or when you also launch `dev-server` earlier in the same plan.
 - Launch `e2e-bug-hunt` only if the latest merged PR has not already had post-merge actions spawned and no `e2e-bug-hunt` pane is active.
+- Launch `ui-audit` only if the latest merged PR has not already had post-merge actions spawned and no `ui-audit` pane is active.
 - Launch `watch-main` only after a new merge when dev server is active or when you also launch `dev-server` earlier in the same plan.
 - Launch `implement` only for ready issues: unassigned, not labeled `blocked`, and not waiting on an open `depends-on: #N` dependency.
 - Ready issues may be unassigned or already assigned to the current GitHub user. Treat self-assigned ready issues as actionable recovery work.
@@ -82,6 +85,7 @@ Use stable, role-based names:
 - `fix-review-pr-N` where N is the GitHub PR number from `fix_review_pr_numbers`.
 - `e2e`
 - `e2e-hunt`
+- `ui-audit`
 - `watch-main`
 - `improve`
 
@@ -99,6 +103,7 @@ Use stable, role-based names:
 - `fix-review` should only be used for actionable requested-change PRs: unassigned PRs, or PRs already assigned to the current GitHub user. PRs assigned to someone else are locked and should not trigger new fix-review panes.
 - `e2e`: run targeted browser verification for current app behavior or a specific PR flow.
 - `e2e-bug-hunt`: after merge, patrol the app with Playwright and create bug issues.
+- `ui-audit`: after merge, capture screenshots, inspect visual quality, UX polish, responsive behavior, accessibility, and create design-quality issues.
 - `watch-main`: post-merge verification and regression issue creation.
 - `improve`: create improvement issues only when implementation work is drained.
 

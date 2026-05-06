@@ -14,17 +14,19 @@ render() {
   echo "  ╚════════════════════════════════════════════╝${R}"
   echo ""
 
-  # User attention items (red)
+  # User attention items
   local attention_file="${STATUS_DIR}/user-attention.json"
+  local items=""
   if [ -f "$attention_file" ]; then
-    local items
     items=$(jq -r '.[] | "    ⚠️  [\(.from)] \(.message)"' "$attention_file" 2>/dev/null || true)
-    if [ -n "$items" ]; then
-      echo -e "  ${BOLD}${RED}🚨 ユーザー確認事項${R}"
-      echo -e "${RED}${items}${R}"
-      echo ""
-    fi
   fi
+  echo -e "  ${BOLD}${RED}🚨 ユーザーに確認して欲しいこと${R}"
+  if [ -n "$items" ]; then
+    printf '%b\n' "${RED}${items}${R}"
+  else
+    echo -e "  ${DIM}なし${R}"
+  fi
+  echo ""
 
   # Issues
   local open closed total pct
@@ -40,10 +42,10 @@ render() {
   local bar_len=30 filled empty
   filled=$((pct * bar_len / 100))
   empty=$((bar_len - filled))
-  printf "    ["
-  printf '%s' "${GREEN}"; printf '█%.0s' $(seq 1 "$filled" 2>/dev/null) || true; printf '%s' "${R}"
-  printf '%s' "${DIM}"; printf '░%.0s' $(seq 1 "$empty" 2>/dev/null) || true; printf '%s' "${R}"
-  echo "]"
+  printf '    ['
+  printf '%b' "${GREEN}"; printf '█%.0s' $(seq 1 "$filled" 2>/dev/null) || true; printf '%b' "${R}"
+  printf '%b' "${DIM}"; printf '░%.0s' $(seq 1 "$empty" 2>/dev/null) || true; printf '%b' "${R}"
+  printf ']\n'
   echo ""
 
   # In-progress issues

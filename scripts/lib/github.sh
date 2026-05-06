@@ -43,7 +43,7 @@ gh_cached() {
 
 refresh_github() {
   ISSUES_JSON=$(gh_cached issues_json gh issue list --state open --limit 100 --json number,title,body,labels,assignees)
-  PRS_JSON=$(gh_cached prs_json gh pr list --base "${INTEGRATION_BRANCH:-develop}" --limit 30 --json number,title,headRefName,baseRefName,reviewDecision,author,assignees)
+  PRS_JSON=$(gh_cached prs_json gh pr list --base "${INTEGRATION_BRANCH:-develop}" --limit 30 --json number,title,headRefName,baseRefName,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup,author,assignees)
   GH_USER=$(gh_cached gh_user gh api user --jq '.login')
   # shellcheck disable=SC2034
   ISSUES=$(jq 'length' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
@@ -63,7 +63,10 @@ refresh_github() {
   CHANGES_REQ=$(jq '[.[] | select(.reviewDecision == "CHANGES_REQUESTED")] | length' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo 0)
   # shellcheck disable=SC2034
   FIX_REVIEW_READY=$(jq '
-    [.[] | select(.reviewDecision == "CHANGES_REQUESTED")]
+    [.[] | select((.isDraft // false) | not)
+      | select(.reviewDecision == "CHANGES_REQUESTED"
+        or .mergeStateStatus == "DIRTY"
+        or (.reviewDecision == "APPROVED" and ((.mergeStateStatus // "UNKNOWN") | IN("CLEAN", "HAS_HOOKS", "UNKNOWN") | not)))]
     | length
   ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo 0)
   LATEST_MERGED_PR=$(gh_cached latest_merged_pr gh pr list --base "${INTEGRATION_BRANCH:-develop}" --state merged --limit 1 --json number \

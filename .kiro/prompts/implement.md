@@ -252,6 +252,20 @@ issue番号の指定がない場合:
 6. 既存コンポーネントのパターンを確認
 7. steering ファイルからフロントエンドの検証コマンドを確認して実行
 
+#### Design Acceptance Criteria（UI変更では必須）
+
+UI/UXに触れる変更は、PR作成前に以下を満たすこと:
+
+- desktop と mobile のスクリーンショットを `/tmp/` に保存する
+- loading / empty / error / disabled / success 状態を実装または既存状態と整合させる
+- テキスト切れ、重なり、横スクロール、ボタン内 overflow がない
+- 既存のUIコンポーネント、色、余白、角丸、影、フォーカス表現と揃える
+- card の入れ子、意味の薄い装飾、説明文過多、チープな単色UIを避ける
+- keyboard focus と aria-label を確認する
+- PR本文に `Design Evidence` セクションを追加し、スクリーンショットパスと確認したviewportを記載する
+
+スクリーンショットを取れない環境の場合は、理由と代替検証（DOM/CSS/Playwrightログ）をPR本文に明記する。
+
 ### バックエンド変更がある場合
 
 1. `clean-ddd-hexagonal` スキルの原則に沿っているか確認

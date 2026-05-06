@@ -194,6 +194,7 @@ pnpm -r test
 | improve | 3件 | 改善issueの大量生成を防止 |
 | e2e-bug-hunt | 5件 | バグissueの大量生成を防止 |
 | watch-main | 3件 | マージ後検証のバグissue |
+| ui-audit | 3件 | デザイン改善issueの大量生成を防止 |
 | implement | 0件 | issueを作らない（消化するのみ） |
 | review | 0件 | issueを作らない |
 | fix-review | 1件 | 再issue化のみ |
@@ -219,6 +220,13 @@ pnpm -r test
 | `P3-low` | あると嬉しい | ドキュメント、軽微なDX改善 |
 
 `gh issue create` には必ず `--label "優先度" --label "<P0-critical|P1-high|P2-medium|P3-low>"` を含めること。Implエージェントは P0→P1→P2→P3 の順で取得する。
+
+### デザイン品質
+
+- UI変更PRは `Design Evidence` を必須とする
+- desktop/mobile スクリーンショット、または合理的な代替検証をPR本文に記載する
+- チープなUI、既存デザインから浮いたUI、状態不足、レスポンシブ崩れはレビューで修正必須
+- `ui-audit` は `design-review` label と優先度 label を付けて issue を作成する
 
 ### コンフリクト防止
 

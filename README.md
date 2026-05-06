@@ -169,6 +169,7 @@ Orchestrator (starts with 1 agent, scales as needed)
     ├── dev-server → started when project has package.json etc.
     ├── watch-main → added after first develop merge → E2E verification → promote to main
     ├── e2e-hunt → added after first merge → Playwright patrol
+    ├── ui-audit → added after first merge → design quality audit
     └── improve → added after first merge → improvement issues
 ```
 
@@ -192,9 +193,9 @@ zellij --version
 brew upgrade zellij
 ```
 
-The orchestrator uses an AI planner prompt (`.kiro/prompts/orchestrator-plan.md`) by default. Bash gathers GitHub, PR, pane, project, and post-merge state, asks the planner for a JSON action plan, validates that JSON, then launches only the approved zellij panes. The planner decides which roles to run (`dev-server`, `implement`, `review`, `fix-review`, `e2e`, `e2e-bug-hunt`, `watch-main`, `improve`) and how many `implement` panes to run based on dependencies, likely file conflicts, active panes, and review/e2e needs. Issues labeled `blocked` or waiting on an open `depends-on: #N` dependency are not considered ready. If AI planning fails, Bash falls back to dependency-aware scaling.
+The orchestrator uses an AI planner prompt (`.kiro/prompts/orchestrator-plan.md`) by default. Bash gathers GitHub, PR, pane, project, and post-merge state, asks the planner for a JSON action plan, validates that JSON, then launches only the approved zellij panes. The planner decides which roles to run (`dev-server`, `implement`, `review`, `fix-review`, `e2e`, `e2e-bug-hunt`, `ui-audit`, `watch-main`, `improve`) and how many `implement` panes to run based on dependencies, likely file conflicts, active panes, and review/e2e needs. Issues labeled `blocked` or waiting on an open `depends-on: #N` dependency are not considered ready. If AI planning fails, Bash falls back to dependency-aware scaling.
 
-Optional `watch-main` and `improve` auto-spawns can be enabled with `ORCH_AUTO_WATCH_MAIN=true` and `ORCH_AUTO_IMPROVE=true`. AI planning can be disabled with `ORCH_AI=false`.
+`ui-audit` auto-spawns by default after merges and can be disabled with `ORCH_AUTO_UI_AUDIT=false`. Optional `watch-main` and `improve` auto-spawns can be enabled with `ORCH_AUTO_WATCH_MAIN=true` and `ORCH_AUTO_IMPROVE=true`. AI planning can be disabled with `ORCH_AI=false`.
 
 The orchestrator pane refreshes on a fixed tick (`ORCH_TICK_INTERVAL`, default `10s`) and shows the last planner source, launched actions, skip reasons, and next tick timing. The same state is written to `.agent-status/orchestrator.json` and `.agent-status/.cache/orchestrator_decision.json`.
 
@@ -207,7 +208,7 @@ The orchestrator pane refreshes on a fixed tick (`ORCH_TICK_INTERVAL`, default `
 | **Git safety** | No direct push to main/develop. Feature PRs merge into develop; only E2E-verified develop is promoted to main. No `--force`. No `git branch -D`. Squash merge only. |
 | **Editor prevention** | `GIT_EDITOR=true` + `git config --global core.editor true` (3-layer) |
 | **Filesystem** | No operations above project root. No `cd ..` or `../` paths. |
-| **Issue limits** | improve: 3/cycle, e2e-bug-hunt: 5/cycle, watch-main: 3/cycle |
+| **Issue limits** | improve: 3/cycle, e2e-bug-hunt: 5/cycle, watch-main: 3/cycle, ui-audit: 3/cycle |
 | **Close protection** | `gh issue close` / `gh pr close` restricted to fix-review only |
 | **TDD** | Red → Green → Refactor. 3-layer tests required. |
 | **API rate limit** | Orchestrator caches GitHub API responses (25s TTL) |
@@ -251,8 +252,9 @@ All skills are available as `/slash-commands` in the interactive Kiro tab.
 │   ├── review.md                  #   merge + Dependabot
 │   ├── fix-review.md              #   fix review comments
 │   ├── dev-server.md              #   keep dev servers running
-│   ├── watch-main.md              #   monitor main → E2E
+│   ├── watch-main.md              #   monitor develop → E2E → promote main
 │   ├── e2e-bug-hunt.md            #   Playwright patrol
+│   ├── ui-audit.md                #   design quality audit
 │   ├── improve.md                 #   auto-generate issues
 │   └── ...
 ├── agents/

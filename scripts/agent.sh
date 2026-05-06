@@ -152,7 +152,7 @@ wait_for_work() {
         sleep 30
       done
       ;;
-    watch-main|e2e-bug-hunt)
+    watch-main|e2e-bug-hunt|ui-audit)
       echo "⏳ Waiting for first merge to ${INTEGRATION_BRANCH}..."
       while true; do
         update_status "⏳ waiting" "merge"

@@ -96,6 +96,7 @@ role_from_name() {
     fix-review|fix-review-pr-*) echo "fix-review" ;;
     e2e) echo "e2e" ;;
     e2e-hunt) echo "e2e-bug-hunt" ;;
+    ui-audit) echo "ui-audit" ;;
     watch-main) echo "watch-main" ;;
     improve) echo "improve" ;;
     feature-discovery) echo "feature-discovery" ;;
@@ -109,7 +110,7 @@ record_registry_entry() {
   local name="$1" role="$2" pane="$3" status="${4:-alive}"
   if [ -z "$name" ]; then
     case "$role" in
-      dev-server|e2e|watch-main|improve) name="$role" ;;
+      dev-server|e2e|watch-main|improve|ui-audit) name="$role" ;;
       review) name="review" ;;
       fix-review) name="fix-review" ;;
       e2e-bug-hunt) name="e2e-hunt" ;;
@@ -153,7 +154,7 @@ adopt_existing_panes() {
 
 singleton_role() {
   case "$1" in
-    dev-server|e2e|e2e-bug-hunt|watch-main|improve|feature-discovery|create-issue) return 0 ;;
+    dev-server|e2e|e2e-bug-hunt|ui-audit|watch-main|improve|feature-discovery|create-issue) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -213,7 +214,7 @@ pane_matches_registry() {
   [ "$current_role" = "$expected_role" ] || return 1
 
   case "$expected_name" in
-    review-pr-*|fix-review-pr-*|implement-issue-*|dev-server|e2e|e2e-hunt|watch-main|improve)
+    review-pr-*|fix-review-pr-*|implement-issue-*|dev-server|e2e|e2e-hunt|ui-audit|watch-main|improve)
       [ "$current_name" = "$expected_name" ]
       ;;
     *)

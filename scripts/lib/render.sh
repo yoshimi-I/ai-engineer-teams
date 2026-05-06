@@ -96,6 +96,7 @@ render() {
       watch-main)   color="\033[35m" ;;
       e2e)           color="\033[36m" ;;
       e2e-bug-hunt) color="\033[36m" ;;
+      ui-audit)      color="\033[35m" ;;
       improve)      color="\033[34m" ;;
       *)            color="\033[2m" ;;
     esac
@@ -121,8 +122,8 @@ render() {
       gh issue list --state open --json number,title,assignees \
         --jq '.[] | select(.assignees | length > 0) | "  #\(.number) \(.title) ← \(.assignees[0].login)"' 2>/dev/null || true
       echo "OPEN_PRS:"
-      gh pr list --json number,title,headRefName,reviewDecision \
-        --jq '.[] | "  #\(.number) [\(.reviewDecision // "PENDING" | if . == "CHANGES_REQUESTED" then "修正必須" elif . == "APPROVED" then "承認済み" elif . == "REVIEW_REQUIRED" then "レビュー待ち" else "未レビュー" end)] \(.title) (\(.headRefName))"' 2>/dev/null || true
+      gh pr list --base "${INTEGRATION_BRANCH:-develop}" --json number,title,headRefName,reviewDecision,mergeStateStatus \
+        --jq '.[] | "  #\(.number) [\(.reviewDecision // "PENDING" | if . == "CHANGES_REQUESTED" then "修正必須" elif . == "APPROVED" then "承認済み" elif . == "REVIEW_REQUIRED" then "レビュー待ち" else "未レビュー" end) / \(.mergeStateStatus // "UNKNOWN")] \(.title) (\(.headRefName))"' 2>/dev/null || true
     } > "$summary_file" 2>/dev/null || true
   fi
 
@@ -160,6 +161,7 @@ render() {
         elif . == "fix-review" then "レビュー修正"
         elif . == "e2e" then "E2E"
         elif . == "e2e-bug-hunt" then "E2E巡回"
+        elif . == "ui-audit" then "UI監査"
         elif . == "watch-main" then "develop監視"
         elif . == "improve" then "改善提案"
         else . end;
@@ -174,6 +176,7 @@ render() {
         elif . == "fix-review" then "レビュー修正"
         elif . == "e2e" then "E2E"
         elif . == "e2e-bug-hunt" then "E2E巡回"
+        elif . == "ui-audit" then "UI監査"
         elif . == "watch-main" then "develop監視"
         elif . == "improve" then "改善提案"
         else . end;
@@ -188,6 +191,7 @@ render() {
         elif . == "fix-review" then "レビュー修正"
         elif . == "e2e" then "E2E"
         elif . == "e2e-bug-hunt" then "E2E巡回"
+        elif . == "ui-audit" then "UI監査"
         elif . == "watch-main" then "develop監視"
         elif . == "improve" then "改善提案"
         else . end;
