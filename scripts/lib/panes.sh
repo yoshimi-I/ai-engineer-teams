@@ -371,14 +371,17 @@ add_pane() {
   if [ -n "$AGENTS_TAB_ID" ] && [ "$AGENTS_TAB_ID" != "null" ]; then
     tab_args=(--tab-id "$AGENTS_TAB_ID")
   fi
-  pane=$(zellij action new-pane "${tab_args[@]}" --close-on-exit --name "$name" --cwd "$PROJECT_CWD" \
-    -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'")
-  if [ -z "$pane" ] || ! pane_exists "$pane"; then
+  zellij action new-pane "${tab_args[@]}" --close-on-exit --name "$name" --cwd "$PROJECT_CWD" \
+    -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'" >/dev/null 2>&1
+  # new-pane may not return the pane ID on stdout; find it by name
+  sleep 0.5
+  pane=$(zellij_panes_json | jq -r --arg name "$name" \
+    '.[] | select(.exited | not) | select(('"$pane_name_expr"') == $name) | "terminal_\(.id)"' 2>/dev/null | head -1)
+  if [ -z "$pane" ]; then
     write_pane_status_file "${STATUS_DIR}/${name}.json" "$name" "$role" \
       "❌ failed" "failed to create zellij pane" "" "" "" 0 1
     return 1
   fi
-  rename_zellij_pane "$pane" "$name"
   close_agent_placeholder_panes
   record_registry_entry "$name" "$role" "$pane" "alive"
   reconcile_panes
