@@ -98,11 +98,10 @@ zellij_panes_json() {
 }
 
 close_agent_placeholder_panes() {
-  [ -n "$AGENTS_TAB_ID" ] && [ "$AGENTS_TAB_ID" != "null" ] || return 0
   zellij_panes_json \
-    | jq -r --argjson tab "$AGENTS_TAB_ID" '
+    | jq -r '
         .[]
-        | select(.tab_id == $tab and (.exited | not))
+        | select(.exited | not)
         | select(('"$pane_name_expr"') == "agent-placeholder" or ('"$pane_name_expr"') == "Agent Area")
         | "terminal_\(.id)"
       ' 2>/dev/null \
