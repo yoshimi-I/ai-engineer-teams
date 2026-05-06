@@ -203,6 +203,48 @@ pnpm -r test
 
 ## Issue作成ルール
 
+詳細は `.kiro/skills/inception/references/issue-generation.md` 参照。
+
+### コア原則
+
+- **小さく、多くて構わない**: 1 issue = 1 PR = 15 分で読めるレビュー。
+  数を減らすために粗く切るより、小粒で並列化しやすく切る方が常に速い。
+- **Walking Skeleton を最初に通す**: 機能を横に広げる前に、最小 E2E 貫通路を
+  1 本完成させる (scaffold + CI + 1 機能 + E2E + deploy)。
+- **垂直スライスを優先**: 機能は DB → API → UI → テストで縦に薄く割る。
+  水平レイヤー分割は scaffold / 共通型 / CI / IaC などの土台のみ。
+- **依存タイプを明記**: `blocked-by: #N (contract|data|impl|infra|test)`
+
+### 粒度の目安 (超えそうなら分割)
+
+| 項目 | 目安 |
+|------|------|
+| 正味 LOC | 50〜300 行 (テスト除く) |
+| 触るファイル | 1〜5 |
+| 受け入れ基準 | 1〜3 項目 |
+| レビュー時間 | 5〜15 分 |
+| テスト追加 | ユニット + 統合 or E2E の組 |
+
+### 依存タイプ
+
+| タイプ | 意味 | 例 |
+|-------|------|-----|
+| `contract` | 相手が型 / API / DB スキーマを公開するのを待つ | API 実装は contract issue 待ち |
+| `data` | 相手が migration / seed を流すのを待つ | API は schema migration 待ち |
+| `impl` | 相手の実装が動く状態を待つ (一番強い) | UI は API の動作確認済み待ち |
+| `infra` | 相手が CI / CD / IaC / シークレットを用意するのを待つ | deploy は IaC 完成待ち |
+| `test` | 相手の E2E 通過を待つ (リリース最終関門) | promote は E2E 通過待ち |
+
+本文に必ず書く:
+```markdown
+## 依存関係
+- blocked-by: #<番号> (<contract|data|impl|infra|test>)
+- blocks: #<番号> (任意)
+```
+
+同じ issue 番号でも依存タイプが違えば扱いが違う。タイプが書かれていれば
+AI planner が「contract だけ merge されれば並列に実装を始められる」と判断できる。
+
 ### 作成上限（暴走防止）
 
 | エージェント | 1サイクルあたりの上限 | 理由 |
@@ -216,6 +258,9 @@ pnpm -r test
 | fix-review | 1件 | 再issue化のみ |
 
 上限に達したらそのサイクルは終了し、次サイクルまで待つこと。
+
+**INCEPTION と手動 create-issue には上限が無い**。小粒化のために issue 数が
+40〜60 になっても構わない。粗くまとめる方がコストが大きい。
 
 ### issue/PRの勝手なclose禁止
 
@@ -237,6 +282,23 @@ pnpm -r test
 
 `gh issue create` には必ず `--label "優先度" --label "<P0-critical|P1-high|P2-medium|P3-low>"` を含めること。Implエージェントは P0→P1→P2→P3 の順で取得する。
 
+### Phase / Type ラベル (推奨)
+
+| ラベル | 用途 |
+|-------|------|
+| `phase-0-foundations` | scaffold / CI / IaC |
+| `phase-1-skeleton` | walking skeleton |
+| `phase-2-feature` | 機能実装 |
+| `phase-3-hardening` | error states / empty states / polish |
+| `phase-4-release` | production 向け |
+| `type-contract` | 型 / API / DB スキーマのみ |
+| `type-data` | migration / seed |
+| `type-impl` | 通常の実装 |
+| `type-infra` | CI / CD / IaC |
+| `type-test` | E2E / 追加テスト |
+| `blocked` | 依存待ち (依存先 merge で自動解除) |
+| `tracker` | 親 issue (Impl は着手しない) |
+
 ### デザイン品質
 
 - UI変更PRは `Design Evidence` を必須とする
@@ -254,14 +316,50 @@ gh issue list --state open --json number,title,body --jq '.[].body' | grep -i "<
 | 状況 | アクション |
 |------|-----------|
 | 既存issueと重複なし | 独立issueとして作成 |
-| 既存issueと重複あり | 本文に `depends-on: #<番号>` を記載し `blocked` ラベルを付与 — 依存先がmergeされるまでImplは着手禁止 |
+| 既存issueと重複あり | 本文に `blocked-by: #<番号> (<type>)` を記載し `blocked` ラベルを付与 — 依存先がmergeされるまでImplは着手禁止 |
 
-### 依存関係の本文フォーマット
+### 本文テンプレ (必須)
 
 ```markdown
+## 概要
+<1〜3 行でこの issue が何を足すか>
+
+## 背景・動機
+<なぜ必要か、どの要件/ストーリーを満たすか>
+
+## スコープ
+- ✅ 含む: <具体的にやること>
+- ❌ 含まない: <別issueで扱うもの、触らないファイル>
+
+## 変更対象
+- <ファイルパス / ディレクトリ>
+
+## 受け入れ基準
+- [ ] <テスト可能な条件 1>
+- [ ] <テスト可能な条件 2>
+- [ ] 関連テスト追加 (ユニット / 統合 / E2E)
+
 ## 依存関係
-- depends-on: #<番号>（先にmergeが必要）
+- blocked-by: #<番号> (<contract|data|impl|infra|test>)
+
+## 実装メモ
+<関連アーキ決定、主な関数シグネチャ、気をつける点>
 ```
+
+### アンチパターン
+
+- ❌ `feat: implement authentication` (粗すぎ、5〜10 issue に割る)
+- ❌ `feat: frontend + backend for login` (垂直混在、レイヤー別に割る)
+- ❌ 並列化できないほど細かい `feat: rename variable foo to bar` (こちらは逆に統合)
+- ❌ 依存タイプを書かず `depends-on: #5` だけ (contract/impl が見分けられない)
+- ❌ Walking Skeleton を飛ばして機能実装に突入 (デリバリー不能)
+- ❌ scaffold を 1 つの巨大 issue にまとめる (並列化機会を潰す)
+- ❌ E2E をリリース直前に 1 issue で全部足す (実装と並行して厚くする)
+
+### 依存関係の本文フォーマット (旧記法互換)
+
+`depends-on: #<番号>` は後方互換で引き続き有効。新規 issue では
+`blocked-by: #<番号> (<type>)` を推奨する。
 
 ## ファイルシステム制約（絶対厳守）
 
