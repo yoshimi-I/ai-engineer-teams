@@ -91,7 +91,7 @@ ready_issue_numbers_json() {
         or ($me != "" and ([.assignees[]?.login] | index($me))))
       | select(([.labels[]?.name] | index("blocked") | not))
       | select((.number as $n | $active | index($n) | not))
-      | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
+      | select(((.body // "" | [scan("(?:depends-on|blocked-by): *#([0-9]+)") | .[0] | tonumber]) as $deps
         | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))
       | .number]
   ' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo "[]"
@@ -313,7 +313,7 @@ build_ai_context() {
               (.assignees | length == 0)
               or ($me != "" and ([.assignees[]?.login] | index($me))))
             | select(([.labels[]?.name] | index("blocked") | not))
-            | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
+            | select(((.body // "" | [scan("(?:depends-on|blocked-by): *#([0-9]+)") | .[0] | tonumber]) as $deps
               | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]
           | length
         ),

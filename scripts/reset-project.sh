@@ -71,7 +71,7 @@ unblock=$(echo "$issues_json" | jq -r --argjson closed "$closed_json" '
   [$closed[].number] as $closed_nums
   | .[]
   | select([.labels[]?.name] | index("blocked"))
-  | ((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) // []) as $deps
+  | ((.body // "" | [scan("(?:depends-on|blocked-by): *#([0-9]+)") | .[0] | tonumber]) // []) as $deps
   | select(($deps | length) == 0 or ([$deps[] | select(. as $d | $closed_nums | index($d) | not)] | length) == 0)
   | .number
 ')

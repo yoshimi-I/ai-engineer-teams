@@ -171,6 +171,52 @@ JSON
 ]" ]
 }
 
+@test "ready_issue_numbers_json honours the new blocked-by: #N (type) syntax" {
+  # Same dependency semantics, new body format. Issue 41 is blocked by 40
+  # which is still open, so only 40 is ready. Issue 43 is blocked by 999 which
+  # is not in the open list, so 43 IS ready. The (type) annotation is just a
+  # human comment and must not break the scan.
+  ISSUES_JSON=$(cat <<'JSON'
+[
+  {"number": 40, "assignees": [], "labels": [], "body": ""},
+  {"number": 41, "assignees": [], "labels": [], "body": "blocked-by: #40 (contract)"},
+  {"number": 43, "assignees": [], "labels": [], "body": "blocked-by: #999 (impl)"}
+]
+JSON
+)
+  export ISSUES_JSON
+  GH_USER=""
+  run ready_issue_numbers_json
+  [ "$status" -eq 0 ]
+  run jq 'sort' <<< "$output"
+  [ "$output" = "[
+  40,
+  43
+]" ]
+}
+
+@test "ready_issue_numbers_json honours multiple dependency lines (mixed syntax)" {
+  # Issue 51 has two deps: one blocked-by (open) + one depends-on (closed).
+  # The open one blocks it. Issue 52 has both deps closed so it is ready.
+  ISSUES_JSON=$(cat <<'JSON'
+[
+  {"number": 50, "assignees": [], "labels": [], "body": ""},
+  {"number": 51, "assignees": [], "labels": [], "body": "blocked-by: #50 (data)\ndepends-on: #999"},
+  {"number": 52, "assignees": [], "labels": [], "body": "blocked-by: #9998 (infra)\ndepends-on: #9999"}
+]
+JSON
+)
+  export ISSUES_JSON
+  GH_USER=""
+  run ready_issue_numbers_json
+  [ "$status" -eq 0 ]
+  run jq 'sort' <<< "$output"
+  [ "$output" = "[
+  50,
+  52
+]" ]
+}
+
 @test "ready_issue_numbers_json includes issues self-assigned to current user (recovery case)" {
   ISSUES_JSON=$(cat <<'JSON'
 [

@@ -90,13 +90,17 @@ refresh_github() {
   # cannot be resolved, we intentionally count ONLY unassigned issues. The old
   # catch-all that returned every open issue in that state undermined the
   # assignee-based mutex between parallel agents.
+  #
+  # Dependency scan accepts both the legacy `depends-on: #N` and the newer
+  # `blocked-by: #N (type)` formats. Issues whose open dependencies are still
+  # un-merged are excluded.
   READY_ISSUES=$(jq --arg me "${GH_USER:-}" '
     [.[].number] as $open
     | [.[] | select(
         (.assignees | length == 0)
         or ($me != "" and ([.assignees[]?.login] | index($me))))
       | select(([.labels[]?.name] | index("blocked") | not))
-      | select(((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
+      | select(((.body // "" | [scan("(?:depends-on|blocked-by): *#([0-9]+)") | .[0] | tonumber]) as $deps
         | ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))]
     | length
   ' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
@@ -123,7 +127,7 @@ auto_unblock_issues() {
     | .[]
     | select([.labels[]?.name] | index("blocked"))
     | select(
-        ((.body // "" | [scan("depends-on: *#([0-9]+)") | .[0] | tonumber]) as $deps
+        ((.body // "" | [scan("(?:depends-on|blocked-by): *#([0-9]+)") | .[0] | tonumber]) as $deps
           | ($deps | length) == 0 or ([$deps[] | select(. as $d | $open | index($d))] | length) == 0))
     | .number
   ' <<< "${ISSUES_JSON:-[]}" 2>/dev/null)
