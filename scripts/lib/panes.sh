@@ -374,7 +374,7 @@ add_pane() {
   if [ -n "$AGENTS_TAB_ID" ] && [ "$AGENTS_TAB_ID" != "null" ]; then
     tab_args=(--tab-id "$AGENTS_TAB_ID")
   fi
-  zellij action new-pane "${tab_args[@]}" --close-on-exit --name "$name" --cwd "$PROJECT_CWD" \
+  zellij action new-pane ${tab_args[@]+"${tab_args[@]}"} -c --name "$name" --cwd "$PROJECT_CWD" \
     -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'" >/dev/null 2>&1
   # new-pane may not return the pane ID on stdout; find it by name
   sleep 0.5
