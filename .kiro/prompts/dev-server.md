@@ -33,13 +33,15 @@ done
 
 ## サーバーが落ちた場合
 
-- 同じエラーで3回以上落ちた場合は、エラーの原因を調査して修正を試みる（`.env` 不足、ポート競合、依存不足等）
-- コマンドが見つからない（`command not found`, `npx` で解決できない）場合:
-  1. `which <command>` / `command -v <command>` でPATH上の存在を確認
-  2. グローバルインストール先（`~/.local/bin`, `~/.<tool>/bin` 等）を確認
-  3. 見つかったら justfile/package.json の起動コマンドを修正し、mainにPRを出す
-  4. 修正後に再起動
-- 修正できない場合はエラー内容をログに残して停止する。無限再起動ループしない
+- 同じエラーで3回以上落ちた場合は、エラー内容を `.agent-status/user-attention.json` に書き込んでOrchestratorに通知する:
+  ```bash
+  jq --arg from "dev-server" --arg msg "起動失敗: <エラー概要>" \
+    '. += [{from: $from, message: $msg, ts: (now | todate)}]' \
+    .agent-status/user-attention.json > .agent-status/user-attention.json.tmp \
+    && mv .agent-status/user-attention.json.tmp .agent-status/user-attention.json
+  ```
+- 自分でコードやjustfileを修正しない（dev-serverの責務はサーバー起動のみ）
+- 通知後は停止する。無限再起動ループしない
 
 ## 禁止事項
 
