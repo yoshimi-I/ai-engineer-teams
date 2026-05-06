@@ -518,8 +518,8 @@ execute_ai_plan() {
         if ! post_merge_due; then skipped="${skipped} 新規mergeなし"; continue; fi
         ;;
       watch-main)
-        if [ "$AUTO_WATCH_MAIN" != "true" ]; then
-          skipped="${skipped} watch-main条件未成立"
+        if ! post_merge_due; then
+          skipped="${skipped} watch-main:新規mergeなし"
           continue
         fi
         ;;
@@ -583,13 +583,6 @@ fallback_scale() {
   if [ "$AUTO_DEV_SERVER" = "true" ] && has_dev_target && ! role_active "dev-server" && below_limit "$(total_alive)" "$MAX_ALIVE"; then
     if add_pane "dev-server" "dev-server" "" "開発サーバー対象があり、dev-server pane が未起動のため作成する。"; then
       launched="${launched} dev-server"
-    fi
-  fi
-
-  if [ "$AUTO_WATCH_MAIN" = "true" ] && [ "$cur_watch" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-    if add_pane "watch-main" "watch-main" "" "develop から main への E2E 昇格監視を常駐させるため watch-main pane を作成する。"; then
-      launched="${launched} watch-main"
-      cur_watch=$((cur_watch + 1))
     fi
   fi
 
