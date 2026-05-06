@@ -15,7 +15,7 @@ fail()  { echo -e "${RED}  ✗ $1${RESET}"; exit 1; }
 
 echo ""
 echo -e "${BOLD}  📦 Install kiro-engineer-teams${RESET}"
-echo -e "${DIM}  Add 8-agent pipeline to your existing project${RESET}"
+echo -e "${DIM}  Add the Kiro Engineer Teams pipeline to your existing project${RESET}"
 echo ""
 
 # ── Preflight ──

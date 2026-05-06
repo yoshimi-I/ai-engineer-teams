@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 8-Agent Pipeline Launcher
+# Kiro Engineer Teams Pipeline Launcher
 #
 # Phase 1: INCEPTION — structured planning with AI-DLC workflow
 # Phase 2: Pipeline — launch agents in zellij
@@ -269,13 +269,14 @@ echo "  🔨 Impl             → AIがready issueを見てpane数を判断 → 
 echo "  🔍 Review           → PRレビュー/マージ判断（CIレビューと分担）"
 echo "  🔧 Fix-Review       → レビュー指摘の自動修正"
 echo "  🧪 E2E              → 必要時のブラウザ検証"
+echo "  👀 Watch-Main       → 常駐: develop監視 → E2E → main昇格"
 echo "  🐞 E2E-Hunt         → merge検出時のPlaywright巡回 → bug issue作成"
 echo "  🎨 UI-Audit         → merge検出時のデザイン品質監査 → design-review issue作成"
 echo ""
 echo "  通常PRは ${INTEGRATION_BRANCH} に統合し、E2E通過後に ${STABLE_BRANCH} へ昇格します。"
 echo "  AI plannerが依存関係・PR状態・E2E要否を見てpane数と役割を決めます。"
-echo "  ui-audit は ORCH_AUTO_UI_AUDIT=false で無効化できます。"
-echo "  watch-main/improve の自動起動は ORCH_AUTO_WATCH_MAIN=true / ORCH_AUTO_IMPROVE=true で有効化できます。"
+echo "  watch-main/ui-audit は ORCH_AUTO_WATCH_MAIN=false / ORCH_AUTO_UI_AUDIT=false で無効化できます。"
+echo "  improve の自動起動は ORCH_AUTO_IMPROVE=true で有効化できます。"
 echo ""
 
 LAYOUT_TMP=$(mktemp /tmp/pipeline-XXXXXXXX).kdl

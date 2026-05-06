@@ -1,6 +1,6 @@
 {
   "name": "default",
-  "description": "8-agent pipeline default agent",
+  "description": "Kiro Engineer Teams pipeline default agent",
   "tools": ["*"],
   "resources": [
     "file://AGENTS.md",

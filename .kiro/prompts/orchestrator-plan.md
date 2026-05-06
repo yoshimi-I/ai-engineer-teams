@@ -64,7 +64,7 @@ Write every `reason` value in Japanese. The operator UI shows these reasons dire
 - Launch `e2e` for targeted browser verification when a dev server is active or when you also launch `dev-server` earlier in the same plan.
 - Launch `e2e-bug-hunt` only if the latest merged PR has not already had post-merge actions spawned and no `e2e-bug-hunt` pane is active.
 - Launch `ui-audit` only if the latest merged PR has not already had post-merge actions spawned and no `ui-audit` pane is active.
-- Launch `watch-main` only after a new merge when dev server is active or when you also launch `dev-server` earlier in the same plan.
+- Launch `watch-main` as a singleton whenever `automation.watch_main` is true and no `watch-main` pane is active. It is a resident monitor and may wait for the next develop merge.
 - Launch `implement` only for ready issues: unassigned, not labeled `blocked`, and not waiting on an open `depends-on: #N` dependency.
 - Ready issues may be unassigned or already assigned to the current GitHub user. Treat self-assigned ready issues as actionable recovery work.
 - If `operator_request.status` is `open`, consider it a user directive. Honor it when it does not violate hard safety rules, and explain any skip in `skip`.
@@ -98,9 +98,9 @@ Use stable, role-based names:
 - When launching `implement`, use issue-numbered pane names from `ready_issue_numbers` such as `implement-issue-42`. Do not use generic names like `implement-1`.
 - `review`: inspect/merge PRs and handle approved PRs; avoid duplicating CI review when it is already in progress.
 - When launching `review`, use PR-numbered pane names from `review_pr_numbers` such as `review-pr-42`. Do not use generic names like `review`.
-- `fix-review`: fix PRs with requested changes.
+- `fix-review`: fix PRs with requested changes, merge conflicts, or blocked mergeability.
 - When launching `fix-review`, use PR-numbered pane names from `fix_review_pr_numbers` such as `fix-review-pr-42`. Do not use generic names like `fix-review`.
-- `fix-review` should only be used for actionable requested-change PRs: unassigned PRs, or PRs already assigned to the current GitHub user. PRs assigned to someone else are locked and should not trigger new fix-review panes.
+- Do not filter `fix-review` candidates only by PR assignee. Treat PR assignee as metadata and use pane names as the local lock.
 - `e2e`: run targeted browser verification for current app behavior or a specific PR flow.
 - `e2e-bug-hunt`: after merge, patrol the app with Playwright and create bug issues.
 - `ui-audit`: after merge, capture screenshots, inspect visual quality, UX polish, responsive behavior, accessibility, and create design-quality issues.

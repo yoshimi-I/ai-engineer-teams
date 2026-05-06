@@ -34,12 +34,36 @@ jobs:
     timeout-minutes: 10
     if: >-
       github.event_name == 'pull_request' ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/review'))
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/review'))
     steps:
+      - name: Resolve PR target
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.ref }}"
+            sha="${{ github.event.pull_request.head.sha }}"
+          else
+            base=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json baseRefName --jq '.baseRefName')
+            sha=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq '.headRefOid')
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ "$base" = "develop" ]; then
+            echo "reviewable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "reviewable=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
+        if: steps.pr.outputs.reviewable == 'true'
         with:
-          ref: ${{ github.event.pull_request.head.sha || '' }}
+          ref: ${{ steps.pr.outputs.sha }}
       - uses: konippi/kiro-cli-review-action@v1
+        if: steps.pr.outputs.reviewable == 'true'
         with:
           kiro_api_key: ${{ secrets.KIRO_API_KEY }}
           trigger_phrase: /review

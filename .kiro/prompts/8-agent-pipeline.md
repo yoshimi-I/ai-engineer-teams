@@ -1,6 +1,6 @@
-# 8-Agent 並列自動化パイプライン
+# 9-Agent 並列自動化パイプライン
 
-8つのKiro CLIセッションを並列で起動し、issue→実装→レビュー→マージ→検証の全サイクルを自動化する。
+9つのKiro CLIセッションを並列で起動し、issue→実装→レビュー→マージ→検証→デザイン監査の全サイクルを自動化する。
 
 ## アーキテクチャ
 
@@ -55,7 +55,7 @@ Agent 9: /improve（10分間隔で改善issue自動生成）
 
 ## 起動方法
 
-8つのターミナルでそれぞれ起動:
+9つのターミナルでそれぞれ起動:
 
 ```bash
 # Terminal 1-2: 実装エージェント
@@ -67,13 +67,16 @@ kiro-cli chat → /review
 # Terminal 5: レビュー指摘修正エージェント
 kiro-cli chat → /fix-review
 
-# Terminal 6: mainブランチ監視エージェント
+# Terminal 6: developマージ監視エージェント
 kiro-cli chat → /watch-main
 
 # Terminal 7: E2Eバグハントエージェント
 kiro-cli chat → /e2e-bug-hunt
 
-# Terminal 8: 改善issue自動生成エージェント
+# Terminal 8: UI監査エージェント
+kiro-cli chat → /ui-audit
+
+# Terminal 9: 改善issue自動生成エージェント
 kiro-cli chat → /improve
 ```
 

@@ -549,6 +549,13 @@ fallback_scale() {
     fi
   fi
 
+  if [ "$AUTO_WATCH_MAIN" = "true" ] && [ "$cur_watch" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
+    if add_pane "watch-main" "watch-main" "" "develop から main への E2E 昇格監視を常駐させるため watch-main pane を作成する。"; then
+      launched="${launched} watch-main"
+      cur_watch=$((cur_watch + 1))
+    fi
+  fi
+
   if [ "${READY_ISSUES:-0}" -gt 0 ]; then
     desired="$READY_ISSUES"
     if [ "$MAX_IMPLEMENT" -gt 0 ] && [ "$MAX_IMPLEMENT" -lt "$desired" ]; then
@@ -600,11 +607,6 @@ fallback_scale() {
     if [ "$AUTO_UI_AUDIT" = "true" ] && [ "$cur_ui" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
       if add_pane "ui-audit" "ui-audit" "" "新しい merge を検出し、良いデザイン品質を守るため UI/UX audit pane を作成する。"; then
         launched="${launched} ui-audit"
-      fi
-    fi
-    if [ "$AUTO_WATCH_MAIN" = "true" ] && [ "$cur_watch" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
-      if add_pane "watch-main" "watch-main" "" "merge 後監視が有効なため watch-main pane を作成する。"; then
-        launched="${launched} watch-main"
       fi
     fi
     if [ "$AUTO_IMPROVE" = "true" ] && [ "$cur_imp" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then

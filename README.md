@@ -195,7 +195,7 @@ brew upgrade zellij
 
 The orchestrator uses an AI planner prompt (`.kiro/prompts/orchestrator-plan.md`) by default. Bash gathers GitHub, PR, pane, project, and post-merge state, asks the planner for a JSON action plan, validates that JSON, then launches only the approved zellij panes. The planner decides which roles to run (`dev-server`, `implement`, `review`, `fix-review`, `e2e`, `e2e-bug-hunt`, `ui-audit`, `watch-main`, `improve`) and how many `implement` panes to run based on dependencies, likely file conflicts, active panes, and review/e2e needs. Issues labeled `blocked` or waiting on an open `depends-on: #N` dependency are not considered ready. If AI planning fails, Bash falls back to dependency-aware scaling.
 
-`ui-audit` auto-spawns by default after merges and can be disabled with `ORCH_AUTO_UI_AUDIT=false`. Optional `watch-main` and `improve` auto-spawns can be enabled with `ORCH_AUTO_WATCH_MAIN=true` and `ORCH_AUTO_IMPROVE=true`. AI planning can be disabled with `ORCH_AI=false`.
+`watch-main` now runs as a resident develop-to-main promotion monitor by default and can be disabled with `ORCH_AUTO_WATCH_MAIN=false`. `ui-audit` auto-spawns by default after merges and can be disabled with `ORCH_AUTO_UI_AUDIT=false`. Optional `improve` auto-spawn can be enabled with `ORCH_AUTO_IMPROVE=true`. AI planning can be disabled with `ORCH_AI=false`.
 
 The orchestrator pane refreshes on a fixed tick (`ORCH_TICK_INTERVAL`, default `10s`) and shows the last planner source, launched actions, skip reasons, and next tick timing. The same state is written to `.agent-status/orchestrator.json` and `.agent-status/.cache/orchestrator_decision.json`.
 

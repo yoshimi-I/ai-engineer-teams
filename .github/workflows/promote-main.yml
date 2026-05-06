@@ -23,6 +23,34 @@ jobs:
         run: find scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
       - name: Run ShellCheck
         run: shellcheck -x -P scripts scripts/*.sh scripts/lib/*.sh
+      - name: Run promotion E2E
+        env:
+          KIRO_E2E_COMMAND: ${{ vars.KIRO_E2E_COMMAND }}
+        run: |
+          if [ -n "${KIRO_E2E_COMMAND:-}" ]; then
+            eval "$KIRO_E2E_COMMAND"
+          elif [ -f justfile ] && command -v just >/dev/null 2>&1 && just --list 2>/dev/null | grep -q '^    e2e'; then
+            just e2e
+          elif [ -f package.json ] && jq -e '.scripts.e2e' package.json >/dev/null; then
+            corepack enable
+            if [ -f pnpm-lock.yaml ]; then
+              pnpm install --frozen-lockfile
+              pnpm e2e
+            elif [ -f yarn.lock ]; then
+              yarn install --frozen-lockfile
+              yarn e2e
+            elif [ -f package-lock.json ]; then
+              npm ci
+              npm run e2e
+            else
+              npm install
+              npm run e2e
+            fi
+          elif [ -f scripts/check.sh ]; then
+            ./scripts/check.sh
+          else
+            echo "::warning::No E2E command found. Set repository variable KIRO_E2E_COMMAND."
+          fi
 
   create-promotion-pr:
     runs-on: ubuntu-latest

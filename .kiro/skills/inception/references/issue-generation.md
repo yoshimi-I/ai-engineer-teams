@@ -35,7 +35,7 @@ issue生成時は、AI plannerが「どのissueを並列化できるか」を判
 - `e2e` はPRや現在状態のブラウザ検証が必要な時に起動される
 - `e2e-bug-hunt` はmerge後の検証として起動される
 - `watch-main` はmain更新後の回帰検証・bug issue作成に使う
-- `watch-main` / `improve` は任意自動化。初期issue生成ではノイズを増やさない
+- `watch-main` は develop→main のE2E昇格監視として常駐する前提。`improve` は任意自動化。初期issue生成ではノイズを増やさない
 
 issue分割ルール:
 - 1 issue = 1 PR = 1つのユーザー価値または1つの技術的前提

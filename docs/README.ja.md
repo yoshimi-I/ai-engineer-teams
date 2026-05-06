@@ -179,7 +179,7 @@ brew upgrade zellij
 
 オーケストレーターはデフォルトで AI Planner prompt（`.kiro/prompts/orchestrator-plan.md`）を使います。Bash が GitHub issue、PR、pane、project、post-merge 状態を集め、Planner に JSON の起動計画だけを作らせ、その JSON を検証してから zellij pane を起動します。Planner は `dev-server`、`implement`、`review`、`fix-review`、`e2e`、`e2e-bug-hunt`、`ui-audit`、`watch-main`、`improve` のどれを起動するかを判断します。`implement` pane の数は、依存関係・変更ファイルの衝突可能性・稼働中pane・レビュー/E2E状況を見て Planner が判断します。`blocked` ラベル付き、または open な `depends-on: #N` 依存を持つ issue は ready とみなしません。AI 計画に失敗した場合のみ、Bash が依存関係を見たスケーリングにフォールバックします。
 
-`ui-audit` は merge 後にデフォルトで自動起動します。無効化する場合は `ORCH_AUTO_UI_AUDIT=false` を指定します。`watch-main` と `improve` の自動起動は `ORCH_AUTO_WATCH_MAIN=true` / `ORCH_AUTO_IMPROVE=true` を指定した場合のみ有効です。AI Planner を無効化したい場合は `ORCH_AI=false` を指定します。
+`watch-main` は develop から main への昇格監視としてデフォルトで常駐します。無効化する場合は `ORCH_AUTO_WATCH_MAIN=false` を指定します。`ui-audit` は merge 後にデフォルトで自動起動し、`ORCH_AUTO_UI_AUDIT=false` で無効化できます。`improve` の自動起動は `ORCH_AUTO_IMPROVE=true` を指定した場合のみ有効です。AI Planner を無効化したい場合は `ORCH_AI=false` を指定します。
 
 オーケストレーター画面は固定 tick（`ORCH_TICK_INTERVAL`、デフォルト `10s`）で更新され、最後の planner 種別、起動した action、skip 理由、次回 tick を表示します。同じ状態は `.agent-status/orchestrator.json` と `.agent-status/.cache/orchestrator_decision.json` にも書き出されます。
 

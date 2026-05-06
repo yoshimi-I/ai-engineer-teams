@@ -80,9 +80,16 @@ closes #${ISSUE}
 - [x] No breaking changes (or documented)
 EOF
 gh pr create --base "$BASE_BRANCH" --title "<Conventional Commit title>" --body "$(cat /tmp/pr-body-${ISSUE}.md)"
+PR_NUMBER=$(gh pr view --json number --jq '.number')
+PR_BASE=$(gh pr view "$PR_NUMBER" --json baseRefName --jq '.baseRefName')
+if [ "$PR_BASE" != "$BASE_BRANCH" ]; then
+  gh pr edit "$PR_NUMBER" --base "$BASE_BRANCH"
+fi
 ```
 
 `.github/PULL_REQUEST_TEMPLATE.md` が存在する場合は、必ずそのセクション構成に沿ってPR本文を作成する。チェック項目は実際に満たしたものだけ `[x]` にする。
+
+通常PRのbase branchは必ず `${KIRO_INTEGRATION_BRANCH:-develop}`。base未指定の `gh pr create` は禁止。`${KIRO_STABLE_BRANCH:-main}` へのPRは develop から main への昇格専用フローだけが作成する。
 
 PR作成後、CIの結果を確認する:
 ```bash
@@ -136,7 +143,7 @@ PR作成後もworktreeはPRがmergeされるまで残す。勝手に削除しな
 |-----------|------|---------------|
 | `着手中` | 実装作業中 | issue選択直後、実装開始前 |
 | `レビュー中` | PR作成済み、マージ待ち | `git push` + `gh pr create` 完了後 |
-| `merge済み` | mainにマージ完了 | PRがマージされた後 |
+| `merge済み` | developにマージ完了 | PRがマージされた後 |
 | `解決済み（変更不要）` | 調査の結果、既に修正済み | コード確認で問題なしと判断した場合 |
 | `解決済み（実装済み）` | 既存コードで要件を満たしている | 既にモジュール等が存在していた場合 |
 
