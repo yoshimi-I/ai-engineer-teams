@@ -23,9 +23,9 @@ test-scripts:
 preflight:
     ./scripts/preflight.sh
 
-# Update to latest version
-update:
-    ./scripts/update.sh
+# Update to latest version (default: main, or specify branch)
+update branch="main":
+    ./scripts/update.sh {{branch}}
 
 # Continue pipeline from existing INCEPTION artifacts when present
 start:

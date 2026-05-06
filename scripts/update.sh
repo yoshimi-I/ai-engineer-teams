@@ -5,7 +5,11 @@
 set -euo pipefail
 
 REPO="yoshimi-I/kiro-engineer-teams"
-BRANCH="main"
+BRANCH="${1:-main}"
+if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "develop" ]; then
+  echo "Usage: ./scripts/update.sh [main|develop]"
+  exit 1
+fi
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
