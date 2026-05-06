@@ -63,7 +63,7 @@ copy_file ".github/ISSUE_TEMPLATE/bug_report.md"
 copy_file ".github/ISSUE_TEMPLATE/feature_request.md"
 
 # ── Merge justfile recipes ──
-RECIPES=("setup" "start" "restart" "pipeline" "ja" "en")
+RECIPES=("setup" "preflight" "start" "restart" "pipeline" "ja" "en")
 RECIPE_BLOCKS=$(cat <<'JUST'
 
 # ── kiro-engineer-teams ──
@@ -75,6 +75,10 @@ setup:
 # Continue pipeline from existing INCEPTION artifacts when present
 start:
     ./scripts/start-pipeline.sh
+
+# Diagnose local/GitHub prerequisites before starting the pipeline
+preflight:
+    ./scripts/preflight.sh
 
 # Restart pipeline from the first post-INCEPTION cycle
 restart:

@@ -161,6 +161,8 @@ if ! gh auth status &>/dev/null; then
   exit 1
 fi
 
+./scripts/preflight.sh
+
 # Check API key on the actual target repo (after potential repo creation)
 check_kiro_api_key
 ensure_integration_branch

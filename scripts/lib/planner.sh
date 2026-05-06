@@ -42,26 +42,20 @@ review_pr_numbers_json() {
   local active
   active=$(active_pr_numbers_json "review" "review")
   jq --argjson active "$active" '
-    [.[] | select((.isDraft // false) | not)
-      | select(.reviewDecision != "CHANGES_REQUESTED")
-      | select((.mergeStateStatus // "UNKNOWN") != "DIRTY")
-      | select((.reviewDecision == "APPROVED" and ((.mergeStateStatus // "UNKNOWN") | IN("CLEAN", "HAS_HOOKS", "UNKNOWN") | not)) | not)
+    [.[] | select(.pipelineState | IN("approved_ready", "approved_pending"))
       | select((.number as $n | $active | index($n) | not))
       | .number]
-  ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo "[]"
+  ' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || echo "[]"
 }
 
 fix_review_pr_numbers_json() {
   local active
   active=$(active_pr_numbers_json "fix-review" "fix-review")
   jq --argjson active "$active" '
-    [.[] | select((.isDraft // false) | not)
-      | select(.reviewDecision == "CHANGES_REQUESTED"
-        or .mergeStateStatus == "DIRTY"
-        or (.reviewDecision == "APPROVED" and ((.mergeStateStatus // "UNKNOWN") | IN("CLEAN", "HAS_HOOKS", "UNKNOWN") | not)))
+    [.[] | select(.pipelineState | IN("changes_requested", "conflict", "approved_checks_failed", "merge_blocked"))
       | select((.number as $n | $active | index($n) | not))
       | .number]
-  ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo "[]"
+  ' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || echo "[]"
 }
 
 next_review_pr_number() {
@@ -272,7 +266,7 @@ build_ai_context() {
 
   jq -n \
     --argjson issues "${ISSUES_JSON:-[]}" \
-    --argjson prs "${PRS_JSON:-[]}" \
+    --argjson prs "${PRS_STATE_JSON:-[]}" \
     --argjson active "$active_json" \
     --argjson dev_health "$dev_health" \
     --arg latest_merged_pr "${LATEST_MERGED_PR:-}" \
@@ -320,9 +314,12 @@ build_ai_context() {
         open: $issues
       },
       pull_requests: {
-        changes_requested_count: ([$prs[] | select(.reviewDecision == "CHANGES_REQUESTED")] | length),
-        conflict_count: ([$prs[] | select(.mergeStateStatus == "DIRTY")] | length),
-        blocked_merge_count: ([$prs[] | select((.reviewDecision == "APPROVED") and ((.mergeStateStatus // "UNKNOWN") | IN("CLEAN", "HAS_HOOKS", "UNKNOWN") | not))] | length),
+        changes_requested_count: ([$prs[] | select(.pipelineState == "changes_requested")] | length),
+        conflict_count: ([$prs[] | select(.pipelineState == "conflict")] | length),
+        blocked_merge_count: ([$prs[] | select(.pipelineState | IN("merge_blocked", "approved_checks_failed"))] | length),
+        review_pending_count: ([$prs[] | select(.pipelineState == "review_pending")] | length),
+        approved_ready_count: ([$prs[] | select(.pipelineState == "approved_ready")] | length),
+        approved_pending_count: ([$prs[] | select(.pipelineState == "approved_pending")] | length),
         review_ready_count: ($review_pr_numbers | length),
         fix_review_ready_count: ($fix_review_pr_numbers | length),
         open: $prs
@@ -480,8 +477,7 @@ execute_ai_plan() {
         if ! post_merge_due; then skipped="${skipped} 新規mergeなし"; continue; fi
         ;;
       watch-main)
-        if ! role_active "dev-server"; then skipped="${skipped} dev-server未起動"; continue; fi
-        if [ "$AUTO_WATCH_MAIN" != "true" ] || ! post_merge_due; then
+        if [ "$AUTO_WATCH_MAIN" != "true" ]; then
           skipped="${skipped} watch-main条件未成立"
           continue
         fi
@@ -515,7 +511,7 @@ execute_ai_plan() {
     fi
   done < <(jq -r '.actions[]? | [.role, (.name // .role), (.reason // "")] | @tsv' <<< "$plan" 2>/dev/null)
 
-  if jq -e '.actions[]? | .role == "e2e" or .role == "e2e-bug-hunt" or .role == "ui-audit" or .role == "watch-main" or .role == "improve"' >/dev/null 2>&1 <<< "$plan"; then
+  if jq -e '.actions[]? | .role == "e2e" or .role == "e2e-bug-hunt" or .role == "ui-audit"' >/dev/null 2>&1 <<< "$plan"; then
     [ "$launched" -gt 0 ] && mark_post_merge_spawned
   fi
 

@@ -14,6 +14,10 @@ upgrade:
 check:
     ./scripts/check.sh
 
+# Diagnose local/GitHub prerequisites before starting the pipeline
+preflight:
+    ./scripts/preflight.sh
+
 # Update to latest version
 update:
     ./scripts/update.sh

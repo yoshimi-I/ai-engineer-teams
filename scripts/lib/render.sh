@@ -33,6 +33,18 @@ render() {
     gh_msg=$(tr '\n' ' ' < "$gh_err" | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-140)
     echo -e "  \033[33m⚠ github:\033[0m \033[2m${gh_msg}\033[0m"
   fi
+  if [ -n "${PRS_STATE_JSON:-}" ]; then
+    local pr_review_pending pr_approved_ready pr_approved_pending pr_conflict pr_checks_failed
+    pr_review_pending=$(jq '[.[] | select(.pipelineState == "review_pending")] | length' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || echo 0)
+    pr_approved_ready=$(jq '[.[] | select(.pipelineState == "approved_ready")] | length' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || echo 0)
+    pr_approved_pending=$(jq '[.[] | select(.pipelineState == "approved_pending")] | length' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || echo 0)
+    pr_conflict=$(jq '[.[] | select(.pipelineState == "conflict")] | length' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || echo 0)
+    pr_checks_failed=$(jq '[.[] | select(.pipelineState == "approved_checks_failed")] | length' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || echo 0)
+    echo -e "  🔎 PR状態: 未レビュー(Action待ち) \033[33m${pr_review_pending}\033[0m / merge可能 \033[32m${pr_approved_ready}\033[0m / CI待ち \033[36m${pr_approved_pending}\033[0m / conflict \033[31m${pr_conflict}\033[0m / CI失敗 \033[31m${pr_checks_failed}\033[0m"
+    if [ "$pr_review_pending" -gt 0 ] && ! role_active "review"; then
+      echo -e "  \033[2m  未レビューPRは GitHub Actions の Kiro Review に委譲中。local review は承認済みPRのmerge-managerだけを担当します。\033[0m"
+    fi
+  fi
   if [ -f "${OPERATOR_REQUEST_FILE:-}" ]; then
     local op_status op_request op_target
     op_status=$(jq -r '.status // "empty"' "$OPERATOR_REQUEST_FILE" 2>/dev/null || echo invalid)
@@ -122,8 +134,7 @@ render() {
       gh issue list --state open --json number,title,assignees \
         --jq '.[] | select(.assignees | length > 0) | "  #\(.number) \(.title) ← \(.assignees[0].login)"' 2>/dev/null || true
       echo "OPEN_PRS:"
-      gh pr list --base "${INTEGRATION_BRANCH:-develop}" --json number,title,headRefName,reviewDecision,mergeStateStatus \
-        --jq '.[] | "  #\(.number) [\(.reviewDecision // "PENDING" | if . == "CHANGES_REQUESTED" then "修正必須" elif . == "APPROVED" then "承認済み" elif . == "REVIEW_REQUIRED" then "レビュー待ち" else "未レビュー" end) / \(.mergeStateStatus // "UNKNOWN")] \(.title) (\(.headRefName))"' 2>/dev/null || true
+      jq -r '.[] | "  #\(.number) [\(.pipelineState // "unknown") / \(.checksState // "unknown")] \(.title) (\(.headRefName))"' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || true
     } > "$summary_file" 2>/dev/null || true
   fi
 
