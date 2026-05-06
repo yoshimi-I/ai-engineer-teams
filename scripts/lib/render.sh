@@ -26,7 +26,6 @@ render() {
       echo -e "  🖥️  dev-server: \033[33mnot ready\033[0m  panes:${dev_panes}"
     fi
   fi
-  echo -e "  \033[35m🧠 ${LAST_PLAN_SOURCE}\033[0m  ${LAST_DECISION_SUMMARY}  \033[2m${LAST_DECISION_DETAIL} (${LAST_DECISION_TS:---:--:--}) next:${TICK_INTERVAL}s\033[0m"
   local gh_err
   gh_err=$(find "$CACHE_DIR" -maxdepth 1 -name '*.err' -type f -print -quit 2>/dev/null)
   if [ -n "$gh_err" ]; then
@@ -48,9 +47,15 @@ render() {
   fi
   echo ""
 
-  printf "  \033[2m┌──────────────────────┬──────────────┬────────┬────────────────────────────────────────────────────────┐\033[0m\n"
-  printf "  \033[2m│\033[0m \033[1m%-20s\033[0m \033[2m│\033[0m \033[1m%-12s\033[0m \033[2m│\033[0m \033[1m%-6s\033[0m \033[2m│\033[0m \033[1m%-54s\033[0m \033[2m│\033[0m\n" "Name" "Role" "State" "Detail"
-  printf "  \033[2m├──────────────────────┼──────────────┼────────┼────────────────────────────────────────────────────────┤\033[0m\n"
+  local cols detail_width
+  cols=$(tput cols 2>/dev/null || echo 120)
+  detail_width=$((cols - 58))
+  [ "$detail_width" -lt 24 ] && detail_width=24
+  [ "$detail_width" -gt 80 ] && detail_width=80
+
+  echo -e "  \033[1mAgents\033[0m"
+  printf "  \033[2m%-22s %-13s %-8s %s\033[0m\n" "Name" "Role" "State" "Detail"
+  printf "  \033[2m%-22s %-13s %-8s %s\033[0m\n" "----------------------" "-------------" "--------" "------------------------------"
 
   while IFS='|' read -r name role _pane status; do
     [ -z "$name" ] && continue
@@ -70,13 +75,17 @@ render() {
     [ -n "$pr_str" ] && rich_detail="${rich_detail} 🔗${pr_str}"
     [ -n "$branch_str" ] && rich_detail="${rich_detail} 🌿${branch_str}"
     [ -n "$detail" ] && [ "$detail" != "$state_str" ] && rich_detail="${rich_detail} ${detail}"
-    [ ${#rich_detail} -gt 52 ] && rich_detail="${rich_detail:0:51}…"
+    if [ ${#rich_detail} -gt "$detail_width" ]; then
+      rich_detail="${rich_detail:0:$((detail_width - 1))}…"
+    fi
 
-    local state_icon
+    local state_label state_color
     if [ "$status" = "alive" ]; then
-      state_icon="\033[32m● 稼働\033[0m"
+      state_label="running"
+      state_color="\033[32m"
     else
-      state_icon="\033[31m○ 停止\033[0m"
+      state_label="stopped"
+      state_color="\033[31m"
     fi
 
     local color
@@ -91,13 +100,15 @@ render() {
       *)            color="\033[2m" ;;
     esac
 
-    printf "  \033[2m│\033[0m ${color}%-20s\033[0m \033[2m│\033[0m %-12s \033[2m│\033[0m ${state_icon} \033[2m│\033[0m %-54s \033[2m│\033[0m\n" "$name" "$role" "" "$rich_detail"
+    local name_out="$name" role_out="$role"
+    [ ${#name_out} -gt 22 ] && name_out="${name_out:0:21}…"
+    [ ${#role_out} -gt 13 ] && role_out="${role_out:0:12}…"
+    printf "  ${color}%-22s\033[0m %-13s ${state_color}%-8s\033[0m %s\n" "$name_out" "$role_out" "$state_label" "$rich_detail"
   done < "$PANE_REGISTRY"
 
   if [ "$(wc -l < "$PANE_REGISTRY" | tr -d ' ')" -eq 0 ]; then
-    printf "  \033[2m│ %-20s │ %-12s │ %-6s │ %-54s │\033[0m\n" "(起動中...)" "" "" ""
+    printf "  \033[2m%-22s %-13s %-8s %s\033[0m\n" "(起動中...)" "" "" ""
   fi
-  printf "  \033[2m└──────────────────────┴──────────────┴────────┴────────────────────────────────────────────────────────┘\033[0m\n"
   echo ""
 
   local summary_file="${CACHE_DIR}/work_summary"
@@ -129,8 +140,17 @@ render() {
     echo ""
   fi
 
+  local plan_source_label="${LAST_PLAN_SOURCE:-none}"
+  case "$plan_source_label" in
+    fallback|operator) plan_source_label="ユーザーからの命令" ;;
+    ai) plan_source_label="AI planner" ;;
+    guard) plan_source_label="ガード" ;;
+  esac
+
   if [ -f "$AI_PLAN_FILE" ]; then
     echo -e "  \033[1m🧭 オーケストレーション方針\033[0m"
+    echo -e "  \033[35m判断元:\033[0m \033[2m${plan_source_label}\033[0m"
+    echo -e "  \033[32m判断:\033[0m \033[2m${LAST_DECISION_SUMMARY} ${LAST_DECISION_DETAIL} (${LAST_DECISION_TS:---:--:--}) next:${TICK_INTERVAL}s\033[0m"
     local actions stops skips
     actions=$(jq -r '
       def role_label:
@@ -183,11 +203,10 @@ render() {
     echo ""
   elif [ -f "${CACHE_DIR}/orchestrator_plan.raw" ] || [ -f "$DECISION_FILE" ]; then
     echo -e "  \033[1m🧭 オーケストレーション方針\033[0m"
-    echo -e "  \033[35m判断元:\033[0m \033[2m${LAST_PLAN_SOURCE}\033[0m"
-    echo -e "  \033[32m判断:\033[0m \033[2m${LAST_DECISION_SUMMARY} ${LAST_DECISION_DETAIL}\033[0m"
+    echo -e "  \033[35m判断元:\033[0m \033[2m${plan_source_label}\033[0m"
+    echo -e "  \033[32m判断:\033[0m \033[2m${LAST_DECISION_SUMMARY} ${LAST_DECISION_DETAIL} (${LAST_DECISION_TS:---:--:--}) next:${TICK_INTERVAL}s\033[0m"
     if [ -f "${CACHE_DIR}/orchestrator_plan.raw" ]; then
-      local raw_preview cols
-      cols=$(tput cols 2>/dev/null || echo 120)
+      local raw_preview
       raw_preview=$(tr '\n' ' ' < "${CACHE_DIR}/orchestrator_plan.raw" | sed 's/[[:space:]][[:space:]]*/ /g')
       [ -n "$raw_preview" ] || raw_preview="empty response from AI planner"
       echo -e "  \033[33mAI応答:\033[0m \033[2m$(echo "$raw_preview" | fold -s -w $((cols - 4)))\033[0m"

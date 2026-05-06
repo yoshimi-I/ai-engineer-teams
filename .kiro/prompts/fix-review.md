@@ -9,7 +9,7 @@
 
 - 対象PRが既にclosed/mergedなら終了する
 - 対象PRが `CHANGES_REQUESTED` でなくなっているなら終了する
-- 対象PRが自分以外のassigneeでロックされているなら終了する
+- 対象PRが既に別の `fix-review-pr-<number>` pane で処理中なら終了する
 - 他のPRを自動選択しない
 
 ## 1サイクルの処理
@@ -43,26 +43,19 @@ gh pr view <number> --json reviews,comments
 
 ### Step 1.5: PRのロック（排他制御）
 
-対象PRを見つけたら、着手前にassigneeでロックする:
+PR assignee は実装者やレビュー担当が入っている場合があるため、assignee だけを理由にスキップしてはならない。
+排他制御は orchestrator が作る `fix-review-pr-<number>` pane 名と `.agent-status/.panes` を優先する。
+対象PRを見つけたら、着手前に自分もassigneeへ追加する:
 ```bash
-# 自分以外のassigneeがいたらスキップ（他のFix-Reviewが作業中）
 ME=$(gh api user --jq '.login')
-ASSIGNEE=$(gh pr view <number> --json assignees --jq '.assignees[].login' 2>/dev/null)
-if [[ -n "$ASSIGNEE" ]] && ! echo "$ASSIGNEE" | grep -qx "$ME"; then
-  echo "PR #<number> は $ASSIGNEE が作業中。スキップ。"
-  # 次の対象PRを探す
-fi
-
-# assigneeが空、または自分がassigneeならこのPRを処理する
-if [[ -z "$ASSIGNEE" ]]; then
+if ! gh pr view <number> --json assignees --jq '.assignees[].login' 2>/dev/null | grep -qx "$ME"; then
   gh pr edit <number> --add-assignee @me
 fi
 ```
 
 重要:
-- assigneeが自分（`gh api user --jq '.login'`）の場合は、過去サイクルのロック継続または自分の作業なのでスキップしない
-- assigneeが自分以外の場合のみスキップする
-- 対象PRが全て自分以外にロックされている場合は、何もせず終了する
+- `fix-review-pr-<number>` pane が既に存在するPRは他paneが処理中なのでスキップする
+- PR assignee が自分以外でも、実装者 metadata の可能性があるためスキップしない
 
 修正完了後（merge or 次サイクルへ移行時）にassigneeを外す:
 ```bash

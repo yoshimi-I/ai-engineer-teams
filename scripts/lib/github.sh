@@ -62,9 +62,8 @@ refresh_github() {
   # shellcheck disable=SC2034
   CHANGES_REQ=$(jq '[.[] | select(.reviewDecision == "CHANGES_REQUESTED")] | length' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo 0)
   # shellcheck disable=SC2034
-  FIX_REVIEW_READY=$(jq --arg me "${GH_USER:-}" '
-    [.[] | select(.reviewDecision == "CHANGES_REQUESTED")
-      | select((.assignees | length == 0) or ([.assignees[]?.login] | index($me)))]
+  FIX_REVIEW_READY=$(jq '
+    [.[] | select(.reviewDecision == "CHANGES_REQUESTED")]
     | length
   ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo 0)
   LATEST_MERGED_PR=$(gh_cached latest_merged_pr gh pr list --base "${INTEGRATION_BRANCH:-develop}" --state merged --limit 1 --json number \

@@ -51,9 +51,8 @@ review_pr_numbers_json() {
 fix_review_pr_numbers_json() {
   local active
   active=$(active_pr_numbers_json "fix-review" "fix-review")
-  jq --arg me "${GH_USER:-}" --argjson active "$active" '
+  jq --argjson active "$active" '
     [.[] | select(.reviewDecision == "CHANGES_REQUESTED")
-      | select((.assignees | length == 0) or ($me != "" and ([.assignees[]?.login] | index($me))) or ($me == ""))
       | select((.number as $n | $active | index($n) | not))
       | .number]
   ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo "[]"
@@ -275,6 +274,7 @@ build_ai_context() {
     --argjson operator_request "$(operator_request_json)" \
     --argjson max_alive "$MAX_ALIVE" \
     --argjson max_implement "$MAX_IMPLEMENT" \
+    --argjson max_fix_review "$MAX_FIX_REVIEW" \
     --argjson ready_issue_numbers "$(ready_issue_numbers_json)" \
     --argjson review_pr_numbers "$(review_pr_numbers_json)" \
     --argjson fix_review_pr_numbers "$(fix_review_pr_numbers_json)" \
@@ -287,7 +287,7 @@ build_ai_context() {
     --argjson auto_watch_main "$([ "$AUTO_WATCH_MAIN" = "true" ] && echo true || echo false)" \
     --argjson auto_improve "$([ "$AUTO_IMPROVE" = "true" ] && echo true || echo false)" \
     '{
-      limits: {max_alive: $max_alive, max_implement: $max_implement},
+      limits: {max_alive: $max_alive, max_implement: $max_implement, max_fix_review: $max_fix_review},
       automation: {dev_server: $auto_dev_server, watch_main: $auto_watch_main, improve: $auto_improve},
       project: {has_dev_target: $has_dev_target, integration_branch: $integration_branch, stable_branch: $stable_branch},
       dev_server: $dev_health,
@@ -560,12 +560,21 @@ fallback_scale() {
     fi
   fi
 
-  pr_num="$(next_fix_review_pr_number)"
-  if [ -n "$pr_num" ] && [ "$cur_fix" -eq 0 ] && below_limit "$(total_alive)" "$MAX_ALIVE"; then
+  local desired_fix=0
+  desired_fix="$(fix_review_pr_numbers_json | jq 'length')"
+  if [ "$MAX_FIX_REVIEW" -gt 0 ] && [ "$MAX_FIX_REVIEW" -lt "$desired_fix" ]; then
+    desired_fix="$MAX_FIX_REVIEW"
+  fi
+  while [ "$cur_fix" -lt "$desired_fix" ] && below_limit "$(total_alive)" "$MAX_ALIVE"; do
+    pr_num="$(next_fix_review_pr_number)"
+    [ -n "$pr_num" ] || break
     if add_pane "fix-review-pr-${pr_num}" "fix-review" "$(fix_review_context_for_pr "$pr_num")" "PR #${pr_num} に対応可能な requested changes があるため fix-review pane を作成する。"; then
       launched="${launched} fix-review-pr-${pr_num}"
+      cur_fix=$((cur_fix + 1))
+    else
+      break
     fi
-  fi
+  done
 
   if post_merge_due && role_active "dev-server" && below_limit "$(total_alive)" "$MAX_ALIVE"; then
     if [ "$cur_e2e" -eq 0 ]; then
