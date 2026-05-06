@@ -531,7 +531,7 @@ execute_ai_plan() {
         ;;
     esac
     [ -n "$name" ] && [ "$name" != "null" ] || name="$role"
-    if pane_name_active "$name"; then
+    if pane_name_active "$name" || echo "$launched_roles" | grep -qw "$name"; then
       skipped="${skipped} 既に起動:${name}"
       continue
     fi
