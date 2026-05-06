@@ -56,24 +56,24 @@ just setup && just start
 just start (./scripts/start-pipeline.sh)
 │
 ├── Step 0: Preflight
-│   ├── テンプレートリポ検出 → 新リポ作成（origin差し替え）
-│   └── KIRO_API_KEY 設定（GitHub Secrets）
+│   ├── Template repo detection → create new repo (swap origin)
+│   └── KIRO_API_KEY setup (GitHub Secrets)
 │
 ├── Phase 1: INCEPTION (you + AI)
-│   ├── 1. ワークスペース検出
-│   ├── 2. 要件分析
-│   ├── 3. ユーザーストーリー
-│   ├── 4. アーキテクチャ設計
-│   └── 5. Issue 自動生成 → GitHub issues
+│   ├── 1. Workspace detection
+│   ├── 2. Requirements analysis
+│   ├── 3. User stories
+│   ├── 4. Architecture design
+│   └── 5. Auto-generate issues → GitHub issues
 │
-└── Phase 2: 自律パイプライン (zellij)
+└── Phase 2: Autonomous pipeline (zellij)
     │
-    └── オーケストレーター（最小構成で開始 → 必要に応じてスケール）
+    └── Orchestrator (starts minimal → scales as needed)
         │
-        ├── issue検出 → implement を1paneだけ追加（デフォルト）
-        ├── レビュー指摘 → fix-review を追加
-        ├── merge検出 → e2e-hunt を追加
-        └── watch-main/improve → 環境変数で明示有効化した場合のみ追加
+        ├── Issue detected → add one `implement` pane (default)
+        ├── Review changes requested → add `fix-review` pane
+        ├── Merge detected → add `e2e-hunt` pane
+        └── `watch-main` / `improve` → only when explicitly enabled via env vars
 ```
 
 ---
