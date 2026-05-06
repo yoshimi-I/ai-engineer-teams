@@ -7,6 +7,10 @@ STATUS_DIR=".agent-status"
 PANE_REGISTRY="${STATUS_DIR}/.panes"
 REFRESH=60
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
+
 # Colors
 R='\033[0m'
 DIM='\033[2m'
@@ -218,9 +222,19 @@ stop_agent() {
     zellij action close-pane --pane-id "$pane" 2>/dev/null || true
   fi
   record_pane "$selection" "idle" "$pane" "stopped"
-  cat > "$f" <<JSON
-{"agent":"${selection}","prompt":"idle","state":"⏹️ stopped","detail":"manually stopped","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
-JSON
+  # shellcheck disable=SC2016
+  atomic_write_json "$f" \
+    '{
+      agent: $agent,
+      prompt: "idle",
+      state: "⏹️ stopped",
+      detail: "manually stopped",
+      cycle: 0,
+      errors: 0,
+      ts: $ts
+    }' \
+    --arg agent "$selection" \
+    --arg ts "$(date '+%H:%M:%S')"
   echo -e "  ${RED}⏹️  Stopped ${selection}${R}"
   sleep 1
 }
@@ -262,9 +276,19 @@ stop_all() {
       fi
       record_pane "$id" "idle" "$pane" "stopped"
       local f="${STATUS_DIR}/${id}.json"
-      cat > "$f" <<JSON
-{"agent":"${id}","prompt":"idle","state":"⏹️ stopped","detail":"manually stopped","cycle":0,"errors":0,"ts":"$(date '+%H:%M:%S')"}
-JSON
+      # shellcheck disable=SC2016
+      atomic_write_json "$f" \
+        '{
+          agent: $agent,
+          prompt: "idle",
+          state: "⏹️ stopped",
+          detail: "manually stopped",
+          cycle: 0,
+          errors: 0,
+          ts: $ts
+        }' \
+        --arg agent "$id" \
+        --arg ts "$(date '+%H:%M:%S')"
     done
     echo -e "  ${RED}⏹️  All agents stopped${R}"
     sleep 1
@@ -323,11 +347,11 @@ check_stalled_agents() {
     local cur_status
     cur_status=$(jq -r '.status // "empty"' "$OPERATOR_REQUEST" 2>/dev/null || echo empty)
     if [ "$cur_status" != "open" ]; then
-      jq -n \
-        --arg ts "$(date '+%H:%M:%S')" \
-        --arg request "STALL DETECTED: ${stalled_list}— auto-reported by control panel" \
+      # shellcheck disable=SC2016
+      atomic_write_json "$OPERATOR_REQUEST" \
         '{status:"open",ts:$ts,request:$request,intent:"general",target:"",priority:"high"}' \
-        > "$OPERATOR_REQUEST"
+        --arg ts "$(date '+%H:%M:%S')" \
+        --arg request "STALL DETECTED: ${stalled_list}— auto-reported by control panel"
     fi
   fi
 }

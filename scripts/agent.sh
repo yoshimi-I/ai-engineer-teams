@@ -35,6 +35,10 @@ LOG_FILE="${LOG_DIR}/${AGENT_NAME}.log"
 
 mkdir -p "$STATUS_DIR" "$LOG_DIR"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
+
 decode_b64_arg() {
   local value="$1"
   [ -n "$value" ] || return 0
@@ -64,18 +68,8 @@ CURRENT_BRANCH=""
 
 update_status() {
   local state="$1" detail="${2:-}"
-  jq -n \
-    --arg agent "$AGENT_NAME" \
-    --arg prompt "$PROMPT_NAME" \
-    --arg state "$state" \
-    --arg detail "$detail" \
-    --arg issue "$CURRENT_ISSUE" \
-    --arg pr "$CURRENT_PR" \
-    --arg branch "$CURRENT_BRANCH" \
-    --arg ts "$(date '+%H:%M:%S')" \
-    --argjson epoch "$(date +%s)" \
-    --argjson cycle "$cycle" \
-    --argjson errors "$error_count" \
+  # shellcheck disable=SC2016
+  atomic_write_json "$STATUS_FILE" \
     '{
       agent: $agent,
       prompt: $prompt,
@@ -88,7 +82,18 @@ update_status() {
       errors: $errors,
       ts: $ts,
       epoch: $epoch
-    }' > "$STATUS_FILE"
+    }' \
+    --arg agent "$AGENT_NAME" \
+    --arg prompt "$PROMPT_NAME" \
+    --arg state "$state" \
+    --arg detail "$detail" \
+    --arg issue "$CURRENT_ISSUE" \
+    --arg pr "$CURRENT_PR" \
+    --arg branch "$CURRENT_BRANCH" \
+    --arg ts "$(date '+%H:%M:%S')" \
+    --argjson epoch "$(date +%s)" \
+    --argjson cycle "$cycle" \
+    --argjson errors "$error_count"
 }
 
 # Scan git state and GitHub to detect what this agent is working on

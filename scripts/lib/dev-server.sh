@@ -45,7 +45,7 @@ check_dev_server_health() {
       port_only: ($pane_count == 0 and $url != ""),
       url: $url,
       ts: $ts
-    }' > "$DEV_HEALTH_FILE"
+    }' | atomic_write "$DEV_HEALTH_FILE"
 }
 
 dev_health_json() {

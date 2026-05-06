@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
-# Orchestrator: manages all agent panes, displays status, scales as needed
+# Orchestrator: manages all agent panes, displays status, scales as needed.
+#
+# We intentionally use `set -uo pipefail` (no `-e`) because the orchestrator
+# runs many best-effort `gh` / `jq` / `zellij` commands whose failure should
+# NOT kill the loop — a transient GitHub API error must not stop scaling.
+# Individual commands that must succeed already propagate errors via explicit
+# return checks; commands that may fail are either wrapped with `|| true` or
+# fall back via `gh_cached`.
+#
+# An ERR trap logs unexpected failures for debuggability without exiting.
 set -uo pipefail
 
 export GIT_EDITOR=true
@@ -43,6 +52,7 @@ mkdir -p "$STATUS_DIR" "$CACHE_DIR"
 touch "$PANE_REGISTRY"
 
 for lib in \
+  common.sh \
   orchestrator-status.sh \
   github.sh \
   dev-server.sh \
@@ -57,12 +67,25 @@ do
   fi
 done
 
+# shellcheck source=lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/orchestrator-status.sh
 source "${SCRIPT_DIR}/lib/orchestrator-status.sh"
+# shellcheck source=lib/github.sh
 source "${SCRIPT_DIR}/lib/github.sh"
+# shellcheck source=lib/dev-server.sh
 source "${SCRIPT_DIR}/lib/dev-server.sh"
+# shellcheck source=lib/panes.sh
 source "${SCRIPT_DIR}/lib/panes.sh"
+# shellcheck source=lib/planner.sh
 source "${SCRIPT_DIR}/lib/planner.sh"
+# shellcheck source=lib/render.sh
 source "${SCRIPT_DIR}/lib/render.sh"
+
+# Log unexpected ERR events without exiting the loop. This is especially
+# useful when a jq expression is broken or a zellij API call changes shape —
+# we get a visible trace instead of a silent "nothing happens".
+trap 'rc=$?; printf "[%s] ERROR orchestrator: cmd=\"%s\" src=%s:%s rc=%s\n" "$(date +%H:%M:%S)" "${BASH_COMMAND}" "${BASH_SOURCE[0]}" "${LINENO}" "$rc" >&2' ERR
 
 ISSUES=0
 READY_ISSUES=0

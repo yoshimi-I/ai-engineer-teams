@@ -14,6 +14,11 @@ upgrade:
 check:
     ./scripts/check.sh
 
+# Run the BATS unit tests for the orchestrator libraries
+test-scripts:
+    @if ! command -v bats >/dev/null 2>&1; then echo "❌ bats is required. Run: brew install bats-core"; exit 1; fi
+    bats scripts/tests/*.bats
+
 # Diagnose local/GitHub prerequisites before starting the pipeline
 preflight:
     ./scripts/preflight.sh

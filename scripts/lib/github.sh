@@ -31,13 +31,13 @@ gh_cached() {
 
   if result=$("$@" 2>"$err_file"); then
     rm -f "$err_file"
-    echo "$result" > "$cache_file"
+    printf '%s' "$result" | atomic_write "$cache_file"
     echo "$result"
     return
   fi
 
   # Keep the UI structurally valid even when gh auth/network is broken.
-  echo "$default" > "$cache_file"
+  printf '%s' "$default" | atomic_write "$cache_file"
   echo "$default"
 }
 
