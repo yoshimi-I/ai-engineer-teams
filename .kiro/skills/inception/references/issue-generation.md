@@ -87,6 +87,7 @@ issue を配置する。**各フェーズ内でさらに小粒化**する。
 
 - `chore: scaffold frontend` (Vite/Next/等の初期化だけ)
 - `chore: scaffold backend` (Hono/Express/FastAPI/等の初期化だけ)
+- `chore: add justfile with dev recipe` (開発サーバー起動コマンドを定義 — dev-server エージェントが `just dev` で起動するため必須)
 - `chore: add CI workflow (lint + typecheck + test + build)`
 - `chore: add .env.example and config loader`
 - `chore: add database migration runner` (必要なら)
@@ -97,6 +98,7 @@ issue を配置する。**各フェーズ内でさらに小粒化**する。
 
 ※ これらを 1 つの大きな "setup" にしない。scaffold と CI は独立、Docker と
 IaC も独立。並列化できる。
+※ **justfile の `dev` レシピは最初の scaffold issue に含めること。** dev-server エージェントは `just dev` を最優先で探すため、これがないとサーバーが起動できない。
 
 #### Phase 1: Walking Skeleton (垂直、1本だけ)
 
