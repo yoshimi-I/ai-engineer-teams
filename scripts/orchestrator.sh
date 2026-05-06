@@ -50,6 +50,7 @@ LAST_PLAN_SOURCE="none"
 
 mkdir -p "$STATUS_DIR" "$CACHE_DIR"
 touch "$PANE_REGISTRY"
+[ -f "${STATUS_DIR}/user-attention.json" ] || echo '[]' > "${STATUS_DIR}/user-attention.json"
 
 for lib in \
   common.sh \
