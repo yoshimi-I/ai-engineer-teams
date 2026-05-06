@@ -98,7 +98,10 @@ LATEST_MERGED_PR=""
 last_gh=0
 
 write_orchestrator_status "🚀 starting" "initializing orchestrator"
-refresh_github
+render
+refresh_github &
+wait $! 2>/dev/null || true
+last_gh=$(date +%s)
 
 scale
 render
