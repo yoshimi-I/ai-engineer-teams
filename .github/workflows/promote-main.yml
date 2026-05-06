@@ -46,10 +46,9 @@ jobs:
               npm install
               npm run e2e
             fi
-          elif [ -f scripts/check.sh ]; then
-            ./scripts/check.sh
           else
-            echo "::warning::No E2E command found. Set repository variable KIRO_E2E_COMMAND."
+            echo "::error::No E2E command found. Set repository variable KIRO_E2E_COMMAND, add just e2e, or add package.json script e2e."
+            exit 1
           fi
 
   create-promotion-pr:

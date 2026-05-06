@@ -59,7 +59,7 @@ Write every `reason` value in Japanese. The operator UI shows these reasons dire
 - Do not launch `watch-main` unless the context explicitly says watch-main automation is enabled.
 - Do not launch `improve` unless the context explicitly says improve automation is enabled.
 - Launch `ui-audit` after a new merge when `automation.ui_audit` is true and a dev server is active or when you also launch `dev-server` earlier in the same plan.
-- Launch `review` when `pull_requests.review_ready_count` is greater than 0 and no `review` pane is active.
+- Launch `review` only for approved PRs that need merge-manager handling when `pull_requests.review_ready_count` is greater than 0 and no `review` pane is active. Do not launch local review for unreviewed PRs; GitHub Actions owns code review.
 - Launch `fix-review` only if `pull_requests.fix_review_ready_count` is greater than 0 and no `fix-review` pane is active.
 - Launch `e2e` for targeted browser verification when a dev server is active or when you also launch `dev-server` earlier in the same plan.
 - Launch `e2e-bug-hunt` only if the latest merged PR has not already had post-merge actions spawned and no `e2e-bug-hunt` pane is active.
@@ -81,7 +81,7 @@ Use stable, role-based names:
 
 - `dev-server`
 - `implement-issue-N` where N is the GitHub issue number from `ready_issue_numbers`.
-- `review-pr-N` where N is the GitHub PR number from `review_pr_numbers`.
+- `review-pr-N` where N is the GitHub PR number from `review_pr_numbers` and is already approved.
 - `fix-review-pr-N` where N is the GitHub PR number from `fix_review_pr_numbers`.
 - `e2e`
 - `e2e-hunt`
@@ -96,7 +96,7 @@ Use stable, role-based names:
 - If `dev_server.pane_count` is greater than 1, assume Bash will deduplicate extra `dev-server` panes automatically; do not stop `dev-server` just to deduplicate it.
 - `implement`: work on ready implementation issues. Scale this up or down based on real parallelism.
 - When launching `implement`, use issue-numbered pane names from `ready_issue_numbers` such as `implement-issue-42`. Do not use generic names like `implement-1`.
-- `review`: inspect/merge PRs and handle approved PRs; avoid duplicating CI review when it is already in progress.
+- `review`: merge-manager only. It waits for checks and squash-merges approved develop PRs. It must not perform code review because GitHub Actions owns that.
 - When launching `review`, use PR-numbered pane names from `review_pr_numbers` such as `review-pr-42`. Do not use generic names like `review`.
 - `fix-review`: fix PRs with requested changes, merge conflicts, or blocked mergeability.
 - When launching `fix-review`, use PR-numbered pane names from `fix_review_pr_numbers` such as `fix-review-pr-42`. Do not use generic names like `fix-review`.

@@ -41,9 +41,36 @@ gh_cached() {
   echo "$default"
 }
 
+normalize_prs_json() {
+  jq '
+    def checks_state:
+      ([.statusCheckRollup[]?] as $checks
+      | if ($checks | length) == 0 then "unknown"
+        elif any($checks[]; ((.conclusion // "") | IN("FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED"))) then "failing"
+        elif any($checks[]; (((.status // "") != "") and ((.status // "") != "COMPLETED"))) then "pending"
+        elif all($checks[]; ((.conclusion // "SUCCESS") | IN("SUCCESS", "NEUTRAL", "SKIPPED"))) then "passing"
+        else "unknown"
+        end);
+    def pr_state:
+      checks_state as $checks
+      | if (.isDraft // false) then "draft"
+        elif .reviewDecision == "CHANGES_REQUESTED" then "changes_requested"
+        elif .mergeStateStatus == "DIRTY" then "conflict"
+        elif .reviewDecision == "APPROVED" and ($checks == "failing") then "approved_checks_failed"
+        elif .reviewDecision == "APPROVED" and (((.mergeStateStatus // "UNKNOWN") | IN("CLEAN", "HAS_HOOKS", "UNKNOWN")) | not) then "merge_blocked"
+        elif .reviewDecision == "APPROVED" and ($checks == "pending") then "approved_pending"
+        elif .reviewDecision == "APPROVED" then "approved_ready"
+        elif .reviewDecision == "REVIEW_REQUIRED" then "review_pending"
+        else "review_pending"
+        end;
+    [.[] | . + {checksState: checks_state, pipelineState: pr_state}]
+  ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo "[]"
+}
+
 refresh_github() {
   ISSUES_JSON=$(gh_cached issues_json gh issue list --state open --limit 100 --json number,title,body,labels,assignees)
   PRS_JSON=$(gh_cached prs_json gh pr list --base "${INTEGRATION_BRANCH:-develop}" --limit 30 --json number,title,headRefName,baseRefName,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup,author,assignees)
+  PRS_STATE_JSON=$(normalize_prs_json)
   GH_USER=$(gh_cached gh_user gh api user --jq '.login')
   # shellcheck disable=SC2034
   ISSUES=$(jq 'length' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
@@ -60,15 +87,12 @@ refresh_github() {
     | length
   ' <<< "${ISSUES_JSON:-[]}" 2>/dev/null || echo 0)
   # shellcheck disable=SC2034
-  CHANGES_REQ=$(jq '[.[] | select(.reviewDecision == "CHANGES_REQUESTED")] | length' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo 0)
+  CHANGES_REQ=$(jq '[.[] | select(.pipelineState == "changes_requested")] | length' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || echo 0)
   # shellcheck disable=SC2034
   FIX_REVIEW_READY=$(jq '
-    [.[] | select((.isDraft // false) | not)
-      | select(.reviewDecision == "CHANGES_REQUESTED"
-        or .mergeStateStatus == "DIRTY"
-        or (.reviewDecision == "APPROVED" and ((.mergeStateStatus // "UNKNOWN") | IN("CLEAN", "HAS_HOOKS", "UNKNOWN") | not)))]
+    [.[] | select(.pipelineState | IN("changes_requested", "conflict", "approved_checks_failed", "merge_blocked"))]
     | length
-  ' <<< "${PRS_JSON:-[]}" 2>/dev/null || echo 0)
+  ' <<< "${PRS_STATE_JSON:-[]}" 2>/dev/null || echo 0)
   LATEST_MERGED_PR=$(gh_cached latest_merged_pr gh pr list --base "${INTEGRATION_BRANCH:-develop}" --state merged --limit 1 --json number \
     --jq '.[0].number // ""')
   HAS_MERGES=false

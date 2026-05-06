@@ -195,7 +195,11 @@ brew upgrade zellij
 
 The orchestrator uses an AI planner prompt (`.kiro/prompts/orchestrator-plan.md`) by default. Bash gathers GitHub, PR, pane, project, and post-merge state, asks the planner for a JSON action plan, validates that JSON, then launches only the approved zellij panes. The planner decides which roles to run (`dev-server`, `implement`, `review`, `fix-review`, `e2e`, `e2e-bug-hunt`, `ui-audit`, `watch-main`, `improve`) and how many `implement` panes to run based on dependencies, likely file conflicts, active panes, and review/e2e needs. Issues labeled `blocked` or waiting on an open `depends-on: #N` dependency are not considered ready. If AI planning fails, Bash falls back to dependency-aware scaling.
 
-`watch-main` now runs as a resident develop-to-main promotion monitor by default and can be disabled with `ORCH_AUTO_WATCH_MAIN=false`. `ui-audit` auto-spawns by default after merges and can be disabled with `ORCH_AUTO_UI_AUDIT=false`. Optional `improve` auto-spawn can be enabled with `ORCH_AUTO_IMPROVE=true`. AI planning can be disabled with `ORCH_AI=false`.
+Run `just preflight` to diagnose local tools, GitHub auth, branch setup, Actions permissions, review secrets, workflows, and E2E command detection before launching the pipeline.
+
+`watch-main` now runs as a resident develop-to-main promotion monitor by default and can be disabled with `ORCH_AUTO_WATCH_MAIN=false`. It requires a real E2E command for promotion (`KIRO_E2E_COMMAND`, `just e2e`, or `package.json` `e2e`). `ui-audit` auto-spawns by default after merges and can be disabled with `ORCH_AUTO_UI_AUDIT=false`. Optional `improve` auto-spawn can be enabled with `ORCH_AUTO_IMPROVE=true`. AI planning can be disabled with `ORCH_AI=false`.
+
+Code review is delegated to `konippi/kiro-cli-review-action` on `develop` PRs. The local `review` pane is a merge-manager only: it handles already approved PRs, waits for checks, and retries squash merge. PRs are normalized into states such as `review_pending`, `approved_ready`, `approved_pending`, `changes_requested`, `conflict`, `approved_checks_failed`, and `merge_blocked` so the planner and dashboard reason from the same state machine.
 
 The orchestrator pane refreshes on a fixed tick (`ORCH_TICK_INTERVAL`, default `10s`) and shows the last planner source, launched actions, skip reasons, and next tick timing. The same state is written to `.agent-status/orchestrator.json` and `.agent-status/.cache/orchestrator_decision.json`.
 
