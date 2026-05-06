@@ -14,20 +14,6 @@ render() {
   echo "  ╚════════════════════════════════════════════╝${R}"
   echo ""
 
-  # User attention items
-  local attention_file="${STATUS_DIR}/user-attention.json"
-  local items=""
-  if [ -f "$attention_file" ]; then
-    items=$(jq -r '.[] | "    ⚠️  [\(.from)] \(.message)"' "$attention_file" 2>/dev/null || true)
-  fi
-  echo -e "  ${BOLD}${RED}🚨 ユーザーに確認して欲しいこと${R}"
-  if [ -n "$items" ]; then
-    printf '%b\n' "${RED}${items}${R}"
-  else
-    echo -e "  ${DIM}なし${R}"
-  fi
-  echo ""
-
   # Issues
   # `gh issue list` defaults to 30 results, which silently capped the counter
   # at 30 even when the project had 40+ open issues. Always pass --limit with
@@ -121,6 +107,22 @@ render() {
     echo -e "${DIM}${timeline}${R}"
     echo ""
   fi
+
+  # User attention items (placed after the timeline so urgent asks stay near
+  # the bottom of the report — operators see them without scrolling past a
+  # long merged-PR history).
+  local attention_file="${STATUS_DIR}/user-attention.json"
+  local items=""
+  if [ -f "$attention_file" ]; then
+    items=$(jq -r '.[] | "    ⚠️  [\(.from)] \(.message)"' "$attention_file" 2>/dev/null || true)
+  fi
+  echo -e "  ${BOLD}${RED}🚨 ユーザーに確認して欲しいこと${R}"
+  if [ -n "$items" ]; then
+    printf '%b\n' "${RED}${items}${R}"
+  else
+    echo -e "  ${DIM}  なし${R}"
+  fi
+  echo ""
 
   echo -e "  ${DIM}Updated: $(date '+%H:%M:%S')  Refresh: ${REFRESH}s${R}"
 }
