@@ -37,6 +37,7 @@ Write every `reason` value in Japanese. The operator UI shows these reasons dire
 - `implement`
 - `review`
 - `fix-review`
+- `create-issue`
 - `e2e`
 - `e2e-bug-hunt`
 - `ui-audit`
@@ -93,6 +94,7 @@ Use stable, role-based names:
 
 - `dev-server`: keep the app running for browser-based agents. Start it before `e2e`, `e2e-bug-hunt`, or `watch-main` when needed.
 - If `dev_server.healthy` is true, do not launch another `dev-server`; reuse it.
+- If `dev_server.error` is non-empty, the dev-server has crashed with an error. Launch a `create-issue` pane with the error details as context so the issue can be fixed. Do not restart `dev-server` until the error is resolved.
 - If `dev_server.pane_count` is greater than 1, assume Bash will deduplicate extra `dev-server` panes automatically; do not stop `dev-server` just to deduplicate it.
 - `implement`: work on ready implementation issues. Scale this up or down based on real parallelism.
 - When launching `implement`, use issue-numbered pane names from `ready_issue_numbers` such as `implement-issue-42`. Do not use generic names like `implement-1`.
