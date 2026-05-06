@@ -38,8 +38,8 @@ layout {
         }
     }
     tab name="Agents" {
-        pane command="bash" name="agent-placeholder" {
-            args "-c" "echo 'Agent panes will appear here.'; while true; do sleep 3600; done"
+        pane command="bash" name="agent-placeholder" close_on_exit=true {
+            args "-c" "exit 0"
         }
     }
 }
