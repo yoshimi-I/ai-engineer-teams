@@ -67,6 +67,15 @@ run_package_dev() {
 copy_env_examples
 export_common_dev_defaults
 
+# Kill any leftover dev server processes on common ports
+kill_stale_dev_servers() {
+  local port
+  for port in 3000 4173 5173 5174 5175 5176 8000 8080; do
+    lsof -ti :"$port" 2>/dev/null | xargs kill -9 2>/dev/null || true
+  done
+}
+kill_stale_dev_servers
+
 if command -v just >/dev/null 2>&1 && grep -Eq '^[[:space:]]*dev:' justfile 2>/dev/null; then
   exec just dev
 fi
