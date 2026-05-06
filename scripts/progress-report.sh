@@ -4,7 +4,7 @@ set -uo pipefail
 REFRESH="${REPORT_REFRESH:-60}"
 STATUS_DIR=".agent-status"
 BOLD="\033[1m" DIM="\033[2m" R="\033[0m"
-GREEN="\033[32m" YELLOW="\033[33m" RED="\033[31m" CYAN="\033[36m" MAGENTA="\033[35m"
+GREEN="\033[32m" YELLOW="\033[33m" RED="\033[31m" CYAN="\033[36m"
 
 render() {
   clear
@@ -41,8 +41,8 @@ render() {
   filled=$((pct * bar_len / 100))
   empty=$((bar_len - filled))
   printf "    ["
-  printf "${GREEN}"; printf '█%.0s' $(seq 1 $filled 2>/dev/null) || true; printf "${R}"
-  printf "${DIM}"; printf '░%.0s' $(seq 1 $empty 2>/dev/null) || true; printf "${R}"
+  printf '%s' "${GREEN}"; printf '█%.0s' $(seq 1 "$filled" 2>/dev/null) || true; printf '%s' "${R}"
+  printf '%s' "${DIM}"; printf '░%.0s' $(seq 1 "$empty" 2>/dev/null) || true; printf '%s' "${R}"
   echo "]"
   echo ""
 
@@ -87,6 +87,7 @@ render() {
 
   # Timeline: merged PRs with time, showing what feature was completed
   local timeline
+  # shellcheck disable=SC2016
   timeline=$(gh pr list --state merged --limit 20 --json number,title,mergedAt,closingIssuesReferences \
     --jq '
       def jp_prefix:

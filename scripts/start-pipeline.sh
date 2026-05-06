@@ -62,6 +62,34 @@ check_kiro_api_key() {
   fi
 }
 
+publish_inception_artifacts() {
+  local branch="docs/inception-artifacts"
+  local current_branch
+
+  current_branch="$(git branch --show-current)"
+  if [[ "$current_branch" == "main" ]]; then
+    branch="${branch}-$(date +%Y%m%d%H%M%S)"
+    git switch -c "$branch"
+  else
+    branch="$current_branch"
+  fi
+
+  git add -f aidlc-docs/ issue/ .kiro/steering/
+  git commit -m "docs: add INCEPTION artifacts"
+  git push -u origin "$branch"
+
+  if gh pr view "$branch" &>/dev/null; then
+    echo "  ✔ 既存PRを更新しました: $(gh pr view "$branch" --json url --jq '.url')"
+  else
+    gh pr create \
+      --head "$branch" \
+      --base main \
+      --title "docs: add INCEPTION artifacts" \
+      --body "Add INCEPTION artifacts so pipeline agents can access the project plan and issue tracker."
+    echo "  ✔ PRを作成しました: $(gh pr view "$branch" --json url --jq '.url')"
+  fi
+}
+
 if [[ ! -d ".kiro/prompts" ]]; then
   echo "❌ Run from project root (no .kiro/prompts/ found)"
   exit 1
@@ -171,7 +199,7 @@ else
 
   kiro-cli chat --trust-all-tools "/inception"
 
-  # ── Push INCEPTION artifacts to main ──
+  # ── Publish INCEPTION artifacts through a PR ──
   INCEPTION_FILES=$(git ls-files --others --modified -- aidlc-docs/ issue/ .kiro/steering/ 2>/dev/null)
   if [[ -n "$INCEPTION_FILES" ]]; then
     echo ""
@@ -181,12 +209,11 @@ else
       echo "    ${file}"
     done <<< "$INCEPTION_FILES"
     echo ""
-    read -r -p "  main にプッシュしてエージェントがアクセスできるようにしますか？ (Y/n) → " yn
+    read -r -p "  PRを作成してエージェントが成果物をレビューできるようにしますか？ (Y/n) → " yn
     if [[ "$yn" != "n" && "$yn" != "N" ]]; then
-      git add -f aidlc-docs/ issue/ .kiro/steering/
-      git commit -m "docs: add INCEPTION artifacts"
-      git push origin main
-      echo "  ✔ main にプッシュしました。"
+      publish_inception_artifacts
+      echo "  PRをマージ後、もう一度 ./scripts/start-pipeline.sh を実行してください。"
+      exit 0
     else
       for pattern in aidlc-docs/ issue/; do
         grep -qxF "$pattern" .gitignore 2>/dev/null || echo "$pattern" >> .gitignore

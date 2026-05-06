@@ -10,11 +10,15 @@ upgrade:
     @brew upgrade zellij gh just gum jq fswatch 2>/dev/null || true
     @echo "✅ Done. Run 'zellij --version' to verify."
 
+# Run local checks for pipeline scripts
+check:
+    ./scripts/check.sh
+
 # Update to latest version
 update:
     ./scripts/update.sh
 
-# Start full pipeline (INCEPTION → orchestrated 12-agent pipeline)
+# Start full pipeline (INCEPTION → orchestrated 8-agent pipeline)
 start:
     ./scripts/start-pipeline.sh
 

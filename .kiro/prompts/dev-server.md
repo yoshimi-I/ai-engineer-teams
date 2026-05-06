@@ -1,6 +1,6 @@
 # Dev Server — 開発サーバー常駐
 
-`just dev` を実行して開発サーバー（フロントエンド + バックエンド）を起動・常駐させる。
+`./scripts/start-server.sh` を実行して開発サーバー（フロントエンド + バックエンド）を起動・常駐させる。
 他の全エージェント（Watch-Main, E2E-Hunt等）はサーバーが起動済みであることを前提に動作する。
 
 ## 起動前チェック（必須）
@@ -25,12 +25,11 @@ done
 ## 起動
 
 ```bash
-just dev
+./scripts/start-server.sh
 ```
 
-`just dev` が存在しない場合は、プロジェクトの起動方法を自分で判断して起動する:
-- `pyproject.toml` があれば: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`
-- `package.json` があれば: `pnpm dev` or `npm run dev`
+`scripts/start-server.sh` は `just dev`、`package.json` の `dev` script、`pyproject.toml` 等を順に検出する。
+起動に失敗した場合はログを確認し、`.env` 不足や `DATABASE_URL` 未設定などの原因を修正してから再実行する。
 
 ## サーバーが落ちた場合
 

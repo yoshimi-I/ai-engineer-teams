@@ -45,7 +45,7 @@ for dir in scripts scripts/lib .kiro/prompts .kiro/skills .kiro/agents; do
   [ -d "${SRC}/${dir}" ] || continue
   mkdir -p "$dir"
   while IFS= read -r src_file; do
-    rel="${src_file#${SRC}/}"
+    rel="${src_file#"${SRC}"/}"
     # Skip update.sh itself (handled last for self-update)
     [ "$rel" = "scripts/update.sh" ] && continue
     mkdir -p "$(dirname "$rel")"

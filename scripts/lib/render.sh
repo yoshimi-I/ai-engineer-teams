@@ -104,7 +104,7 @@ render() {
   local summary_age=999
   [ -f "$summary_file" ] && summary_age=$(( $(date +%s) - $(stat -f%m "$summary_file" 2>/dev/null || stat -c%Y "$summary_file" 2>/dev/null || echo 0) ))
 
-  if [ $summary_age -ge $CACHE_TTL ]; then
+  if [ "$summary_age" -ge "$CACHE_TTL" ]; then
     {
       echo "ISSUES_IN_PROGRESS:"
       gh issue list --state open --json number,title,assignees \
