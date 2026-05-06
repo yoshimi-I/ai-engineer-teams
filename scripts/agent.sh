@@ -26,6 +26,10 @@ LOG_DIR=".agent-logs"
 AGENT_NAME="${AGENT_ID:-$PROMPT_NAME}"
 AGENT_CONTEXT="${AGENT_CONTEXT:-}"
 AGENT_REASON="${AGENT_REASON:-}"
+INTEGRATION_BRANCH="${KIRO_INTEGRATION_BRANCH:-develop}"
+STABLE_BRANCH="${KIRO_STABLE_BRANCH:-main}"
+export KIRO_INTEGRATION_BRANCH="$INTEGRATION_BRANCH"
+export KIRO_STABLE_BRANCH="$STABLE_BRANCH"
 STATUS_FILE="${STATUS_DIR}/${AGENT_NAME}.json"
 LOG_FILE="${LOG_DIR}/${AGENT_NAME}.log"
 
@@ -100,7 +104,7 @@ scan_agent_context() {
   fi
 
   # Check for open PR from this branch
-  if [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "main" ]; then
+  if [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INTEGRATION_BRANCH" ]; then
     local pr_num
     pr_num=$(gh pr list --head "$CURRENT_BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
     [ -n "$pr_num" ] && CURRENT_PR="#${pr_num}"
@@ -149,19 +153,19 @@ wait_for_work() {
       done
       ;;
     watch-main|e2e-bug-hunt)
-      echo "⏳ Waiting for first merge to main..."
+      echo "⏳ Waiting for first merge to ${INTEGRATION_BRANCH}..."
       while true; do
         update_status "⏳ waiting" "merge"
-        count=$(gh pr list --state merged --json number --jq 'length' --limit 1 2>/dev/null || echo "0")
+        count=$(gh pr list --base "$INTEGRATION_BRANCH" --state merged --json number --jq 'length' --limit 1 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 30
       done
       ;;
     improve)
-      echo "⏳ Waiting for first merge to main..."
+      echo "⏳ Waiting for first merge to ${INTEGRATION_BRANCH}..."
       while true; do
         update_status "⏳ waiting" "merge"
-        count=$(gh pr list --state merged --json number --jq 'length' --limit 1 2>/dev/null || echo "0")
+        count=$(gh pr list --base "$INTEGRATION_BRANCH" --state merged --json number --jq 'length' --limit 1 2>/dev/null || echo "0")
         [[ "$count" -gt 0 ]] && return 0
         sleep 60
       done
@@ -190,8 +194,8 @@ while true; do
   cycle=$((cycle + 1))
   echo "━━━ Cycle #${cycle} [$(date '+%H:%M:%S')] ━━━"
 
-  # Pull latest main before each cycle
-  git pull --rebase origin main --quiet 2>/dev/null || true
+  # Pull latest integration branch before each cycle
+  git pull --rebase origin "$INTEGRATION_BRANCH" --quiet 2>/dev/null || true
 
   # Reset context for new cycle
   CURRENT_ISSUE=""

@@ -36,6 +36,9 @@ just setup
 just start
 ```
 
+`just start` continues from existing INCEPTION artifacts when they are present.
+Use `just restart` to clear local agent runtime state and restart from the first post-INCEPTION pipeline cycle.
+
 ---
 
 ## 📥 Add to Existing Project
@@ -161,10 +164,10 @@ Orchestrator (starts with 1 agent, scales as needed)
     │                    CI: Auto Merge  fix-review agent
     │                                    fixes → re-push
     │                         │
-    │                    main merged
+    │                    develop merged
     │                         │
     ├── dev-server → started when project has package.json etc.
-    ├── watch-main → added after first merge → E2E verification
+    ├── watch-main → added after first develop merge → E2E verification → promote to main
     ├── e2e-hunt → added after first merge → Playwright patrol
     └── improve → added after first merge → improvement issues
 ```
@@ -201,7 +204,7 @@ The orchestrator pane refreshes on a fixed tick (`ORCH_TICK_INTERVAL`, default `
 
 | Category | Rules |
 |----------|-------|
-| **Git safety** | No direct push to main. No `--force`. No `git branch -D`. Squash merge only. |
+| **Git safety** | No direct push to main/develop. Feature PRs merge into develop; only E2E-verified develop is promoted to main. No `--force`. No `git branch -D`. Squash merge only. |
 | **Editor prevention** | `GIT_EDITOR=true` + `git config --global core.editor true` (3-layer) |
 | **Filesystem** | No operations above project root. No `cd ..` or `../` paths. |
 | **Issue limits** | improve: 3/cycle, e2e-bug-hunt: 5/cycle, watch-main: 3/cycle |

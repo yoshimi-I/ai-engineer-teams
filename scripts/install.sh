@@ -56,9 +56,14 @@ echo ""
 
 copy_dir ".kiro"
 copy_dir "scripts"
+copy_file ".github/workflows/kiro-review.yml"
+copy_file ".github/workflows/promote-main.yml"
+copy_file ".github/PULL_REQUEST_TEMPLATE.md"
+copy_file ".github/ISSUE_TEMPLATE/bug_report.md"
+copy_file ".github/ISSUE_TEMPLATE/feature_request.md"
 
 # ── Merge justfile recipes ──
-RECIPES=("setup" "start" "pipeline" "ja" "en")
+RECIPES=("setup" "start" "restart" "pipeline" "ja" "en")
 RECIPE_BLOCKS=$(cat <<'JUST'
 
 # ── kiro-engineer-teams ──
@@ -67,11 +72,15 @@ RECIPE_BLOCKS=$(cat <<'JUST'
 setup:
     ./scripts/setup.sh
 
-# Start full pipeline (INCEPTION → 7-agent)
+# Continue pipeline from existing INCEPTION artifacts when present
 start:
     ./scripts/start-pipeline.sh
 
-# Launch 7-agent pipeline only (skip INCEPTION)
+# Restart pipeline from the first post-INCEPTION cycle
+restart:
+    ./scripts/restart-pipeline.sh
+
+# Launch pipeline only (skip INCEPTION)
 pipeline:
     @LAYOUT_TMP=$(mktemp /tmp/pipeline-XXXXXX.kdl) && \
     sed "s|__PROJECT_CWD__|$(pwd)|g" scripts/pipeline.kdl > "$$LAYOUT_TMP" && \
@@ -133,4 +142,5 @@ echo ""
 echo -e "  Next steps:"
 echo -e "    ${DIM}1.${RESET} just setup  ${DIM}# install prerequisites${RESET}"
 echo -e "    ${DIM}2.${RESET} just start  ${DIM}# start INCEPTION + pipeline${RESET}"
+echo -e "    ${DIM}3.${RESET} protect main ${DIM}# keep main green; integrate feature PRs into develop${RESET}"
 echo ""
