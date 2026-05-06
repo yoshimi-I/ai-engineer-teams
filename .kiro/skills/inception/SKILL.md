@@ -18,8 +18,9 @@ AI-DLCから適応した構造化計画ワークフロー。
 1. ワークスペース検出（常に実行）
 2. 要件分析（常に実行、適応的深度）
 3. ユーザーストーリー（条件付き）
-4. アーキテクチャ設計（条件付き）
-5. Issue生成（常に実行）→ 8エージェントパイプラインに供給
+4. デザインビジョン（条件付き — UIがある場合）
+5. アーキテクチャ設計（条件付き）
+6. Issue生成（常に実行）→ オーケストレーターに供給
 ```
 
 ## 詳細ステップは `references/` にあり、必要に応じて読む:
@@ -27,6 +28,7 @@ AI-DLCから適応した構造化計画ワークフロー。
 - `references/workspace-detection.md`
 - `references/requirements-analysis.md`
 - `references/user-stories.md`
+- `references/design-vision.md`
 - `references/architecture-design.md`
 - `references/issue-generation.md`
 - `references/depth-levels.md`
