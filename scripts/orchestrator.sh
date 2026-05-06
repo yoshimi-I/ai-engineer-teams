@@ -12,7 +12,7 @@ CACHE_DIR="${STATUS_DIR}/.cache"
 CACHE_TTL=25
 PANE_REGISTRY="${STATUS_DIR}/.panes"
 GH_REFRESH="${ORCH_GH_REFRESH:-10}"
-TICK_INTERVAL="${ORCH_TICK_INTERVAL:-2}"
+TICK_INTERVAL="${ORCH_TICK_INTERVAL:-10}"
 POST_MERGE_STATE="${STATUS_DIR}/.last_post_merge_pr"
 PIPELINE_TAB_ID=""
 AGENTS_TAB_ID=""
@@ -77,7 +77,7 @@ while true; do
   sleep "$TICK_INTERVAL"
 
   now=$(date +%s)
-  [ $((now - last_gh)) -ge $GH_REFRESH ] && refresh_github && last_gh=$now
+  [ $((now - last_gh)) -ge "$GH_REFRESH" ] && refresh_github && last_gh=$now
 
   scale
   update_pane_status

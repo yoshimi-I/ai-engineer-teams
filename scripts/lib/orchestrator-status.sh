@@ -28,6 +28,7 @@ record_decision() {
   local source="$1" summary="$2" detail="$3"
   LAST_PLAN_SOURCE="$source"
   LAST_DECISION_SUMMARY="$summary"
+  # shellcheck disable=SC2034
   LAST_DECISION_DETAIL="$detail"
   LAST_DECISION_TS="$(date '+%H:%M:%S')"
   jq -n \

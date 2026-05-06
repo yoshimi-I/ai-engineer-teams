@@ -255,7 +255,7 @@ cleanup_zombie_status() {
   for f in "${STATUS_DIR}"/*.json; do
     [ -f "$f" ] || continue
     local name state epoch
-    name=$(jq -r '.agent // ""' "$f" 2>/dev/null || continue)
+    name=$(jq -r '.agent // ""' "$f" 2>/dev/null || echo "")
     state=$(jq -r '.state // ""' "$f" 2>/dev/null || echo "")
     epoch=$(jq -r '.epoch // 0' "$f" 2>/dev/null || echo 0)
     [ -n "$name" ] || continue

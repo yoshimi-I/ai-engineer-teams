@@ -14,6 +14,19 @@ permissions:
   issues: write
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Check shell syntax
+        run: find scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
+      - name: Run ShellCheck
+        run: shellcheck -x -P scripts scripts/*.sh scripts/lib/*.sh
+
   # Review: only on PR open or /review comment
   review:
     runs-on: ubuntu-latest

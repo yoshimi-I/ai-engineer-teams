@@ -19,7 +19,7 @@ if [[ -n "${1:-}" ]]; then
 else
   echo -e "  ${DIM}Enterでディレクトリ名を使用、または別名を入力${RESET}"
   echo ""
-  read -p "  リポジトリ名 ($DEFAULT_NAME): " REPO
+  read -r -p "  リポジトリ名 ($DEFAULT_NAME): " REPO
   REPO="${REPO:-$DEFAULT_NAME}"
   echo ""
 fi

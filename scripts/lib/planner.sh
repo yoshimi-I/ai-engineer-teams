@@ -327,6 +327,7 @@ extract_json_object() {
   input=$(cat)
   # Strategy 1: find JSON between ```json ... ``` markers
   local from_fence
+  # shellcheck disable=SC2016
   from_fence=$(printf '%s\n' "$input" | sed -n '/^```json/,/^```/{/^```/d;p}')
   if [ -n "$from_fence" ] && jq -e '.' >/dev/null 2>&1 <<< "$from_fence"; then
     printf '%s\n' "$from_fence"
