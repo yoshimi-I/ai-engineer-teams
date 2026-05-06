@@ -8,6 +8,11 @@
 
 set -euo pipefail
 
+INTEGRATION_BRANCH="${KIRO_INTEGRATION_BRANCH:-develop}"
+STABLE_BRANCH="${KIRO_STABLE_BRANCH:-main}"
+export KIRO_INTEGRATION_BRANCH="$INTEGRATION_BRANCH"
+export KIRO_STABLE_BRANCH="$STABLE_BRANCH"
+
 # ── Preflight ──
 for cmd in kiro-cli zellij gh jq; do
   if ! command -v "$cmd" &>/dev/null; then
@@ -67,7 +72,7 @@ publish_inception_artifacts() {
   local current_branch
 
   current_branch="$(git branch --show-current)"
-  if [[ "$current_branch" == "main" ]]; then
+  if [[ "$current_branch" == "$STABLE_BRANCH" || "$current_branch" == "$INTEGRATION_BRANCH" ]]; then
     branch="${branch}-$(date +%Y%m%d%H%M%S)"
     git switch -c "$branch"
   else
@@ -83,11 +88,22 @@ publish_inception_artifacts() {
   else
     gh pr create \
       --head "$branch" \
-      --base main \
+      --base "$INTEGRATION_BRANCH" \
       --title "docs: add INCEPTION artifacts" \
       --body "Add INCEPTION artifacts so pipeline agents can access the project plan and issue tracker."
     echo "  ✔ PRを作成しました: $(gh pr view "$branch" --json url --jq '.url')"
   fi
+}
+
+ensure_integration_branch() {
+  if git ls-remote --exit-code --heads origin "$INTEGRATION_BRANCH" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "🌿 integration branch '${INTEGRATION_BRANCH}' が未作成です。"
+  echo "   ${STABLE_BRANCH} から作成して push します。"
+  git fetch origin "$STABLE_BRANCH" --quiet
+  git push origin "refs/remotes/origin/${STABLE_BRANCH}:refs/heads/${INTEGRATION_BRANCH}"
 }
 
 if [[ ! -d ".kiro/prompts" ]]; then
@@ -147,6 +163,7 @@ fi
 
 # Check API key on the actual target repo (after potential repo creation)
 check_kiro_api_key
+ensure_integration_branch
 
 # ── Ensure directories ──
 mkdir -p issue aidlc-docs/inception
@@ -254,6 +271,7 @@ echo "  🔧 Fix-Review       → レビュー指摘の自動修正"
 echo "  🧪 E2E              → 必要時のブラウザ検証"
 echo "  🐞 E2E-Hunt         → merge検出時のPlaywright巡回 → bug issue作成"
 echo ""
+echo "  通常PRは ${INTEGRATION_BRANCH} に統合し、E2E通過後に ${STABLE_BRANCH} へ昇格します。"
 echo "  AI plannerが依存関係・PR状態・E2E要否を見てpane数と役割を決めます。"
 echo "  watch-main/improve の自動起動は ORCH_AUTO_WATCH_MAIN=true / ORCH_AUTO_IMPROVE=true で有効化できます。"
 echo ""

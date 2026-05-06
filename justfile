@@ -18,7 +18,7 @@ check:
 update:
     ./scripts/update.sh
 
-# Start full pipeline (INCEPTION → orchestrated 8-agent pipeline)
+# Continue pipeline from existing INCEPTION artifacts when present
 start:
     ./scripts/start-pipeline.sh
 
@@ -29,10 +29,9 @@ pipeline:
     zellij --layout "$$LAYOUT_TMP"; \
     rm -f "$$LAYOUT_TMP"
 
-# Restart from INCEPTION (clear previous artifacts and start fresh)
+# Restart pipeline from the first post-INCEPTION cycle
 restart:
-    rm -rf aidlc-docs/inception
-    ./scripts/start-pipeline.sh
+    ./scripts/restart-pipeline.sh
 
 # Install into existing project (run from target project root)
 install:

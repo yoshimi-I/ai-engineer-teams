@@ -279,6 +279,8 @@ build_ai_context() {
     --argjson review_pr_numbers "$(review_pr_numbers_json)" \
     --argjson fix_review_pr_numbers "$(fix_review_pr_numbers_json)" \
     --arg next_implement "$(next_implement_name)" \
+    --arg integration_branch "${INTEGRATION_BRANCH:-develop}" \
+    --arg stable_branch "${STABLE_BRANCH:-main}" \
     --arg me "${GH_USER:-}" \
     --argjson has_dev_target "$(has_dev_target && echo true || echo false)" \
     --argjson auto_dev_server "$([ "$AUTO_DEV_SERVER" = "true" ] && echo true || echo false)" \
@@ -287,7 +289,7 @@ build_ai_context() {
     '{
       limits: {max_alive: $max_alive, max_implement: $max_implement},
       automation: {dev_server: $auto_dev_server, watch_main: $auto_watch_main, improve: $auto_improve},
-      project: {has_dev_target: $has_dev_target},
+      project: {has_dev_target: $has_dev_target, integration_branch: $integration_branch, stable_branch: $stable_branch},
       dev_server: $dev_health,
       next_names: {implement: $next_implement},
       ready_issue_numbers: $ready_issue_numbers,

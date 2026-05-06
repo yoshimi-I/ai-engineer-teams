@@ -140,7 +140,7 @@ render() {
         elif . == "fix-review" then "レビュー修正"
         elif . == "e2e" then "E2E"
         elif . == "e2e-bug-hunt" then "E2E巡回"
-        elif . == "watch-main" then "main監視"
+        elif . == "watch-main" then "develop監視"
         elif . == "improve" then "改善提案"
         else . end;
       [.actions[]? | "  - " + ((.name // .role) | tostring) + "（" + (.role | role_label) + "）を作成: " + (.reason // "理由なし")]
@@ -154,7 +154,7 @@ render() {
         elif . == "fix-review" then "レビュー修正"
         elif . == "e2e" then "E2E"
         elif . == "e2e-bug-hunt" then "E2E巡回"
-        elif . == "watch-main" then "main監視"
+        elif . == "watch-main" then "develop監視"
         elif . == "improve" then "改善提案"
         else . end;
       [.stop[]? | "  - " + (.role | role_label) + "を停止: " + (.reason // "理由なし")]
@@ -168,7 +168,7 @@ render() {
         elif . == "fix-review" then "レビュー修正"
         elif . == "e2e" then "E2E"
         elif . == "e2e-bug-hunt" then "E2E巡回"
-        elif . == "watch-main" then "main監視"
+        elif . == "watch-main" then "develop監視"
         elif . == "improve" then "改善提案"
         else . end;
       [.skip[]? | "  - " + (.role | role_label) + "を見送り: " + (.reason // "理由なし")]

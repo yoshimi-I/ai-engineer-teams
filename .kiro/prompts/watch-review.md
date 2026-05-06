@@ -44,12 +44,15 @@ gh pr comment <number> --body "レビュー内容"
 | 条件 | アクション |
 |------|-----------|
 | 🔴 修正必須 | コメント投稿のみ（/fix-review エージェントが修正する） |
-| 🟢 LGTM（検証証拠あり） | コメント投稿 → squash merge |
+| 🟢 LGTM（検証証拠あり） | コメント投稿 → base branch が `${KIRO_INTEGRATION_BRANCH:-develop}` の場合のみ squash merge |
 | 3回修正しても 🔴 が残る | 人間エスカレーション |
 
 ### Step 6: マージ実行
 ```bash
-gh pr merge <number> --squash --delete-branch
+BASE_BRANCH=$(gh pr view <number> --json baseRefName --jq '.baseRefName')
+if [ "$BASE_BRANCH" = "${KIRO_INTEGRATION_BRANCH:-develop}" ]; then
+  gh pr merge <number> --squash --delete-branch
+fi
 ```
 
 マージ失敗（コンフリクト等）の場合:

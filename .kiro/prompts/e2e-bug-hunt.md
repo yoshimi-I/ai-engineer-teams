@@ -50,7 +50,8 @@
    - 既存issueと重複チェック
    - 重複なし → `gh issue create`
 4. 一時テストファイルを削除
-5. 次のサイクルへ
+5. ブロッキングバグが0件なら `${KIRO_INTEGRATION_BRANCH:-develop}` から `${KIRO_STABLE_BRANCH:-main}` への昇格PRを作成または再利用し、`gh pr checks --watch` 通過後に `gh pr merge --squash` で stable branch に取り込む
+6. 次のサイクルへ
 
 ## テスト生成のルール
 

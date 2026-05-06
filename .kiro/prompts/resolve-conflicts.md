@@ -14,7 +14,8 @@ cd .worktrees/rebase-<PR番号>
 
 ### 2. リベース開始
 ```bash
-GIT_EDITOR=true git rebase origin/main
+BASE_BRANCH=$(gh pr view <PR番号> --json baseRefName --jq '.baseRefName')
+GIT_EDITOR=true git rebase "origin/${BASE_BRANCH}"
 ```
 
 ### 3. コンフリクト解決

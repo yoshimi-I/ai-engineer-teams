@@ -11,7 +11,7 @@
 [Agent 3] /review ─────────── open PR→厳格レビュー→マージ
 [Agent 4] /review ─────────── 同上（並列で別PR）
 [Agent 5] /fix-review── 🔴指摘→修正→再push
-[Agent 6] /watch-main ─────── mainマージ検出→E2E検証→バグissue
+[Agent 6] /watch-main ─────── developマージ検出→E2E検証→main昇格 or バグissue
 [Agent 7] /e2e-bug-hunt ───── Playwright巡回→バグissue
 [Agent 8] /improve ─────────── コード分析→改善issue自動生成
 
@@ -39,7 +39,7 @@ Agent 1,2: /implement ──→ PR作成（pre-commitでlint/test通過済み）
                         │    修正→push→Agent 3,4が再レビュー
                         │
                         ▼
-                   main にマージ
+                   develop にマージ
                         │
                         ▼
                    Agent 6: /watch-main（E2E検証）
@@ -85,7 +85,7 @@ kiro-cli chat → /improve
 | 3 | `/review` | open PRを取得→厳格レビュー→マージ + Dependabot PR処理 | 即座に次へ |
 | 4 | `/review` | 同上（並列で別PR） | 即座に次へ |
 | 5 | `/fix-review` | 🔴指摘のあるPRを修正→再push | 2分 |
-| 6 | `/watch-main` | mainマージ検出→テスト+E2E検証→バグissue | 2分 |
+| 6 | `/watch-main` | developマージ検出→テスト+E2E検証→main昇格 or バグissue | 2分 |
 | 7 | `/e2e-bug-hunt` | Playwright全ページ巡回→バグissue | サイクル完了後 |
 | 8 | `/improve` | コード分析→改善issue自動生成 | 10分 |
 

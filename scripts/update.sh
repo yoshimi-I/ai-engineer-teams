@@ -19,6 +19,7 @@ SRC="${TMP}/kiro-engineer-teams-${BRANCH}"
 # Files to update (overwrite) — update.sh is excluded and handled last
 TARGETS=(
   ".github/workflows/kiro-review.yml"
+  ".github/workflows/promote-main.yml"
   ".github/PULL_REQUEST_TEMPLATE.md"
   ".github/ISSUE_TEMPLATE/bug_report.md"
   ".github/ISSUE_TEMPLATE/feature_request.md"

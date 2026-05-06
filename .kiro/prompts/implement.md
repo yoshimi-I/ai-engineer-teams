@@ -53,8 +53,9 @@ ISSUE=<issue番号>
 BRANCH="<type>/issue-${ISSUE}-<short-description>"
 WORKTREE=".worktrees/issue-${ISSUE}-<short-description>"
 
-git fetch origin main
-git worktree add -b "$BRANCH" "$WORKTREE" origin/main
+BASE_BRANCH="${KIRO_INTEGRATION_BRANCH:-develop}"
+git fetch origin "$BASE_BRANCH"
+git worktree add -b "$BRANCH" "$WORKTREE" "origin/${BASE_BRANCH}"
 cd "$WORKTREE"
 ```
 
@@ -78,7 +79,7 @@ closes #${ISSUE}
 - [x] Lint/format passed
 - [x] No breaking changes (or documented)
 EOF
-gh pr create --title "<Conventional Commit title>" --body "$(cat /tmp/pr-body-${ISSUE}.md)"
+gh pr create --base "$BASE_BRANCH" --title "<Conventional Commit title>" --body "$(cat /tmp/pr-body-${ISSUE}.md)"
 ```
 
 `.github/PULL_REQUEST_TEMPLATE.md` が存在する場合は、必ずそのセクション構成に沿ってPR本文を作成する。チェック項目は実際に満たしたものだけ `[x]` にする。

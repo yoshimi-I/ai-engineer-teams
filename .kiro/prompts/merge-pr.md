@@ -1,7 +1,7 @@
 
-# PR作成→mainマージ
+# PR作成→developマージ
 
-現在の変更からPR作成→CI確認→mainへスカッシュマージまでを一気通貫で行う。
+現在の変更からPR作成→CI確認→`${KIRO_INTEGRATION_BRANCH:-develop}`へスカッシュマージまでを一気通貫で行う。`${KIRO_STABLE_BRANCH:-main}` へは E2E 通過後の昇格フローだけが取り込む。
 
 ## 手順
 
