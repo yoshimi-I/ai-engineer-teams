@@ -132,6 +132,34 @@ else
   esac
 fi
 
+# ── shellcheck (for pre-commit + CI parity) ──
+if command -v shellcheck &>/dev/null; then
+  info "shellcheck already installed"
+else
+  install_msg "shellcheck"
+  case "$PKG" in
+    brew) brew install shellcheck ;;
+    apt)  sudo apt-get install -y shellcheck ;;
+    dnf)  sudo dnf install -y ShellCheck ;;
+    *)    warn "Install shellcheck manually: https://www.shellcheck.net/" ;;
+  esac
+fi
+
+# ── bats-core (BATS unit tests for scripts/lib) ──
+# Required locally so ./scripts/check.sh has CI parity — the previous
+# skip-if-missing behaviour let regressions sneak past developer machines.
+if command -v bats &>/dev/null; then
+  info "bats already installed"
+else
+  install_msg "bats-core"
+  case "$PKG" in
+    brew) brew install bats-core ;;
+    apt)  sudo apt-get install -y bats ;;
+    dnf)  sudo dnf install -y bats ;;
+    *)    warn "Install bats-core manually: https://github.com/bats-core/bats-core" ;;
+  esac
+fi
+
 echo ""
 echo "🎉 Setup complete!"
 echo ""
