@@ -2,6 +2,7 @@
 set -uo pipefail
 
 REFRESH="${REPORT_REFRESH:-60}"
+STATUS_DIR=".agent-status"
 BOLD="\033[1m" DIM="\033[2m" R="\033[0m"
 GREEN="\033[32m" YELLOW="\033[33m" RED="\033[31m" CYAN="\033[36m" MAGENTA="\033[35m"
 
