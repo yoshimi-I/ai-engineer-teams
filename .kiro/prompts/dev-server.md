@@ -28,7 +28,12 @@ done
 ./scripts/start-server.sh
 ```
 
-`scripts/start-server.sh` は `just dev`、`package.json` の `dev` script、`pyproject.toml` 等を順に検出する。
+`scripts/start-server.sh` は以下の優先順で起動方法を検出する:
+1. `just dev`（justfile に dev レシピがある場合）
+2. `docker-compose.yml` / `compose.yml` があれば `docker compose up`（**推奨** — DB・環境変数の問題が起きにくい）
+3. `package.json` に `dev` スクリプトがあれば `pnpm dev` or `npm run dev`
+4. `pyproject.toml` があれば `uv run` 等
+
 起動に失敗した場合はログを確認し、`.env` 不足や `DATABASE_URL` 未設定などの原因を修正してから再実行する。
 
 ## サーバーが落ちた場合

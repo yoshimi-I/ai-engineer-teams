@@ -87,7 +87,7 @@ issue を配置する。**各フェーズ内でさらに小粒化**する。
 
 - `chore: scaffold frontend` (Vite/Next/等の初期化だけ)
 - `chore: scaffold backend` (Hono/Express/FastAPI/等の初期化だけ)
-- `chore: add justfile with dev recipe` (開発サーバー起動コマンドを定義 — dev-server エージェントが `just dev` で起動するため必須)
+- `chore: add justfile with dev recipe` (開発サーバー起動コマンドを定義 — dev-server エージェントが `just dev` で起動するため必須。Docker Compose 推奨: `just dev` → `docker compose up`)
 - `chore: add CI workflow (lint + typecheck + test + build)`
 - `chore: add .env.example and config loader`
 - `chore: add database migration runner` (必要なら)
