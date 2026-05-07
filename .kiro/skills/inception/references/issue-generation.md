@@ -128,15 +128,35 @@ staging で表示され、E2E が main 昇格する。
 
 - `feat: add /health API endpoint (returns 200)`
 - `feat: add /health UI page (fetches /health)`
+- `feat: add routing + proxy + CORS configuration` ← **必須: App.tsxルーティング、Vite proxy、CORS middleware を1箇所で設定**
 - `test: add E2E that loads /health page and asserts 200`
 - `chore: enable promote-main workflow with /health E2E as gate`
 
-この 4 つが merge されたら「最初のリリース可能状態」。ここから先は機能追加。
+この 5 つが merge されたら「最初のリリース可能状態」。ここから先は機能追加。
+
+**重要**: Walking Skeleton は「コードが存在する」ではなく「ブラウザからアクセスして
+APIレスポンスが返る」まで確認する。以下が全て繋がっていること:
+- フロントエンドのルーター → ページコンポーネント
+- ページ → APIクライアント → バックエンドURL
+- バックエンド → DB接続（stub不可、最低限のmigration）
+- CORS or Proxy が設定済み
+- 認証トークンの保存→送信が繋がっている（認証機能がある場合）
 
 #### Phase 2: Vertical Slices (垂直、各機能 5〜10 issue)
 
-各機能を **contract → data → impl → UI → test** の順で小粒に分解。
+各機能を **contract → data → impl → UI → integration → test** の順で小粒に分解。
 例は下の「分割例」を参照。
+
+**必須ルール: 各垂直スライスの最後に「統合接続」issueを入れる**
+
+統合接続 issue は以下を1PRで行う:
+- ルーターにページを登録（App.tsx等）
+- APIクライアントのエンドポイントURLを実際のバックエンドと一致させる
+- 認証トークンがAPIリクエストに付与されることを確認
+- 必要ならProxy/CORS設定を追加
+- in-memory stub を実DB接続に差し替え（まだの場合）
+
+これがないと「ページは実装されたがアクセスできない」状態になる。
 
 #### Phase 3: Hardening (水平、既存を厚くする)
 

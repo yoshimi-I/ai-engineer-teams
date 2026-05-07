@@ -423,7 +423,7 @@ $context" 2>/dev/null || true)
 
 valid_role() {
   case "$1" in
-    dev-server|implement|review|fix-review|e2e|e2e-bug-hunt|ui-audit|watch-main|improve|feature-discovery|create-issue) return 0 ;;
+    dev-server|implement|review|fix-review|e2e|e2e-bug-hunt|ui-audit|watch-main|improve|feature-discovery|create-issue|integration-audit) return 0 ;;
     *) return 1 ;;
   esac
 }
