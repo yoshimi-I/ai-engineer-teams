@@ -402,12 +402,15 @@ add_pane() {
   local pane context_b64 reason_b64
   context_b64=$(agent_arg_b64 "$context")
   reason_b64=$(agent_arg_b64 "$reason")
-  local tab_args=()
+  # Switch to Agents tab, create pane, switch back
   if [ -n "$AGENTS_TAB_ID" ] && [ "$AGENTS_TAB_ID" != "null" ]; then
-    tab_args=(--tab-id "$AGENTS_TAB_ID")
+    zellij action go-to-tab-name "Agents" 2>/dev/null || true
   fi
-  zellij action new-pane ${tab_args[@]+"${tab_args[@]}"} -c --name "$name" --cwd "$PROJECT_CWD" \
+  zellij action new-pane -c --name "$name" --cwd "$PROJECT_CWD" \
     -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'" >/dev/null 2>&1
+  if [ -n "$PIPELINE_TAB_ID" ] && [ "$PIPELINE_TAB_ID" != "null" ]; then
+    zellij action go-to-tab-name "Pipeline" 2>/dev/null || true
+  fi
   # new-pane may not return the pane ID on stdout; find it by name
   sleep 0.5
   pane=$(zellij_panes_json | jq -r --arg name "$name" \
