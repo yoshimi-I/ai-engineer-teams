@@ -27,27 +27,52 @@
 ```
 INCEPTION
   ↓
-Phase 1: 基盤構築
-  ├── CI パイプライン構築 (GitHub Actions / GitLab CI)
-  ├── インフラ構築 (IaC: CDK / Terraform)
-  ├── CD パイプライン構築 (staging 自動デプロイ)
-  └── 環境構築 (.env, シークレット管理, DB)
+Phase 0: 基盤構築（2トラック並行）
+  ├── トラックA: アプリ基盤
+  │   ├── scaffold (frontend / backend / shared)
+  │   ├── justfile with dev recipe
+  │   ├── CI パイプライン (lint + typecheck + test + build)
+  │   └── .env.example + config loader
+  ├── トラックB: インフラ・デプロイ基盤（即着手）
+  │   ├── GitHub OIDC for AWS
+  │   ├── VPC + networking (Terraform)
+  │   ├── Database (RDS/Aurora)
+  │   ├── Compute (ECS/Lambda)
+  │   ├── ALB + DNS
+  │   ├── Dockerfile (scaffold完了後)
+  │   ├── Docker build + ECR push (CI)
+  │   └── Staging deploy workflow
+  └── 合流: トラックA の Dockerfile + トラックB のインフラ → CD 完成
   ↓
-Phase 2: 機能実装
+Phase 1: Walking Skeleton
+  ├── /health エンドポイント → staging デプロイ → E2E
+  └── ここで「コード→デプロイ」の全経路が開通
+  ↓
+Phase 2: 機能実装（デプロイ経路は既に開通済み）
   ├── ドメインモデル / スキーマ
   ├── API エンドポイント
   ├── フロントエンド UI
   └── 統合テスト / E2E
   ↓
 Phase 3: デリバリー
-  ├── staging デプロイ & 動作確認
-  ├── production デプロイ設定
+  ├── production IaC + deploy
   └── ユーザーアクセス確認
 ```
 
-## Phase 1 で生成すべきissue（INCEPTIONで必須）
+### なぜインフラを最初から並行するか
 
-### CI（Continuous Integration）
+Terraform は初回 `apply` で高確率でエラーが出る:
+- IAM ポリシー不足
+- リソースクォータ制限
+- リージョン固有の制約
+- ネットワーク設定ミス
+
+機能実装が終わってからインフラに着手すると、ここで詰まって全体が止まる。
+**最初から並行して走らせ、エラーを早期に潰す**のが正しい戦略。
+
+## Phase 0 で生成すべきissue（INCEPTIONで必須）
+
+### トラックA: CI（Continuous Integration）
 
 | issue | 内容 | 依存 |
 |-------|------|------|
@@ -55,21 +80,23 @@ Phase 3: デリバリー
 | `ci: add typecheck and test` | tsc --noEmit + vitest/jest + CI ジョブ | linter 後 |
 | `ci: add build verification` | pnpm build が通ることを CI で検証 | typecheck 後 |
 
-### インフラ（IaC）
+### トラックB: インフラ（IaC）— scaffold を待たず即着手
 
 | issue | 内容 | 依存 |
 |-------|------|------|
-| `infra: provision compute` | ECS/Lambda/EC2 等のコンピュートリソース | なし |
-| `infra: provision database` | RDS/DynamoDB 等 + マイグレーション | なし |
-| `infra: provision networking` | VPC/ALB/CloudFront/Route53 | compute 後 |
-| `infra: configure secrets` | Secrets Manager / SSM Parameter Store | なし |
+| `infra: configure GitHub OIDC` | GitHub Actions → AWS の認証設定 | **なし（最初に作る）** |
+| `infra: provision VPC + networking` | VPC/Subnet/SG | **なし** |
+| `infra: provision database` | RDS/Aurora + セキュリティグループ | VPC 後 |
+| `infra: provision compute` | ECS/Lambda + タスク定義 | VPC 後 |
+| `infra: provision ALB + DNS` | ALB/CloudFront/Route53 | compute 後 |
+| `infra: configure secrets` | Secrets Manager / SSM Parameter Store | **なし** |
 
-### CD（Continuous Deployment）
+### トラックB → CD（Continuous Deployment）— インフラ完成後
 
 | issue | 内容 | 依存 |
 |-------|------|------|
-| `ci: add Docker build` | Dockerfile + ECR push | build verification 後 |
-| `ci: add staging deploy` | main マージ → staging 自動デプロイ | Docker + infra 後 |
+| `ci: add Docker build + ECR push` | Dockerfile + ECR push | scaffold + build verification 後 |
+| `ci: add staging deploy` | main マージ → staging 自動デプロイ | Docker + OIDC + compute 後 |
 | `ci: add production deploy` | タグ or 手動承認 → production デプロイ | staging deploy 後 |
 
 ### 環境構築
@@ -77,7 +104,6 @@ Phase 3: デリバリー
 | issue | 内容 | 依存 |
 |-------|------|------|
 | `chore: add .env.example` | 全パッケージの環境変数テンプレート | scaffold 後 |
-| `infra: configure OIDC` | GitHub Actions → AWS の認証設定 | なし |
 
 ## Phase 2 の issue（既存のissue生成ルールに従う）
 

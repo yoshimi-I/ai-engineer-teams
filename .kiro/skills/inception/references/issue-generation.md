@@ -85,16 +85,37 @@ issue を配置する。**各フェーズ内でさらに小粒化**する。
 
 #### Phase 0: Foundations (必ず作る / 水平)
 
+Phase 0 は **2つの並行トラック** で進める。互いに依存しないため同時に着手可能。
+
+**トラック A: アプリ基盤**
 - `chore: scaffold frontend` (Vite/Next/等の初期化だけ)
 - `chore: scaffold backend` (Hono/Express/FastAPI/等の初期化だけ)
 - `chore: add justfile with dev recipe` (開発サーバー起動コマンドを定義 — dev-server エージェントが `just dev` で起動するため必須。Docker Compose 推奨: `just dev` → `docker compose up`)
 - `chore: add CI workflow (lint + typecheck + test + build)`
 - `chore: add .env.example and config loader`
 - `chore: add database migration runner` (必要なら)
-- `chore: add dockerfile for frontend`
-- `chore: add dockerfile for backend`
-- `chore: add IaC for staging` (Terraform/CDK/等)
-- `chore: add CD pipeline for staging` (OIDC / GitHub Actions)
+
+**トラック B: インフラ・デプロイ基盤（アプリ実装を待たず即着手）**
+- `infra: configure GitHub OIDC for AWS` (依存なし — 最初に作る)
+- `infra: provision VPC + networking` (依存なし)
+- `infra: provision database` (VPC後)
+- `infra: provision compute (ECS/Lambda)` (VPC後)
+- `infra: provision ALB + DNS` (compute後)
+- `chore: add dockerfile for frontend` (scaffold後)
+- `chore: add dockerfile for backend` (scaffold後)
+- `ci: add Docker build + ECR push` (dockerfile後)
+- `ci: add staging deploy workflow` (OIDC + compute + Docker build 後)
+
+**なぜ並行か**: Terraform は初回 apply でエラーが出やすい（IAM不足、リソース制限、
+リージョン制約等）。機能実装が終わってからインフラに着手すると、ここで詰まって
+全体が止まる。最初から並行して走らせ、エラーを早期に潰す。
+
+```
+時間軸 →
+トラックA: [scaffold] → [CI] → [機能実装...]
+トラックB: [OIDC+VPC] → [DB+Compute] → [ALB] → [Docker+CD] → [デプロイ検証]
+                                                       ↑ ここでトラックAのDockerfileと合流
+```
 
 ※ これらを 1 つの大きな "setup" にしない。scaffold と CI は独立、Docker と
 IaC も独立。並列化できる。
