@@ -99,8 +99,7 @@ last_gh=0
 
 write_orchestrator_status "🚀 starting" "initializing orchestrator"
 render
-refresh_github &
-wait $! 2>/dev/null || true
+refresh_github
 last_gh=$(date +%s)
 
 scale

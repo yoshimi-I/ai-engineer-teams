@@ -68,10 +68,18 @@ normalize_prs_json() {
 }
 
 refresh_github() {
-  ISSUES_JSON=$(gh_cached issues_json gh issue list --state open --limit 500 --json number,title,body,labels,assignees)
-  PRS_JSON=$(gh_cached prs_json gh pr list --limit 200 --json number,title,headRefName,baseRefName,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup,author,assignees)
+  # Run gh commands in parallel for faster startup
+  gh_cached issues_json gh issue list --state open --limit 500 --json number,title,body,labels,assignees > "${CACHE_DIR}/.issues_tmp" 2>/dev/null &
+  local pid_issues=$!
+  gh_cached prs_json gh pr list --limit 200 --json number,title,headRefName,baseRefName,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup,author,assignees > "${CACHE_DIR}/.prs_tmp" 2>/dev/null &
+  local pid_prs=$!
+  gh_cached gh_user gh api user --jq '.login' > "${CACHE_DIR}/.user_tmp" 2>/dev/null &
+  local pid_user=$!
+  wait $pid_issues 2>/dev/null; ISSUES_JSON=$(cat "${CACHE_DIR}/.issues_tmp" 2>/dev/null || echo "[]")
+  wait $pid_prs 2>/dev/null; PRS_JSON=$(cat "${CACHE_DIR}/.prs_tmp" 2>/dev/null || echo "[]")
   PRS_STATE_JSON=$(normalize_prs_json)
-  GH_USER=$(gh_cached gh_user gh api user --jq '.login')
+  wait $pid_user 2>/dev/null; GH_USER=$(cat "${CACHE_DIR}/.user_tmp" 2>/dev/null || echo "")
+  rm -f "${CACHE_DIR}/.issues_tmp" "${CACHE_DIR}/.prs_tmp" "${CACHE_DIR}/.user_tmp"
 
   # Surface a single warning when gh auth cannot resolve the current user.
   # In that case `ready_issue_numbers_json` intentionally restricts to
