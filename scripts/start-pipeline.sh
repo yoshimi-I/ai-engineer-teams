@@ -13,8 +13,13 @@ STABLE_BRANCH="${KIRO_STABLE_BRANCH:-main}"
 export KIRO_INTEGRATION_BRANCH="$INTEGRATION_BRANCH"
 export KIRO_STABLE_BRANCH="$STABLE_BRANCH"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/runner.sh
+source "${SCRIPT_DIR}/lib/runner.sh"
+
 # ── Preflight ──
-for cmd in kiro-cli zellij gh jq; do
+RUNNER_BIN="$(ai_runner_binary)"
+for cmd in "$RUNNER_BIN" zellij gh jq; do
   if ! command -v "$cmd" &>/dev/null; then
     echo "❌ Required: $cmd"
     exit 1
@@ -256,7 +261,7 @@ else
   echo ""
   read -r -p "  Enter を押して開始 → " _
 
-  kiro-cli chat --trust-all-tools "/inception"
+  ai_run_interactive "/inception"
 
   # ── Publish INCEPTION artifacts through a PR ──
   # issue/ is intentionally excluded: task.md is a local auxiliary tracker

@@ -47,11 +47,21 @@ else
   PKG="unknown"
 fi
 
-# ── Kiro CLI ──
+# ── AI runner CLIs ──
+# We support both Kiro CLI and Claude Code; users pick one via
+# KIRO_AI_RUNNER (default kiro). At least one must be installed.
+KIRO_AI_RUNNER="${KIRO_AI_RUNNER:-kiro}"
+
 if command -v kiro-cli &>/dev/null; then
   info "kiro-cli already installed"
-else
-  warn "kiro-cli not found. Install from https://kiro.dev/downloads/"
+elif [[ "$KIRO_AI_RUNNER" == "kiro" ]]; then
+  warn "kiro-cli not found (KIRO_AI_RUNNER=kiro). Install from https://kiro.dev/downloads/"
+fi
+
+if command -v claude &>/dev/null; then
+  info "claude (Claude Code) already installed"
+elif [[ "$KIRO_AI_RUNNER" == "claude" ]]; then
+  warn "claude not found (KIRO_AI_RUNNER=claude). Install: https://docs.claude.com/en/docs/claude-code/quickstart"
 fi
 
 # ── zellij ──
