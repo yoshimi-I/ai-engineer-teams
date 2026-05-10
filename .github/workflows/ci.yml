@@ -1,6 +1,6 @@
 name: CI
 
-# Bash-centric CI for the kiro-engineer-teams template itself.
+# Bash-centric CI for the ai-engineer-teams template itself.
 #
 # The runtime of this repo is bash scripts + zellij + gh; there is no Node,
 # Python, or Go toolchain to bootstrap. This workflow runs the same three

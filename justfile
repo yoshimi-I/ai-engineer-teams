@@ -1,4 +1,4 @@
-# kiro-engineer-teams
+# ai-engineer-teams
 
 # Install prerequisites (kiro-cli, zellij, gh, gum, jq)
 setup:
@@ -44,7 +44,7 @@ restart:
 
 # Install into existing project (run from target project root)
 install:
-    bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/kiro-engineer-teams/main/scripts/install.sh)
+    bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/ai-engineer-teams/main/scripts/install.sh)
 
 # Switch to Japanese
 ja:

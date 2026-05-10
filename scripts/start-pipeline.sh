@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Kiro Engineer Teams Pipeline Launcher
+# AI Engineer Teams Pipeline Launcher
 #
 # Phase 1: INCEPTION — structured planning with AI-DLC workflow
 # Phase 2: Pipeline — launch agents in zellij
@@ -130,12 +130,12 @@ fi
 # ── Check if this is the upstream template repo itself ──
 # We only trigger the scaffold-new-repo flow when the origin URL matches the
 # canonical upstream repository exactly. Matching on the substring
-# "kiro-engineer-teams" would also fire for forks and unrelated repos that
-# happen to contain the same string in their URL (e.g. myorg/kiro-engineer-teams-playground).
+# "ai-engineer-teams" would also fire for forks and unrelated repos that
+# happen to contain the same string in their URL (e.g. myorg/ai-engineer-teams-playground).
 # That misfire would delete LICENSE / docs / README and replace origin — highly
 # destructive on a fork.
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
-UPSTREAM_TEMPLATE_REGEX='(^|[:/])yoshimi-I/kiro-engineer-teams(\.git)?/?$'
+UPSTREAM_TEMPLATE_REGEX='(^|[:/])yoshimi-I/ai-engineer-teams(\.git)?/?$'
 IS_UPSTREAM_TEMPLATE=false
 if [[ "$REMOTE_URL" =~ $UPSTREAM_TEMPLATE_REGEX ]]; then
   IS_UPSTREAM_TEMPLATE=true
@@ -174,7 +174,7 @@ if [[ "$IS_UPSTREAM_TEMPLATE" == "true" ]]; then
     rm -f LICENSE
     rm -rf docs
     for f in README.md AGENTS.md; do
-      grep -q "kiro-engineer-teams" "$f" 2>/dev/null && rm -f "$f"
+      grep -q "ai-engineer-teams" "$f" 2>/dev/null && rm -f "$f"
     done
 
     # Wipe the template's git history so the new project starts from a single
@@ -191,7 +191,7 @@ if [[ "$IS_UPSTREAM_TEMPLATE" == "true" ]]; then
     GIT_AUTHOR_EMAIL="$INIT_AUTHOR_EMAIL" \
     GIT_COMMITTER_NAME="$INIT_AUTHOR_NAME" \
     GIT_COMMITTER_EMAIL="$INIT_AUTHOR_EMAIL" \
-      git commit -q -m "init: scaffold from kiro-engineer-teams" --allow-empty
+      git commit -q -m "init: scaffold from ai-engineer-teams" --allow-empty
 
     # Create the remote repo and push the single init commit.
     gh repo create "$REPO_NAME" $VIS_FLAG --source=. --remote origin --push

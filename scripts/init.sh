@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot scaffold: turn a fresh clone of the kiro-engineer-teams template
+# One-shot scaffold: turn a fresh clone of the ai-engineer-teams template
 # into a new GitHub repository for your own project.
 #
 # This script is destructive by design: it removes template-only files
@@ -27,11 +27,11 @@ warn() { echo -e "${YELLOW}  ⚠ $1${RESET}"; }
 fail() { echo -e "${RED}  ✗ $1${RESET}"; exit 1; }
 
 echo ""
-echo -e "${BOLD}  🚀 kiro-engineer-teams — scaffold new project${RESET}"
+echo -e "${BOLD}  🚀 ai-engineer-teams — scaffold new project${RESET}"
 echo ""
 
 # ── Guard: only run from an upstream clone ─────────────────────────────────
-UPSTREAM_TEMPLATE_REGEX='(^|[:/])yoshimi-I/kiro-engineer-teams(\.git)?/?$'
+UPSTREAM_TEMPLATE_REGEX='(^|[:/])yoshimi-I/ai-engineer-teams(\.git)?/?$'
 REMOTE_URL="$(git remote get-url origin 2>/dev/null || true)"
 
 HAS_UPSTREAM_ORIGIN=false
@@ -40,7 +40,7 @@ if [[ -n "$REMOTE_URL" && "$REMOTE_URL" =~ $UPSTREAM_TEMPLATE_REGEX ]]; then
 fi
 
 HAS_TEMPLATE_MARKER=false
-if [[ -f README.md ]] && grep -q "kiro-engineer-teams" README.md 2>/dev/null; then
+if [[ -f README.md ]] && grep -q "ai-engineer-teams" README.md 2>/dev/null; then
   HAS_TEMPLATE_MARKER=true
 fi
 
@@ -54,7 +54,7 @@ if [[ "$HAS_UPSTREAM_ORIGIN" != "true" && "$HAS_TEMPLATE_MARKER" != "true" ]]; t
   echo "  Refusing to run on what appears to be an existing project."
   echo ""
   echo "  If you are sure this is intended, clone the template fresh first:"
-  echo "    git clone https://github.com/yoshimi-I/kiro-engineer-teams.git <dir>"
+  echo "    git clone https://github.com/yoshimi-I/ai-engineer-teams.git <dir>"
   echo "    cd <dir> && ./scripts/init.sh"
   exit 1
 fi
@@ -89,7 +89,7 @@ echo "    - .git/ ディレクトリ全体 (履歴を初期化)"
 echo ""
 echo "  その後、新しい git 履歴で以下を作成します:"
 echo "    - GitHub リポジトリ: $REPO (private)"
-echo "    - 初期コミット: 'init: scaffold from kiro-engineer-teams'"
+echo "    - 初期コミット: 'init: scaffold from ai-engineer-teams'"
 echo ""
 read -r -p "  本当に続行しますか？ (y/N) → " CONFIRM
 if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
@@ -102,14 +102,14 @@ echo ""
 rm -f LICENSE
 rm -rf docs
 for f in README.md AGENTS.md; do
-  grep -q "kiro-engineer-teams" "$f" 2>/dev/null && rm -f "$f"
+  grep -q "ai-engineer-teams" "$f" 2>/dev/null && rm -f "$f"
 done
 
 # ── Initialize git & create repo ───────────────────────────────────────────
 rm -rf .git
 git init -q
 git add .
-git commit -q -m "init: scaffold from kiro-engineer-teams"
+git commit -q -m "init: scaffold from ai-engineer-teams"
 gh repo create "$REPO" --private --source=. --push > /dev/null 2>&1
 
 echo -e "${GREEN}  ✔ $REPO を作成しました${RESET}"

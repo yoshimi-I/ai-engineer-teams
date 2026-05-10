@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏭 kiro-engineer-teams
+# 🏭 ai-engineer-teams
 
 **動的スケーリング型エージェント開発パイプライン**
 **[Kiro CLI](https://kiro.dev/docs/cli/) × [zellij](https://zellij.dev/)**
@@ -23,7 +23,7 @@ issue → 実装 → レビュー → マージ → E2E検証を全自動化。
 ```bash
 mkdir <your-project>
 cd <your-project>
-git clone https://github.com/yoshimi-I/kiro-engineer-teams.git .
+git clone https://github.com/yoshimi-I/ai-engineer-teams.git .
 ```
 
 **2. 前提ツールをインストール**
@@ -48,7 +48,7 @@ just start
 既にプロジェクトがある場合、プロジェクトルートでこのワンライナーを実行：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/kiro-engineer-teams/main/scripts/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/ai-engineer-teams/main/scripts/install.sh)
 ```
 
 `.kiro/`、`scripts/`、`justfile`、`AGENTS.md`、`skills-lock.json` がコピーされます。既存ファイルは上書きされません。

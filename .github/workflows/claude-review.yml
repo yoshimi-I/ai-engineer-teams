@@ -1,0 +1,57 @@
+name: Claude Review
+
+# Claude Code review running in parallel with kiro-review.yml so users on
+# either runner get an automated review on develop-bound PRs.
+#
+# Two modes:
+#   1. Automatic: every PR opened/synchronized against `develop` is reviewed.
+#   2. On-demand: comment `@claude` on a PR (or `/claude-review`) to trigger
+#      a fresh review.
+#
+# Setup:
+#   - Repo Settings → Secrets → add ANTHROPIC_API_KEY (from console.anthropic.com).
+#   - The action authenticates with that key only — no OAuth needed.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [develop]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Only run on develop-bound PRs (auto), or when @claude / /claude-review
+    # is mentioned in a PR comment / review comment.
+    if: >-
+      (github.event_name == 'pull_request' &&
+        github.event.pull_request.base.ref == 'develop') ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        (contains(github.event.comment.body, '@claude') ||
+         contains(github.event.comment.body, '/claude-review'))) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        (contains(github.event.comment.body, '@claude') ||
+         contains(github.event.comment.body, '/claude-review')))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Trigger phrase for comment-based invocations. Pull-request events
+          # always run regardless of trigger_phrase.
+          trigger_phrase: "@claude"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

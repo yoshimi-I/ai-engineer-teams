@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏭 kiro-engineer-teams
+# 🏭 ai-engineer-teams
 
 **Auto-scaling agent development pipeline**
 **powered by [Kiro CLI](https://kiro.dev/docs/cli/) × [zellij](https://zellij.dev/)**
@@ -23,7 +23,7 @@ issue → implementation → review → merge → E2E verification — fully aut
 ```bash
 mkdir <your-project>
 cd <your-project>
-git clone https://github.com/yoshimi-I/kiro-engineer-teams.git .
+git clone https://github.com/yoshimi-I/ai-engineer-teams.git .
 ```
 
 **2. Install prerequisites**
@@ -44,7 +44,7 @@ Use `just restart` to clear local agent runtime state and restart from the first
 ## 📥 Add to Existing Project
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/kiro-engineer-teams/main/scripts/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/ai-engineer-teams/main/scripts/install.sh)
 just setup && just start
 ```
 
@@ -114,30 +114,41 @@ just start (./scripts/start-pipeline.sh)
 
 ---
 
-## 🤖 CI + Kiro Review
+## 🤖 CI Reviews (Kiro and Claude Code)
 
-PRs are automatically reviewed by [kiro-cli-review-action](https://github.com/konippi/kiro-cli-review-action) on GitHub Actions.
+Two parallel review workflows ship out of the box. Either or both can run;
+configure whichever runner you use (or both):
+
+| Workflow | Action | Required secret |
+|----------|--------|-----------------|
+| `.github/workflows/kiro-review.yml`   | [konippi/kiro-cli-review-action](https://github.com/konippi/kiro-cli-review-action) | `KIRO_API_KEY` from [app.kiro.dev](https://app.kiro.dev) |
+| `.github/workflows/claude-review.yml` | [anthropics/claude-code-action](https://github.com/anthropics/claude-code-action) | `ANTHROPIC_API_KEY` from [console.anthropic.com](https://console.anthropic.com) |
 
 **Setup:**
-1. Get a `KIRO_API_KEY` from [app.kiro.dev](https://app.kiro.dev)
-2. `just start` will prompt you to set it, or manually: `gh secret set KIRO_API_KEY`
-3. The workflow runs automatically on PR creation
 
-```yaml
-# .github/workflows/kiro-review.yml
-- uses: konippi/kiro-cli-review-action@v1
-  with:
-    kiro_api_key: ${{ secrets.KIRO_API_KEY }}
-    trigger_phrase: /review          # comment "/review" on a PR for on-demand review
-  env:
-    GITHUB_TOKEN: ${{ github.token }} # required for GitHub MCP server
+```bash
+# Whichever runners you plan to use:
+gh secret set KIRO_API_KEY        # for kiro-review.yml
+gh secret set ANTHROPIC_API_KEY   # for claude-review.yml
 ```
 
-> ⚠️ `GITHUB_TOKEN` must be passed via `env`. Without it, the GitHub MCP server fails to start and reviews won't be posted.
+Both workflows trigger on `develop`-bound PRs and respond to on-demand
+comments:
 
-> ⚠️ Do not use `@kiro` as trigger phrase — it sends a mention notification to an unrelated GitHub user.
+| Trigger | Kiro | Claude |
+|---------|:-:|:-:|
+| `develop` PR opened / updated | auto | auto |
+| `/review` PR comment          | ✅   | —   |
+| `@claude` PR comment          | —    | ✅  |
+| `/claude-review` PR comment   | —    | ✅  |
 
-| Role | CI Kiro Review | Local Review Agent |
+> ⚠️ `GITHUB_TOKEN` must be passed via `env` for the kiro action.
+> Without it, the GitHub MCP server fails to start and reviews won't be posted.
+
+> ⚠️ Do not use `@kiro` as a trigger phrase — it sends a mention notification
+> to an unrelated GitHub user. Use `/review` for the kiro workflow.
+
+| Role | CI Reviews (Kiro / Claude) | Local Review Agent |
 |------|:-:|:-:|
 | Code review | ✅ | — |
 | Merge approved PRs | — | ✅ |
