@@ -179,12 +179,32 @@ Orchestrator (starts with 1 agent, scales as needed)
 
 | Tool | Install | Required |
 |------|---------|:---:|
-| [Kiro CLI](https://kiro.dev/docs/cli/) | See [downloads](https://kiro.dev/downloads/) | ✅ |
+| [Kiro CLI](https://kiro.dev/docs/cli/) | See [downloads](https://kiro.dev/downloads/) | ✅ (one of the two) |
+| [Claude Code](https://docs.claude.com/en/docs/claude-code/quickstart) | `npm i -g @anthropic-ai/claude-code` | ✅ (one of the two) |
 | [zellij](https://zellij.dev/) | `brew install zellij` | ✅ 0.44.1+ |
 | [GitHub CLI](https://cli.github.com/) | `brew install gh` → `gh auth login` | ✅ |
 | [gum](https://github.com/charmbracelet/gum) | `brew install gum` | ✅ (for control panel) |
 | [jq](https://jqlang.github.io/jq/) | `brew install jq` | ✅ |
 | [just](https://just.systems/) | `brew install just` | Optional |
+
+The pipeline can be driven by either runner; pick one with the
+`KIRO_AI_RUNNER` environment variable (default `kiro`):
+
+```bash
+# Default: Kiro CLI
+just start
+
+# Drive the same pipeline with Claude Code
+KIRO_AI_RUNNER=claude just start
+```
+
+Slash commands and skills are mirrored:
+
+- `.kiro/prompts/` ←→ `.claude/commands/` (symlink)
+- `.kiro/skills/`  ←→ `.claude/skills/`  (symlink)
+- `AGENTS.md`      ←→ `CLAUDE.md`         (symlink)
+
+so editing the canonical `.kiro/` copy keeps both runners in sync.
 
 zellij **0.44.1 or newer is required**. The orchestrator depends on the newer CLI automation APIs: `list-panes --json`, pane IDs, `--tab-id`, and `--close-on-exit`. Older versions such as `0.43.1` cannot run the dynamic pane lifecycle correctly.
 
@@ -233,24 +253,21 @@ The orchestrator pane refreshes on a fixed tick (`ORCH_TICK_INTERVAL`, default `
 | `fixing-metadata` | SEO/OGP |
 | `fixing-motion-performance` | Animation performance |
 | `quality-guidelines` | Code quality |
-| `terraform-style-guide` | IaC (Terraform) |
-| `aws-cdk-development` | IaC (CDK) |
-| `ci-cd-pipeline-patterns` | CI/CD |
-| `database-migration` | DB schema changes |
-| `monitoring-observability` | Monitoring/alerting |
-| `react-native-best-practices` | Mobile (React Native) |
-| `etl-pipeline` | Data pipelines |
+| `delivery-pipeline` | Delivery automation |
+| `inception` | INCEPTION workflow |
 
-All skills are available as `/slash-commands` in the interactive Kiro tab.
+All skills are available as `/slash-commands` in the interactive Kiro tab,
+and as Claude Code skills under `.claude/skills/` when running with
+`KIRO_AI_RUNNER=claude`.
 
 ---
 
 ## 📁 Directory Structure
 
 ```
-.kiro/
+.kiro/                             # Canonical config (Kiro CLI native)
 ├── steering/development-rules.md  # Rules (loaded every turn)
-├── skills/                        # 15 skills (on-demand)
+├── skills/                        # Skills (on-demand)
 ├── prompts/                       # Workflows (invoke with /name)
 │   ├── implement.md               #   issue → impl → PR loop
 │   ├── review.md                  #   merge + Dependabot
@@ -265,10 +282,17 @@ All skills are available as `/slash-commands` in the interactive Kiro tab.
 │   ├── default.json               #   default agent config
 │   └── code-reviewer.json         #   CI review agent config
 └── settings.json                  #   trust settings
+.claude/                           # Claude Code mirror
+├── commands → ../.kiro/prompts    # symlink (slash commands)
+├── skills   → ../.kiro/skills     # symlink
+├── agents/code-reviewer.md        # Claude Code subagent definition
+└── settings.json                  # permission allowlist
+CLAUDE.md → AGENTS.md              # symlink (loaded by Claude Code)
 scripts/
 ├── start-pipeline.sh              # Launcher (INCEPTION → pipeline)
 ├── orchestrator.sh                # Dynamic role allocation
 ├── agent.sh                       # Agent loop wrapper
+├── lib/runner.sh                  # AI runner abstraction (kiro / claude)
 ├── control-panel.sh               # TUI control panel (gum)
 ├── dashboard.sh                   # Status dashboard
 └── pipeline.kdl                   # zellij layout

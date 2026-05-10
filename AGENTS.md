@@ -5,6 +5,13 @@ The orchestrator starts minimal and spawns additional zellij panes on
 demand based on open issues, PRs, and post-merge state — it is **not** a
 fixed "N agent" pool.
 
+This file is also loaded by Claude Code (via the `CLAUDE.md` symlink), so
+the same project rules apply whether the pipeline is driven by Kiro CLI
+(`KIRO_AI_RUNNER=kiro`, default) or Claude Code (`KIRO_AI_RUNNER=claude`).
+Slash commands live in `.kiro/prompts/` and are mirrored at
+`.claude/commands/`; skills live in `.kiro/skills/` and are mirrored at
+`.claude/skills/`.
+
 ## First interaction
 
 Tell me what you want to build. The INCEPTION workflow starts automatically:
