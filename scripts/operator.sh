@@ -12,4 +12,8 @@ if [ ! -f "$PROMPT_FILE" ]; then
   exit 1
 fi
 
-kiro-cli chat --trust-all-tools "$(cat "$PROMPT_FILE")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/runner.sh
+source "${SCRIPT_DIR}/lib/runner.sh"
+
+ai_run_interactive "$(cat "$PROMPT_FILE")"

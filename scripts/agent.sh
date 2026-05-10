@@ -38,6 +38,8 @@ mkdir -p "$STATUS_DIR" "$LOG_DIR"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/runner.sh
+source "${SCRIPT_DIR}/lib/runner.sh"
 
 decode_b64_arg() {
   local value="$1"
@@ -221,11 +223,7 @@ while true; do
 ${AGENT_CONTEXT}"
   fi
 
-  if kiro-cli chat \
-    --no-interactive \
-    --trust-all-tools \
-    --resume \
-    "$PROMPT_BODY" 2>&1; then
+  if ai_run_oneshot "$PROMPT_BODY" 2>&1; then
     error_count=0
     # Scan what the agent did
     scan_agent_context

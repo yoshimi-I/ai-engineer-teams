@@ -54,6 +54,7 @@ touch "$PANE_REGISTRY"
 
 for lib in \
   common.sh \
+  runner.sh \
   orchestrator-status.sh \
   github.sh \
   dev-server.sh \
@@ -70,6 +71,8 @@ done
 
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/runner.sh
+source "${SCRIPT_DIR}/lib/runner.sh"
 # shellcheck source=lib/orchestrator-status.sh
 source "${SCRIPT_DIR}/lib/orchestrator-status.sh"
 # shellcheck source=lib/github.sh

@@ -405,9 +405,8 @@ add_pane() {
   reason_b64=$(agent_arg_b64 "$reason")
   # Try to create pane in Agents tab
   pane_err="${CACHE_DIR}/pane_create.err"
-  zellij action new-pane -c --name "$name" --cwd "$PROJECT_CWD" \
-    -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 ./scripts/agent.sh '${role}'" >"$pane_err" 2>&1
-  if [ $? -ne 0 ]; then
+  if ! zellij action new-pane -c --name "$name" --cwd "$PROJECT_CWD" \
+    -- bash -lc "AGENT_ID='${name}' AGENT_CONTEXT_B64='${context_b64}' AGENT_REASON_B64='${reason_b64}' AGENT_ONCE=true AGENT_INTERVAL=30 KIRO_AI_RUNNER='${KIRO_AI_RUNNER:-kiro}' ./scripts/agent.sh '${role}'" >"$pane_err" 2>&1; then
     record_decision "error" "new-pane failed for ${name}" "$(cat "$pane_err" 2>/dev/null)"
   fi
   # new-pane may not return the pane ID on stdout; find it by name

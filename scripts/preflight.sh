@@ -28,7 +28,14 @@ version_ge() {
 
 echo "🔎 Preflight"
 
-for cmd in git gh jq zellij kiro-cli; do
+KIRO_AI_RUNNER="${KIRO_AI_RUNNER:-kiro}"
+case "$KIRO_AI_RUNNER" in
+  kiro)   RUNNER_BIN="kiro-cli" ;;
+  claude) RUNNER_BIN="claude"   ;;
+  *)      RUNNER_BIN="kiro-cli" ;;
+esac
+
+for cmd in git gh jq zellij "$RUNNER_BIN"; do
   if command -v "$cmd" >/dev/null 2>&1; then
     ok "$cmd found"
   else
