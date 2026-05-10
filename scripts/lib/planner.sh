@@ -403,7 +403,7 @@ ai_plan() {
   local context raw plan
   context=$(build_ai_context)
   record_decision "ai" "asking AI planner" "building pane action plan"
-  raw=$(kiro-cli chat --no-interactive --trust-all-tools --resume \
+  raw=$(ai_run_oneshot \
     "$(cat "$AI_PLAN_PROMPT")
 
 Context JSON:
@@ -574,9 +574,10 @@ fallback_scale() {
   local cur_fix;  cur_fix=$(count_alive "fix-review")
   local cur_e2e;  cur_e2e=$(count_alive "e2e-bug-hunt")
   local cur_ui;   cur_ui=$(count_alive "ui-audit")
-  local cur_watch=0 cur_imp=0 issue_num pr_num
+  local cur_imp=0 issue_num pr_num
   local launched=""
-  [ "$AUTO_WATCH_MAIN" = "true" ] && cur_watch=$(count_alive "watch-main")
+  # NOTE: watch-main has no fallback launch block — the AI planner owns its
+  # lifecycle. We deliberately do not count it here.
   [ "$AUTO_IMPROVE" = "true" ] && cur_imp=$(count_alive "improve")
 
   local desired=0
