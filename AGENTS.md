@@ -1,4 +1,4 @@
-# Kiro Engineer Teams
+# AI Engineer Teams
 
 Auto-scaling agent development pipeline with AI-DLC INCEPTION planning.
 The orchestrator starts minimal and spawns additional zellij panes on

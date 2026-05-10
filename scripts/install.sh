@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Install kiro-engineer-teams into an existing project.
+# Install ai-engineer-teams into an existing project.
 # Usage: curl -fsSL <raw-url>/scripts/install.sh | bash
 #    or: bash <(curl -fsSL <raw-url>/scripts/install.sh)
 
 set -euo pipefail
 
-REPO="yoshimi-I/kiro-engineer-teams"
+REPO="yoshimi-I/ai-engineer-teams"
 BRANCH="main"
 BOLD='\033[1m' DIM='\033[2m' GREEN='\033[32m' RED='\033[31m' YELLOW='\033[33m' RESET='\033[0m'
 
@@ -14,8 +14,8 @@ warn()  { echo -e "${YELLOW}  ⚠ $1${RESET}"; }
 fail()  { echo -e "${RED}  ✗ $1${RESET}"; exit 1; }
 
 echo ""
-echo -e "${BOLD}  📦 Install kiro-engineer-teams${RESET}"
-echo -e "${DIM}  Add the Kiro Engineer Teams pipeline to your existing project${RESET}"
+echo -e "${BOLD}  📦 Install ai-engineer-teams${RESET}"
+echo -e "${DIM}  Add the AI Engineer Teams pipeline to your existing project${RESET}"
 echo ""
 
 # ── Preflight ──
@@ -57,6 +57,7 @@ echo ""
 copy_dir ".kiro"
 copy_dir "scripts"
 copy_file ".github/workflows/kiro-review.yml"
+copy_file ".github/workflows/claude-review.yml"
 copy_file ".github/workflows/promote-main.yml"
 copy_file ".github/PULL_REQUEST_TEMPLATE.md"
 copy_file ".github/ISSUE_TEMPLATE/bug_report.md"
@@ -66,7 +67,7 @@ copy_file ".github/ISSUE_TEMPLATE/feature_request.md"
 RECIPES=("setup" "preflight" "start" "restart" "pipeline" "ja" "en")
 RECIPE_BLOCKS=$(cat <<'JUST'
 
-# ── kiro-engineer-teams ──
+# ── ai-engineer-teams ──
 
 # Install prerequisites
 setup:

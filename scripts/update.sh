@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Update kiro-engineer-teams to the latest version
+# Update ai-engineer-teams to the latest version
 # Usage: ./scripts/update.sh
-#   or:  bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/kiro-engineer-teams/main/scripts/update.sh)
+#   or:  bash <(curl -fsSL https://raw.githubusercontent.com/yoshimi-I/ai-engineer-teams/main/scripts/update.sh)
 set -euo pipefail
 
-REPO="yoshimi-I/kiro-engineer-teams"
+REPO="yoshimi-I/ai-engineer-teams"
 BRANCH="${1:-main}"
 if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "develop" ]; then
   echo "Usage: ./scripts/update.sh [main|develop]"
@@ -13,16 +13,17 @@ fi
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-echo "🔄 Updating kiro-engineer-teams..."
+echo "🔄 Updating ai-engineer-teams..."
 echo ""
 
 # Download latest
 curl -fsSL "https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz" | tar xz -C "$TMP"
-SRC="${TMP}/kiro-engineer-teams-${BRANCH}"
+SRC="${TMP}/ai-engineer-teams-${BRANCH}"
 
 # Files to update (overwrite) — update.sh is excluded and handled last
 TARGETS=(
   ".github/workflows/kiro-review.yml"
+  ".github/workflows/claude-review.yml"
   ".github/workflows/promote-main.yml"
   ".github/PULL_REQUEST_TEMPLATE.md"
   ".github/ISSUE_TEMPLATE/bug_report.md"
@@ -92,7 +93,7 @@ else
   read -r -p "  この変更をコミットしますか？ (Y/n) → " yn
   if [ "$yn" != "n" ] && [ "$yn" != "N" ]; then
     git add -A
-    git commit --no-verify -m "chore: update kiro-engineer-teams pipeline"
+    git commit --no-verify -m "chore: update ai-engineer-teams pipeline"
     echo "  ✔ コミットしました。"
     read -r -p "  プッシュしますか？ (Y/n) → " yn2
     if [ "$yn2" != "n" ] && [ "$yn2" != "N" ]; then

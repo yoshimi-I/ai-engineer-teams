@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install prerequisites for the kiro-engineer-teams pipeline.
+# Install prerequisites for the ai-engineer-teams pipeline.
 #
 # This script ONLY installs tools (kiro-cli, zellij, gh, gum, jq, shellcheck,
 # bats-core, fswatch). It never removes user files. Template cleanup is
@@ -9,7 +9,7 @@
 #
 # Before this change, this script ran an unconditional rm on LICENSE,
 # README.md, docs/README.ja.md, and docs/ whenever those files contained
-# the string "kiro-engineer-teams". That made `just setup` destroy
+# the string "ai-engineer-teams". That made `just setup` destroy
 # documentation and license files on a fresh clone — directly opposite
 # to what the Quick Start in README.md promises ("clone → just setup").
 #
