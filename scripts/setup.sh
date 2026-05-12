@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Install prerequisites for the ai-engineer-teams pipeline.
 #
-# This script ONLY installs tools (kiro-cli, zellij, gh, gum, jq, shellcheck,
-# bats-core, fswatch). It never removes user files. Template cleanup is
+# This script ONLY installs tools (one of kiro-cli or claude, plus zellij,
+# gh, gum, jq, shellcheck, bats-core, fswatch). It never removes user files.
+# Template cleanup is
 # owned by scripts/start-pipeline.sh (which detects the upstream template
 # origin and asks for confirmation before scaffolding a new repo) and
 # scripts/init.sh (explicit one-shot scaffold).
@@ -49,19 +50,20 @@ fi
 
 # ── AI runner CLIs ──
 # We support both Kiro CLI and Claude Code; users pick one via
-# KIRO_AI_RUNNER (default kiro). At least one must be installed.
-KIRO_AI_RUNNER="${KIRO_AI_RUNNER:-kiro}"
+# AI_RUNNER (default kiro). KIRO_AI_RUNNER is honoured for backward
+# compatibility. At least one of the two CLIs must be installed.
+AI_RUNNER="${AI_RUNNER:-${KIRO_AI_RUNNER:-kiro}}"
 
 if command -v kiro-cli &>/dev/null; then
   info "kiro-cli already installed"
-elif [[ "$KIRO_AI_RUNNER" == "kiro" ]]; then
-  warn "kiro-cli not found (KIRO_AI_RUNNER=kiro). Install from https://kiro.dev/downloads/"
+elif [[ "$AI_RUNNER" == "kiro" ]]; then
+  warn "kiro-cli not found (AI_RUNNER=kiro). Install from https://kiro.dev/downloads/"
 fi
 
 if command -v claude &>/dev/null; then
   info "claude (Claude Code) already installed"
-elif [[ "$KIRO_AI_RUNNER" == "claude" ]]; then
-  warn "claude not found (KIRO_AI_RUNNER=claude). Install: https://docs.claude.com/en/docs/claude-code/quickstart"
+elif [[ "$AI_RUNNER" == "claude" ]]; then
+  warn "claude not found (AI_RUNNER=claude). Install: https://docs.claude.com/en/docs/claude-code/quickstart"
 fi
 
 # ── zellij ──

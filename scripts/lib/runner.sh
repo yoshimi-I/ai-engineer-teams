@@ -2,10 +2,11 @@
 # AI runner abstraction.
 #
 # The pipeline can be driven by either Kiro CLI or Claude Code, selected via
-# the KIRO_AI_RUNNER environment variable:
+# the AI_RUNNER environment variable (legacy KIRO_AI_RUNNER is also honoured
+# for backward compatibility):
 #
-#   KIRO_AI_RUNNER=kiro     (default) — uses `kiro-cli`
-#   KIRO_AI_RUNNER=claude            — uses `claude` (Claude Code CLI)
+#   AI_RUNNER=kiro     (default) — uses `kiro-cli`
+#   AI_RUNNER=claude             — uses `claude` (Claude Code CLI)
 #
 # Two entry points are exposed:
 #
@@ -20,15 +21,19 @@
 # every kiro-cli vs claude difference in one place so the rest of the
 # pipeline does not branch on the runner.
 
-if [ "${__KIRO_RUNNER_SH_LOADED:-0}" = "1" ]; then
+if [ "${__AI_RUNNER_SH_LOADED:-0}" = "1" ]; then
   return 0
 fi
-__KIRO_RUNNER_SH_LOADED=1
+__AI_RUNNER_SH_LOADED=1
 
-KIRO_AI_RUNNER="${KIRO_AI_RUNNER:-kiro}"
+# Resolve the runner choice, preferring the new neutral name and falling back
+# to the legacy KIRO_AI_RUNNER. Export both so children inherit either spelling.
+AI_RUNNER="${AI_RUNNER:-${KIRO_AI_RUNNER:-kiro}}"
+KIRO_AI_RUNNER="$AI_RUNNER"
+export AI_RUNNER KIRO_AI_RUNNER
 
 ai_runner_binary() {
-  case "$KIRO_AI_RUNNER" in
+  case "$AI_RUNNER" in
     kiro)   echo "kiro-cli" ;;
     claude) echo "claude"   ;;
     *)      echo "kiro-cli" ;;
@@ -41,7 +46,7 @@ ai_runner_available() {
 
 ai_run_oneshot() {
   local prompt="$1"
-  case "$KIRO_AI_RUNNER" in
+  case "$AI_RUNNER" in
     claude)
       # `claude --print` is Claude Code's headless mode. We bypass permission
       # prompts because agents run unattended in zellij panes; the equivalent
@@ -65,7 +70,7 @@ ai_run_oneshot() {
 
 ai_run_interactive() {
   local prompt="$1"
-  case "$KIRO_AI_RUNNER" in
+  case "$AI_RUNNER" in
     claude)
       # In interactive mode we want the user to see the conversation. We do
       # NOT pass --permission-mode here so Claude Code uses the project's

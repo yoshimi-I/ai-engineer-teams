@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Usage: ./scripts/agent.sh <prompt-name>
-# Runs a kiro-cli agent in a loop, feeding it the specified prompt.
+# Runs an AI agent (kiro-cli or Claude Code, selected by AI_RUNNER /
+# KIRO_AI_RUNNER) in a loop, feeding it the specified prompt.
 # Agents that depend on issues/PRs will wait until work is available.
 
 set -euo pipefail
@@ -26,8 +27,10 @@ LOG_DIR=".agent-logs"
 AGENT_NAME="${AGENT_ID:-$PROMPT_NAME}"
 AGENT_CONTEXT="${AGENT_CONTEXT:-}"
 AGENT_REASON="${AGENT_REASON:-}"
-INTEGRATION_BRANCH="${KIRO_INTEGRATION_BRANCH:-develop}"
-STABLE_BRANCH="${KIRO_STABLE_BRANCH:-main}"
+INTEGRATION_BRANCH="${AI_INTEGRATION_BRANCH:-${KIRO_INTEGRATION_BRANCH:-develop}}"
+STABLE_BRANCH="${AI_STABLE_BRANCH:-${KIRO_STABLE_BRANCH:-main}}"
+export AI_INTEGRATION_BRANCH="$INTEGRATION_BRANCH"
+export AI_STABLE_BRANCH="$STABLE_BRANCH"
 export KIRO_INTEGRATION_BRANCH="$INTEGRATION_BRANCH"
 export KIRO_STABLE_BRANCH="$STABLE_BRANCH"
 STATUS_FILE="${STATUS_DIR}/${AGENT_NAME}.json"

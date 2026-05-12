@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INTEGRATION_BRANCH="${KIRO_INTEGRATION_BRANCH:-develop}"
-STABLE_BRANCH="${KIRO_STABLE_BRANCH:-main}"
+INTEGRATION_BRANCH="${AI_INTEGRATION_BRANCH:-${KIRO_INTEGRATION_BRANCH:-develop}}"
+STABLE_BRANCH="${AI_STABLE_BRANCH:-${KIRO_STABLE_BRANCH:-main}}"
 failures=0
 warnings=0
 
@@ -28,8 +28,8 @@ version_ge() {
 
 echo "🔎 Preflight"
 
-KIRO_AI_RUNNER="${KIRO_AI_RUNNER:-kiro}"
-case "$KIRO_AI_RUNNER" in
+AI_RUNNER="${AI_RUNNER:-${KIRO_AI_RUNNER:-kiro}}"
+case "$AI_RUNNER" in
   kiro)   RUNNER_BIN="kiro-cli" ;;
   claude) RUNNER_BIN="claude"   ;;
   *)      RUNNER_BIN="kiro-cli" ;;
@@ -106,14 +106,14 @@ if gh repo view --json nameWithOwner >/dev/null 2>&1; then
   fi
 fi
 
-if [ -n "${KIRO_E2E_COMMAND:-}" ]; then
-  ok "KIRO_E2E_COMMAND is configured"
+if [ -n "${AI_E2E_COMMAND:-${KIRO_E2E_COMMAND:-}}" ]; then
+  ok "E2E command is configured (AI_E2E_COMMAND / KIRO_E2E_COMMAND)"
 elif [ -f justfile ] && command -v just >/dev/null 2>&1 && just --list 2>/dev/null | grep -q '^    e2e'; then
   ok "just e2e detected"
 elif [ -f package.json ] && jq -e '.scripts.e2e' package.json >/dev/null 2>&1; then
   ok "package.json e2e script detected"
 else
-  warn "no E2E command detected; main promotion will fail until KIRO_E2E_COMMAND, just e2e, or package.json e2e is configured"
+  warn "no E2E command detected; main promotion will fail until AI_E2E_COMMAND (or legacy KIRO_E2E_COMMAND), just e2e, or package.json e2e is configured"
 fi
 
 echo ""
