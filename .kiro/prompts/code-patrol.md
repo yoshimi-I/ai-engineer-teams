@@ -1,4 +1,7 @@
-
+---
+name: code-patrol
+description: コードベースを巡回して問題（lint, type, test, security, perf）を見つけ、改善 issue を作成する。
+---
 # コード巡回・問題発見ループ
 
 コードベースを体系的に巡回し、潜在的なバグ・設計問題・品質劣化を発見 → issue作成を繰り返す。

@@ -1,3 +1,7 @@
+---
+name: integration-audit
+description: develop ブランチの最新状態でアプリが統合的に動作するかを検証する。
+---
 # Integration Audit（統合監査）
 
 develop ブランチの最新状態で「アプリ全体として動くか」を検証する。

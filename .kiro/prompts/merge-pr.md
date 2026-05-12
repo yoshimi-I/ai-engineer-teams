@@ -1,4 +1,7 @@
-
+---
+name: merge-pr
+description: PR を作成し develop へマージするまでを実行する。
+---
 # PR作成→developマージ
 
 現在の変更からPR作成→CI確認→`${KIRO_INTEGRATION_BRANCH:-develop}`へスカッシュマージまでを一気通貫で行う。`${KIRO_STABLE_BRANCH:-main}` へは E2E 通過後の昇格フローだけが取り込む。

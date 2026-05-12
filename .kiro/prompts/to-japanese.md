@@ -1,4 +1,7 @@
-
+---
+name: to-japanese
+description: プロジェクトのドキュメントとプロンプトを日本語化する。
+---
 # 日本語化
 
 `.kiro/prompts/` 内の全プロンプトと `.kiro/steering/` 内の全steeringファイルを日本語に翻訳する。

@@ -1,4 +1,7 @@
-
+---
+name: addressing-pr-review
+description: GitHub PR のレビューコメントに対応する: 各コメントを読み、修正、再push、解決マークまで実行する。
+---
 # PRレビュー対応
 
 ## Overview

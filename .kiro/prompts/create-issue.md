@@ -1,4 +1,7 @@
-
+---
+name: create-issue
+description: 小粒で依存関係が明確な GitHub issue を1本単位で作成する。
+---
 # Issue作成スキル — 小粒 + 依存明確な issue を 1 本単位で書く
 
 ## Philosophy

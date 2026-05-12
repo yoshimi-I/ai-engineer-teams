@@ -1,4 +1,7 @@
-
+---
+name: implement
+description: open issue を自動取得し、調査→実装→PR作成まで一気通貫で実行する自律実装エージェント。
+---
 # 自律実装
 
 ユーザーの指示を待たず、即座にopen issueを自動取得して実装を開始する。調査→判断→実装→PR作成まで一気通貫で行う。issue番号の指定がなくても自分で選んで着手すること。
@@ -25,7 +28,7 @@ git branch -a | grep -v "^*" | head -30
 git worktree list
 ```
 - 同じファイル群を触るブランチがあればスキップ
-- **worktreeが存在する場合、別のKiroエージェントがそのブランチで作業中の可能性が高い。そのworktreeに対応するissueは絶対に取らない**
+- **worktreeが存在する場合、別の実装エージェントがそのブランチで作業中の可能性が高い。そのworktreeに対応するissueは絶対に取らない**
 
 ### Step 0-3: issueに既存PRがないか確認
 ```bash
@@ -229,7 +232,9 @@ issue番号の指定がない場合:
 
 ## 利用するスキル
 
-実装の各フェーズで、該当するスキルのSKILL.mdを `fs_read` で読んで参照すること。
+実装の各フェーズで、該当するスキルの `SKILL.md`（`.kiro/skills/<name>/SKILL.md`、
+Claude Code では `.claude/skills/<name>/SKILL.md` 経由でも読める）を読んで
+参照すること。
 
 | フェーズ | スキル | 条件 |
 |---------|--------|------|
@@ -239,13 +244,9 @@ issue番号の指定がない場合:
 | メタデータ | `fixing-metadata` | 新規ページ追加、SEO・OGP対応が必要な場合 |
 | アニメーション | `fixing-motion-performance` | アニメーション・トランジションの追加・変更時 |
 | バックエンド設計 | `clean-ddd-hexagonal` | ドメインモデル・API設計の変更がある場合 |
-| IaC (Terraform) | `terraform-style-guide` | Terraformファイルの追加・変更がある場合 |
-| IaC (CDK) | `aws-cdk-development` | AWS CDKスタックの追加・変更がある場合 |
-| CI/CD | `ci-cd-pipeline-patterns` | ワークフロー・パイプラインの追加・変更がある場合 |
-| DBスキーマ変更 | `database-migration` | テーブル・カラム・インデックスの追加・変更・削除がある場合 |
-| モニタリング | `monitoring-observability` | メトリクス・アラート・ログ設定の追加・変更がある場合 |
-| モバイル (RN) | `react-native-best-practices` | React Nativeコンポーネントの追加・変更がある場合 |
-| データパイプライン | `etl-pipeline` | ETL/データ変換処理の追加・変更がある場合 |
+| デリバリー | `delivery-pipeline` | デプロイ・リリース・成果物の届け方を判断する場合 |
+| 品質ガイド | `quality-guidelines` | TDD・テスト戦略・エラー処理の判断が必要な場合 |
+| INCEPTION | `inception` | 新規プロジェクト計画・要件分析を行う場合 |
 
 ## 領域別の実装ガイド
 
@@ -288,31 +289,21 @@ UI/UXに触れる変更は、PR作成前に以下を満たすこと:
 
 ### インフラ変更がある場合
 
-1. Terraform → `terraform-style-guide` スキルを読み、命名・構造規約に従う
-2. CDK → `aws-cdk-development` スキルを読み、パターンに従う
-3. `terraform plan` または `cdk diff` で差分を確認
-4. 既存リソースへの影響範囲を把握
-5. 破壊的変更がないか確認
-6. CI/CDパイプライン変更がある場合は `ci-cd-pipeline-patterns` スキルを参照
+1. プロジェクトのIaCツール（Terraform / CDK / Pulumi 等）の既存パターンに従う
+2. `terraform plan` / `cdk diff` / `pulumi preview` で差分を確認
+3. 既存リソースへの影響範囲・破壊的変更の有無を把握
+4. CI/CDパイプライン変更がある場合は既存ワークフローのパターンを踏襲
 
 ### DBスキーマ変更がある場合
 
-1. `database-migration` スキルを読み、安全なマイグレーションパターンに従う
-2. 後方互換性を確認（新コードが旧スキーマでも動くか）
-3. ロールバック可能か確認
-4. NOT NULL追加 → デフォルト値は？既存行は？
+1. 後方互換性を確認（新コードが旧スキーマでも動くか）
+2. ロールバック可能か確認
+3. NOT NULL追加 → デフォルト値は？既存行は？
 
-### モバイル (React Native) 変更がある場合
+### モバイル / データパイプライン変更がある場合
 
-1. `react-native-best-practices` スキルを読む
-2. パフォーマンス（FlatList/FlashList、再レンダリング、メモリリーク）を確認
-3. プラットフォーム固有の問題（iOS/Android差異）を確認
-
-### データパイプライン変更がある場合
-
-1. `etl-pipeline` スキルを読む
-2. データ品質チェック（スキーマ検証、null処理、重複排除）を確認
-3. 冪等性を確認（再実行しても結果が同じか）
+プロジェクトの既存パターンに従い、必要に応じて INCEPTION の
+アーキテクチャ決定（`aidlc-docs/inception/`）を参照する。
 
 ## ループ継続の強制ルール
 

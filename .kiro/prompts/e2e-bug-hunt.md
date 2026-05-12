@@ -1,4 +1,7 @@
-
+---
+name: e2e-bug-hunt
+description: Playwright で全ページを巡回し、見つけたバグを issue 化するループ。
+---
 # E2Eバグハント — Playwrightで全ページを巡回しバグをissue化するループ
 
 ユーザーの指示を待たず、即座にE2Eバグハントを開始する。Playwrightでアプリの全ページ・全機能を操作し、バグ・UI崩れ・コンソールエラーを発見次第GitHub issueを作成する。
