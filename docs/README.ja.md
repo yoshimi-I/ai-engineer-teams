@@ -172,9 +172,9 @@ brew upgrade zellij
 
 `just preflight` で、ローカルツール、GitHub認証、branch構成、Actions権限、review secret、workflow、E2Eコマンド検出を起動前に診断できます。
 
-`watch-main` は develop から main への昇格監視としてデフォルトで常駐します。無効化する場合は `ORCH_AUTO_WATCH_MAIN=false` を指定します。main昇格には実E2Eコマンド（`KIRO_E2E_COMMAND`、`just e2e`、または `package.json` の `e2e`）が必須です。`ui-audit` は merge 後にデフォルトで自動起動し、`ORCH_AUTO_UI_AUDIT=false` で無効化できます。`improve` の自動起動は `ORCH_AUTO_IMPROVE=true` を指定した場合のみ有効です。AI Planner を無効化したい場合は `ORCH_AI=false` を指定します。
+`watch-main` は develop から main への昇格監視としてデフォルトで常駐します。無効化する場合は `ORCH_AUTO_WATCH_MAIN=false` を指定します。main昇格には実E2Eコマンド（`AI_E2E_COMMAND`、レガシー名 `KIRO_E2E_COMMAND`、`just e2e`、または `package.json` の `e2e`）が必須です。`ui-audit` は merge 後にデフォルトで自動起動し、`ORCH_AUTO_UI_AUDIT=false` で無効化できます。`improve` の自動起動は `ORCH_AUTO_IMPROVE=true` を指定した場合のみ有効です。AI Planner を無効化したい場合は `ORCH_AI=false` を指定します。
 
-コードレビューは `develop` PR 上の `konippi/kiro-cli-review-action` に委譲します。ローカルの `review` pane は merge-manager 専用で、承認済みPRのCI待ち・squash merge・merge再試行だけを扱います。PRは `review_pending`、`approved_ready`、`approved_pending`、`changes_requested`、`conflict`、`approved_checks_failed`、`merge_blocked` に正規化され、planner と dashboard が同じ状態機械を見ます。
+コードレビューは `develop` PR 上のレビューワークフロー（`konippi/kiro-cli-review-action` および `anthropics/claude-code-action`）に委譲します。ローカルの `review` pane は merge-manager 専用で、承認済みPRのCI待ち・squash merge・merge再試行だけを扱います。PRは `review_pending`、`approved_ready`、`approved_pending`、`changes_requested`、`conflict`、`approved_checks_failed`、`merge_blocked` に正規化され、planner と dashboard が同じ状態機械を見ます。
 
 オーケストレーター画面は固定 tick（`ORCH_TICK_INTERVAL`、デフォルト `10s`）で更新され、最後の planner 種別、起動した action、skip 理由、次回 tick を表示します。同じ状態は `.agent-status/orchestrator.json` と `.agent-status/.cache/orchestrator_decision.json` にも書き出されます。
 

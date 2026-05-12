@@ -199,17 +199,32 @@ Orchestrator (starts with 1 agent, scales as needed)
 | [just](https://just.systems/) | `brew install just` | Optional |
 
 The pipeline can be driven by either runner; pick one with the
-`KIRO_AI_RUNNER` environment variable (default `kiro`):
+`AI_RUNNER` environment variable (default `kiro`). The legacy
+`KIRO_AI_RUNNER` name is still honoured.
 
 ```bash
 # Default: Kiro CLI
 just start
 
 # Drive the same pipeline with Claude Code
-KIRO_AI_RUNNER=claude just start
+AI_RUNNER=claude just start
 ```
 
-Slash commands and skills are mirrored:
+### Environment variables
+
+The pipeline uses `AI_*` names, with `KIRO_*` aliases retained for
+backward compatibility:
+
+| Canonical name | Legacy alias | Purpose |
+|---|---|---|
+| `AI_RUNNER` | `KIRO_AI_RUNNER` | `kiro` (default) or `claude` |
+| `AI_INTEGRATION_BRANCH` | `KIRO_INTEGRATION_BRANCH` | feature PR target (default `develop`) |
+| `AI_STABLE_BRANCH` | `KIRO_STABLE_BRANCH` | promotion target (default `main`) |
+| `AI_E2E_COMMAND` | `KIRO_E2E_COMMAND` | command run by `watch-main` for E2E gating |
+| `KIRO_API_KEY` | _(no alias)_ | required by `konippi/kiro-cli-review-action` — name is fixed by the upstream action |
+| `ANTHROPIC_API_KEY` | _(no alias)_ | required by `anthropics/claude-code-action` |
+
+### Slash commands and skills are mirrored
 
 - `.kiro/prompts/` ←→ `.claude/commands/` (symlink)
 - `.kiro/skills/`  ←→ `.claude/skills/`  (symlink)
@@ -228,7 +243,7 @@ The orchestrator uses an AI planner prompt (`.kiro/prompts/orchestrator-plan.md`
 
 Run `just preflight` to diagnose local tools, GitHub auth, branch setup, Actions permissions, review secrets, workflows, and E2E command detection before launching the pipeline.
 
-`watch-main` now runs as a resident develop-to-main promotion monitor by default and can be disabled with `ORCH_AUTO_WATCH_MAIN=false`. It requires a real E2E command for promotion (`KIRO_E2E_COMMAND`, `just e2e`, or `package.json` `e2e`). `ui-audit` auto-spawns by default after merges and can be disabled with `ORCH_AUTO_UI_AUDIT=false`. Optional `improve` auto-spawn can be enabled with `ORCH_AUTO_IMPROVE=true`. AI planning can be disabled with `ORCH_AI=false`.
+`watch-main` now runs as a resident develop-to-main promotion monitor by default and can be disabled with `ORCH_AUTO_WATCH_MAIN=false`. It requires a real E2E command for promotion (`AI_E2E_COMMAND`, the legacy `KIRO_E2E_COMMAND`, `just e2e`, or `package.json` `e2e`). `ui-audit` auto-spawns by default after merges and can be disabled with `ORCH_AUTO_UI_AUDIT=false`. Optional `improve` auto-spawn can be enabled with `ORCH_AUTO_IMPROVE=true`. AI planning can be disabled with `ORCH_AI=false`.
 
 Code review is delegated to `konippi/kiro-cli-review-action` on `develop` PRs. The local `review` pane is a merge-manager only: it handles already approved PRs, waits for checks, and retries squash merge. PRs are normalized into states such as `review_pending`, `approved_ready`, `approved_pending`, `changes_requested`, `conflict`, `approved_checks_failed`, and `merge_blocked` so the planner and dashboard reason from the same state machine.
 
@@ -269,7 +284,7 @@ The orchestrator pane refreshes on a fixed tick (`ORCH_TICK_INTERVAL`, default `
 
 All skills are available as `/slash-commands` in the interactive Kiro tab,
 and as Claude Code skills under `.claude/skills/` when running with
-`KIRO_AI_RUNNER=claude`.
+`AI_RUNNER=claude`.
 
 ---
 
