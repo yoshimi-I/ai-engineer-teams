@@ -1,8 +1,40 @@
 #!/usr/bin/env bash
-# Reset project state: close PRs, delete branches, unassign issues, fix labels
+# Reset project state: close PRs, delete branches, unassign issues, fix labels.
+#
+# Operates on the current repository (resolved via `gh repo view`) and the
+# currently authenticated user (resolved via `gh api user`). This script
+# never targets a hard-coded repo or username, so running it in the wrong
+# clone cannot accidentally delete branches in someone else's project.
 set -euo pipefail
 
-REPO="yoshimi-I/video-english-learn"
+if ! command -v gh >/dev/null 2>&1; then
+  echo "❌ gh (GitHub CLI) is required" >&2
+  exit 1
+fi
+if ! gh auth status >/dev/null 2>&1; then
+  echo "❌ gh is not authenticated. Run: gh auth login" >&2
+  exit 1
+fi
+
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || echo "")
+if [ -z "$REPO" ]; then
+  echo "❌ Could not resolve current repo. Run this from inside a git repo whose origin is on GitHub." >&2
+  exit 1
+fi
+
+GH_USER=$(gh api user --jq .login 2>/dev/null || echo "")
+if [ -z "$GH_USER" ]; then
+  echo "❌ Could not resolve gh user via 'gh api user'." >&2
+  exit 1
+fi
+
+read -r -p "About to reset $REPO (close PRs, delete feature branches, unassign $GH_USER from issues). Continue? (y/N) → " confirm
+if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+  echo "Aborted."
+  exit 0
+fi
+
+STABLE_BRANCH="${AI_STABLE_BRANCH:-${KIRO_STABLE_BRANCH:-main}}"
 
 echo "🔄 Project Reset: $REPO"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -20,10 +52,10 @@ else
   done
 fi
 
-# 2. Delete remaining remote feature branches (keep main only)
+# 2. Delete remaining remote feature branches (keep stable branch only)
 echo ""
 echo "🌿 Step 2: Delete remote feature branches"
-branches=$(git ls-remote --heads origin 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||' | grep -v '^main$' || true)
+branches=$(git ls-remote --heads origin 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||' | grep -v "^${STABLE_BRANCH}$" || true)
 if [ -z "$branches" ]; then
   echo "  No feature branches."
 else
@@ -36,9 +68,9 @@ fi
 # 3. Delete local feature branches
 echo ""
 echo "🧹 Step 3: Delete local feature branches"
-git checkout main 2>/dev/null || true
+git checkout "$STABLE_BRANCH" 2>/dev/null || true
 git pull --rebase 2>/dev/null || true
-local_branches=$(git branch | grep -v '^\*' | grep -v 'main' | tr -d ' ' || true)
+local_branches=$(git branch | grep -v '^\*' | grep -v "^[[:space:]]*${STABLE_BRANCH}$" | tr -d ' ' || true)
 if [ -z "$local_branches" ]; then
   echo "  No local feature branches."
 else
@@ -58,7 +90,7 @@ if [ -z "$assigned" ]; then
 else
   for issue in $assigned; do
     echo "  Unassigning issue #$issue..."
-    gh issue edit "$issue" --repo "$REPO" --remove-assignee yoshimi-I 2>/dev/null || true
+    gh issue edit "$issue" --repo "$REPO" --remove-assignee "$GH_USER" 2>/dev/null || true
   done
 fi
 
