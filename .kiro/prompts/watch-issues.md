@@ -1,4 +1,7 @@
-
+---
+name: watch-issues
+description: GitHub issue を監視し、新規 issue が来たら自動実装ループを開始する。
+---
 # GitHub Issue監視・自動実装
 
 GitHub issueを確認し、未処理issueを `/implement` プロンプトの手順で実装→PR作成まで行う。

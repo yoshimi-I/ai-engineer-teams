@@ -1,4 +1,7 @@
-
+---
+name: feature-discovery
+description: 競合調査・ギャップ分析を行い、新機能の issue を作成する。
+---
 # 機能調査 — 競合調査→ギャップ分析→issue作成
 
 ## 手順

@@ -1,4 +1,7 @@
-
+---
+name: rebase-prs
+description: DIRTY 状態の PR を自動リベースして mergeable にする。
+---
 # DIRTY PR自動リベース
 
 DIRTY（コンフリクトあり）のopen PRを検出し、mainにリベースして再pushする。

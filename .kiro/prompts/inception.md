@@ -1,4 +1,7 @@
-
+---
+name: inception
+description: AI-DLC INCEPTION フェーズ: 要件 → 設計 → アーキテクチャ → issue 生成までの構造化プロジェクト計画。
+---
 # INCEPTION — 構造化プロジェクト計画
 
 INCEPTIONフェーズを実行する: ワークスペース分析 → 要件収集 →

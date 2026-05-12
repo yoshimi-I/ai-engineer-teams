@@ -1,4 +1,7 @@
-
+---
+name: to-english
+description: プロジェクトのドキュメントとプロンプトを英訳する。
+---
 # Translate to English
 
 Translate all prompt files in `.kiro/prompts/` and all steering files in `.kiro/steering/` to English.

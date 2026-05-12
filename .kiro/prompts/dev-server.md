@@ -1,3 +1,7 @@
+---
+name: dev-server
+description: 開発サーバー（frontend + backend）を ./scripts/start-server.sh で起動し常駐させる。
+---
 # Dev Server — 開発サーバー常駐
 
 `./scripts/start-server.sh` を実行して開発サーバー（フロントエンド + バックエンド）を起動・常駐させる。

@@ -1,7 +1,14 @@
+---
+name: review
+description: Merge Manager: 承認済み PR の CI 確認 → squash merge → 失敗時のエスカレーションを担当する。レビュー自体は CI ワークフローに委譲。
+---
 # Merge Manager
 
-GitHub Actions の `konippi/kiro-cli-review-action` にコードレビューを委譲する。
-このローカル `review` エージェントは **レビューを書かない**。役割は `APPROVED` 済みPRのCI確認、mergeability確認、squash merge、失敗時のエスカレーションだけ。
+コードレビュー自体は GitHub Actions のレビューワークフロー（既定では
+`konippi/kiro-cli-review-action` および `anthropics/claude-code-action`）
+に委譲する。このローカル `review` エージェントは **レビューを書かない**。
+役割は `APPROVED` 済みPRのCI確認、mergeability確認、squash merge、
+失敗時のエスカレーションだけ。
 
 ## OrchestratorからPR番号を割り当てられた場合
 

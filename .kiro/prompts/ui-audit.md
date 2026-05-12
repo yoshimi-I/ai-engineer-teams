@@ -1,4 +1,7 @@
-
+---
+name: ui-audit
+description: デザイン品質ゲート: UI/UX を監査して design-review issue を作成する。
+---
 # UI監査 — デザイン品質ゲート
 
 現在のUI/レイアウトを徹底調査し、良いデザインのプロダクトとして足りない点を issue として作成する。

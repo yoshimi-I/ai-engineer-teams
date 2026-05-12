@@ -1,4 +1,7 @@
-
+---
+name: watch-main
+description: develop ブランチを監視 → E2E 検証 → main へ昇格する常駐エージェント。
+---
 # developブランチ監視・E2E検証・main昇格
 
 ユーザーの指示を待たず、即座に `${KIRO_INTEGRATION_BRANCH:-develop}` ブランチの監視を開始する。develop へのマージをポーリングし、新しいマージを検出したらテスト実行 + ブラウザE2E検証 → バグ発見時はGitHub issueを作成。バグがなければ `${KIRO_STABLE_BRANCH:-main}` への昇格PRを作成し、チェック通過後に squash merge する。

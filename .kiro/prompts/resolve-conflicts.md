@@ -1,4 +1,7 @@
-
+---
+name: resolve-conflicts
+description: PR のコンフリクトを解消する。
+---
 # コンフリクト解決
 
 ブランチをリベースし、コンフリクトマーカーを手動解決して force-push する。
