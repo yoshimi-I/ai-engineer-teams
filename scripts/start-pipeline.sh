@@ -202,7 +202,21 @@ if [[ "$IS_UPSTREAM_TEMPLATE" == "true" ]]; then
   }
 fi
 
-if ! gh auth status &>/dev/null; then
+# Mirror the setup.sh fallback: if GITHUB_TOKEN is exported but stale, gh
+# auth status fails even when the keychain still has valid credentials. In
+# that case unset the bad env var locally and continue with the keychain,
+# matching `just setup`'s behaviour (see #166 / #168).
+if gh auth status &>/dev/null; then
+  :
+elif [ -n "${GITHUB_TOKEN:-}" ] && env -u GITHUB_TOKEN gh auth status &>/dev/null; then
+  echo "⚠️  GITHUB_TOKEN in your shell is invalid; falling back to gh keychain credentials."
+  echo "⚠️  Fix it in your shell init when convenient — other tools that read GITHUB_TOKEN will keep tripping."
+  unset GITHUB_TOKEN
+elif [ -n "${GITHUB_TOKEN:-}" ]; then
+  echo "❌ GITHUB_TOKEN is set but gh cannot authenticate with it, and no keychain credential is available."
+  echo "   Replace GITHUB_TOKEN with a valid token, or:  unset GITHUB_TOKEN && gh auth login"
+  exit 1
+else
   echo "❌ GitHub CLI is not authenticated"
   echo "   Run: gh auth login"
   exit 1
