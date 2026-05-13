@@ -101,8 +101,18 @@ else
 fi
 
 # ── gh auth ──
+# `gh auth login` refuses to run interactively when GITHUB_TOKEN is set in
+# the environment, even if that token is invalid or lacks scopes. Detect
+# that combination explicitly so the user gets a clear instruction instead
+# of an opaque "first clear the value from the environment" message that
+# appears mid-prompt and then exits 1.
 if gh auth status &>/dev/null; then
   info "gh authenticated"
+elif [ -n "${GITHUB_TOKEN:-}" ]; then
+  warn "GITHUB_TOKEN is set but gh cannot authenticate with it (token may be invalid or lacks required scopes)."
+  warn "Unset it (or replace it with a valid token) and re-run setup:"
+  echo "    unset GITHUB_TOKEN && just setup"
+  exit 1
 else
   warn "gh not authenticated. Running: gh auth login"
   gh auth login
