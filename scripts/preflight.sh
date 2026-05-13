@@ -54,6 +54,14 @@ fi
 
 if gh auth status >/dev/null 2>&1; then
   ok "gh authenticated"
+elif [ -n "${GITHUB_TOKEN:-}" ] && env -u GITHUB_TOKEN gh auth status >/dev/null 2>&1; then
+  # GITHUB_TOKEN is set but stale; keychain credentials are still valid. See
+  # the matching fallback in setup.sh / start-pipeline.sh and #166 / #168.
+  # unset the bad env var so the rest of preflight (and the orchestrator
+  # that follows) uses the keychain.
+  warn "GITHUB_TOKEN is set but invalid; falling back to gh keychain credentials"
+  unset GITHUB_TOKEN
+  ok "gh authenticated (via keychain)"
 else
   fail "gh is not authenticated. Run: gh auth login"
 fi

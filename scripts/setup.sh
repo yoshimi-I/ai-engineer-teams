@@ -101,16 +101,26 @@ else
 fi
 
 # ── gh auth ──
-# `gh auth login` refuses to run interactively when GITHUB_TOKEN is set in
-# the environment, even if that token is invalid or lacks scopes. Detect
-# that combination explicitly so the user gets a clear instruction instead
-# of an opaque "first clear the value from the environment" message that
-# appears mid-prompt and then exits 1.
+# `gh` consults GITHUB_TOKEN before the keychain. If the env var holds a
+# stale/invalid token while the keychain has valid credentials, the user
+# can authenticate just fine via `unset GITHUB_TOKEN && gh ...` but
+# `just setup` itself died because `gh auth login` refuses to launch the
+# interactive flow while GITHUB_TOKEN is set (see #166 / #168). Handle
+# each case explicitly:
+#   (1) gh already auths with whatever it sees → done.
+#   (2) Env-var token is bad but keychain works → unset locally, continue.
+#   (3) Env-var token is the only auth and it is bad → ask the user to fix it.
+#   (4) No auth at all → interactive login.
 if gh auth status &>/dev/null; then
   info "gh authenticated"
+elif [ -n "${GITHUB_TOKEN:-}" ] && env -u GITHUB_TOKEN gh auth status &>/dev/null; then
+  warn "GITHUB_TOKEN in your shell is invalid; falling back to gh keychain credentials for this run."
+  warn "Fix it in your shell init (~/.zshrc, ~/.bashrc, direnv, ...) when convenient — other tooling that reads GITHUB_TOKEN will keep tripping otherwise."
+  unset GITHUB_TOKEN
+  info "gh authenticated (via keychain)"
 elif [ -n "${GITHUB_TOKEN:-}" ]; then
-  warn "GITHUB_TOKEN is set but gh cannot authenticate with it (token may be invalid or lacks required scopes)."
-  warn "Unset it (or replace it with a valid token) and re-run setup:"
+  warn "GITHUB_TOKEN is set but gh cannot authenticate with it, and no keychain credential is available."
+  warn "Either replace GITHUB_TOKEN with a valid token, or unset it and re-run setup so gh can launch the interactive flow:"
   echo "    unset GITHUB_TOKEN && just setup"
   exit 1
 else
