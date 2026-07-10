@@ -2,12 +2,14 @@
 
 # 🏭 ai-engineer-teams
 
-**動的スケーリング型エージェント開発パイプライン**
-**[Kiro CLI](https://kiro.dev/docs/cli/) × [zellij](https://zellij.dev/)**
+**GitHub issue 駆動の AI coding team を作る loop engineering runtime**
+**Codex / Claude Code / Kiro × zellij**
 
 issue → 実装 → レビュー → マージ → E2E検証を全自動化。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
+[![Codex CLI](https://img.shields.io/badge/Codex_CLI-compatible-black.svg)](https://developers.openai.com/codex/cli)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-orange.svg)](https://docs.claude.com/en/docs/claude-code/quickstart)
 [![Kiro CLI](https://img.shields.io/badge/Kiro_CLI-compatible-purple.svg)](https://kiro.dev/docs/cli/)
 [![CI + Kiro Review](https://img.shields.io/badge/CI-Kiro_Review-green.svg)](../.github/workflows/kiro-review.yml)
 
@@ -16,6 +18,25 @@ issue → 実装 → レビュー → マージ → E2E検証を全自動化。
 </div>
 
 ---
+
+## これは何か
+
+`ai-engineer-teams` は、毎回人間が agent に「次はこの issue」「レビューを直して」
+「テストを回して」と指示する代わりに、その外側のループをソフトウェア化します。
+
+1. GitHub issue を work queue にする
+2. orchestrator が issue / PR / CI / review / merge 状態を観測する
+3. 必要な role だけ zellij pane として起動する
+4. Codex / Claude Code / Kiro が実装・修正・検証を行う
+5. 結果を次の loop に戻す
+
+「N 個の agent を常時走らせる」ためのツールではありません。repo の状態を見て、
+次に必要な agent だけを prompt する loop engineering runtime です。
+
+## Demo / Launch
+
+- [30秒デモ台本](DEMO.md)
+- [公開告知用 launch kit](LAUNCH.md)
 
 ## クイックスタート
 
@@ -156,10 +177,20 @@ Orchestrator（最小構成で起動 → 必要に応じてスケール）
 
 | ツール | インストール | 必須 |
 |--------|------------|------|
-| [Kiro CLI](https://kiro.dev/docs/cli/) | [ダウンロード](https://kiro.dev/downloads/) | ✅ |
+| [Codex CLI](https://developers.openai.com/codex/cli) | Codex CLI quickstart | ✅（3つのうち1つ） |
+| [Kiro CLI](https://kiro.dev/docs/cli/) | [ダウンロード](https://kiro.dev/downloads/) | ✅（3つのうち1つ） |
+| [Claude Code](https://docs.claude.com/en/docs/claude-code/quickstart) | `npm i -g @anthropic-ai/claude-code` | ✅（3つのうち1つ） |
 | [zellij](https://zellij.dev/) | `brew install zellij` | ✅ 0.44.1+ |
 | [GitHub CLI](https://cli.github.com/) | `brew install gh` → `gh auth login` | ✅ |
 | [just](https://just.systems/) | `brew install just` | 任意（GitLab切替用） |
+
+runner は `AI_RUNNER` で切り替えます。
+
+```bash
+AI_RUNNER=codex just start
+AI_RUNNER=claude just start
+AI_RUNNER=kiro just start
+```
 
 zellij は **0.44.1 以上が必須**です。オーケストレーターは新しい CLI automation API（`list-panes --json`、pane ID、`--tab-id`、`--close-on-exit`）に依存しています。`0.43.1` など古いバージョンでは、必要な時だけ pane を作り、完了後に閉じる動的ライフサイクルが正しく動きません。
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: ./scripts/agent.sh <prompt-name>
-# Runs an AI agent (kiro-cli or Claude Code, selected by AI_RUNNER /
+# Runs an AI agent (Kiro CLI, Claude Code, or Codex CLI, selected by AI_RUNNER /
 # KIRO_AI_RUNNER) in a loop, feeding it the specified prompt.
 # Agents that depend on issues/PRs will wait until work is available.
 
