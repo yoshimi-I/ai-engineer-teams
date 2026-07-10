@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1091
 # Shared helpers for BATS tests.
 #
 # Usage inside a .bats file:

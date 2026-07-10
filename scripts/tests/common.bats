@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# shellcheck disable=SC1091
 # Tests for scripts/lib/common.sh
 
 load helpers

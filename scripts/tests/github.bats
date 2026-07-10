@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# shellcheck disable=SC1091,SC2030,SC2031
 # Tests for scripts/lib/github.sh normalize_prs_json — the heart of the PR
 # state machine. Every downstream decision (review pane vs fix-review pane,
 # dashboard colour, skip reasons) depends on this normalization, so it gets

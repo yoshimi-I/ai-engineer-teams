@@ -6,6 +6,10 @@ STABLE_BRANCH="${AI_STABLE_BRANCH:-${KIRO_STABLE_BRANCH:-main}}"
 failures=0
 warnings=0
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/github-auth.sh
+source "${SCRIPT_DIR}/lib/github-auth.sh"
+
 ok() { printf '  \033[32m✔\033[0m %s\n' "$1"; }
 warn() { warnings=$((warnings + 1)); printf '  \033[33m⚠\033[0m %s\n' "$1"; }
 fail() { failures=$((failures + 1)); printf '  \033[31m✘\033[0m %s\n' "$1"; }
@@ -52,7 +56,10 @@ if command -v zellij >/dev/null 2>&1; then
   fi
 fi
 
-if gh auth status >/dev/null 2>&1; then
+if gh_auth_status; then
+  ok "gh authenticated"
+elif recover_gh_auth_from_env_token; then
+  warn "GITHUB_TOKEN is set but invalid; using keychain gh credentials for this preflight run"
   ok "gh authenticated"
 else
   fail "gh is not authenticated. Run: gh auth login"
@@ -112,8 +119,10 @@ elif [ -f justfile ] && command -v just >/dev/null 2>&1 && just --list 2>/dev/nu
   ok "just e2e detected"
 elif [ -f package.json ] && jq -e '.scripts.e2e' package.json >/dev/null 2>&1; then
   ok "package.json e2e script detected"
+elif [ -x ./scripts/check.sh ]; then
+  ok "Bash template verification detected (./scripts/check.sh)"
 else
-  warn "no E2E command detected; main promotion will fail until AI_E2E_COMMAND (or legacy KIRO_E2E_COMMAND), just e2e, or package.json e2e is configured"
+  warn "no E2E command detected; main promotion will fail until AI_E2E_COMMAND (or legacy KIRO_E2E_COMMAND), just e2e, package.json e2e, or ./scripts/check.sh is configured"
 fi
 
 echo ""
