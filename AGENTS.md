@@ -5,16 +5,17 @@ The orchestrator starts minimal and spawns additional zellij panes on
 demand based on open issues, PRs, and post-merge state — it is **not** a
 fixed "N agent" pool.
 
-This file is also loaded by Claude Code (via the `CLAUDE.md` symlink), so
-the same project rules apply whether the pipeline is driven by Kiro CLI
-or Claude Code. Pick one with `AI_RUNNER=kiro` (default) or
-`AI_RUNNER=claude`; the legacy `KIRO_AI_RUNNER` name is still honoured.
+This file is also loaded by Claude Code (via the `CLAUDE.md` symlink) and
+Codex (as `AGENTS.md`), so the same project rules apply whether the pipeline
+is driven by Kiro CLI, Claude Code, or Codex CLI. Pick one with
+`AI_RUNNER=kiro` (default), `AI_RUNNER=claude`, or `AI_RUNNER=codex`; the
+legacy `KIRO_AI_RUNNER` name is still honoured.
 
 Slash commands live in `.kiro/prompts/` and are mirrored at
 `.claude/commands/`; skills live in `.kiro/skills/` and are mirrored at
 `.claude/skills/`. The `.kiro/` paths are kept as the canonical location
-because kiro-cli reads them natively — both runners resolve the same
-content through the mirror.
+because kiro-cli reads them natively — supported runners resolve the same
+project guidance through their native surfaces.
 
 ## First interaction
 

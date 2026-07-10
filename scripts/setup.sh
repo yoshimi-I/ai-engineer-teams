@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install prerequisites for the ai-engineer-teams pipeline.
 #
-# This script ONLY installs tools (one of kiro-cli or claude, plus zellij,
+# This script ONLY installs tools (one of kiro-cli, claude, or codex, plus zellij,
 # gh, gum, jq, shellcheck, bats-core, fswatch). It never removes user files.
 # Template cleanup is
 # owned by scripts/start-pipeline.sh (which detects the upstream template
@@ -53,9 +53,9 @@ else
 fi
 
 # ── AI runner CLIs ──
-# We support both Kiro CLI and Claude Code; users pick one via
+# We support Kiro CLI, Claude Code, and Codex CLI; users pick one via
 # AI_RUNNER (default kiro). KIRO_AI_RUNNER is honoured for backward
-# compatibility. At least one of the two CLIs must be installed.
+# compatibility.
 AI_RUNNER="${AI_RUNNER:-${KIRO_AI_RUNNER:-kiro}}"
 
 if command -v kiro-cli &>/dev/null; then
@@ -68,6 +68,12 @@ if command -v claude &>/dev/null; then
   info "claude (Claude Code) already installed"
 elif [[ "$AI_RUNNER" == "claude" ]]; then
   warn "claude not found (AI_RUNNER=claude). Install: https://docs.claude.com/en/docs/claude-code/quickstart"
+fi
+
+if command -v codex &>/dev/null; then
+  info "codex (Codex CLI) already installed"
+elif [[ "$AI_RUNNER" == "codex" ]]; then
+  warn "codex not found (AI_RUNNER=codex). Install: https://developers.openai.com/codex/cli"
 fi
 
 # ── zellij ──

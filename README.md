@@ -2,12 +2,14 @@
 
 # 🏭 ai-engineer-teams
 
-**Auto-scaling agent development pipeline**
-**powered by [Kiro CLI](https://kiro.dev/docs/cli/) × [zellij](https://zellij.dev/)**
+**Loop engineering runtime for autonomous AI coding teams**
+**powered by GitHub Issues × Codex / Claude Code / Kiro × zellij**
 
 issue → implementation → review → merge → E2E verification — fully automated.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Codex CLI](https://img.shields.io/badge/Codex_CLI-compatible-black.svg)](https://developers.openai.com/codex/cli)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-orange.svg)](https://docs.claude.com/en/docs/claude-code/quickstart)
 [![Kiro CLI](https://img.shields.io/badge/Kiro_CLI-compatible-purple.svg)](https://kiro.dev/docs/cli/)
 [![CI + Kiro Review](https://img.shields.io/badge/CI-Kiro_Review-green.svg)](.github/workflows/kiro-review.yml)
 
@@ -16,6 +18,39 @@ issue → implementation → review → merge → E2E verification — fully aut
 </div>
 
 ---
+
+## Why This Exists
+
+Most AI coding tools still assume a human keeps prompting: "pick the next
+issue", "fix the review", "rerun tests", "merge it", "check production".
+Loop engineering moves that outer loop into software.
+
+`ai-engineer-teams` turns a repository into a repeatable agent loop:
+
+1. GitHub Issues define work.
+2. The orchestrator observes issues, PRs, CI, reviews, and merge state.
+3. zellij panes are spawned only when a role is needed.
+4. Codex, Claude Code, or Kiro performs the work.
+5. CI and review results feed back into the next loop.
+
+The goal is not "N agents running forever". The goal is a small control plane
+that keeps prompting the right agent at the right time.
+
+## What Makes It Different
+
+| Approach | What it gives you | What is missing |
+|---|---|---|
+| One-shot prompting | Fast local edits | You still drive every next step |
+| Claude/Codex hooks only | Useful guardrails | No GitHub issue/PR control loop |
+| Simple shell loop | Easy to understand | No role separation, review state, or merge gates |
+| Generic loop-engineering scaffold | Concepts and starter patterns | Usually not a full GitHub delivery pipeline |
+| **ai-engineer-teams** | Issue queue, dynamic panes, role-specific prompts, CI review, fix-review, E2E promotion | Requires GitHub CLI, zellij, and one supported AI runner |
+
+## Demo And Launch Kit
+
+- [30-second terminal demo script](docs/DEMO.md)
+- [Launch copy for X, Hacker News, Reddit, Zenn, and Qiita](docs/LAUNCH.md)
+- Positioning: **Loop engineering runtime for GitHub issue-driven AI coding teams**
 
 ## Quick Start
 
@@ -114,6 +149,26 @@ just start (./scripts/start-pipeline.sh)
 
 ---
 
+## 🤖 Supported AI Runners
+
+The local loop can be driven by any of these CLIs:
+
+| Runner | `AI_RUNNER` | Non-interactive command | Best fit |
+|---|---|---|---|
+| [Codex CLI](https://developers.openai.com/codex/cli) | `codex` | `codex exec` | Codex-first terminal automation |
+| [Claude Code](https://docs.claude.com/en/docs/claude-code/quickstart) | `claude` | `claude --print` | Claude Code projects and skills |
+| [Kiro CLI](https://kiro.dev/docs/cli/) | `kiro` | `kiro-cli chat --no-interactive` | Kiro-native prompts and review action |
+
+```bash
+AI_RUNNER=codex just start
+AI_RUNNER=claude just start
+AI_RUNNER=kiro just start
+```
+
+Codex reads the repository-level `AGENTS.md` guidance directly. Claude Code
+uses the `CLAUDE.md` symlink, and Kiro uses the canonical `.kiro/` prompts and
+skills.
+
 ## 🤖 CI Reviews (Kiro and Claude Code)
 
 Two parallel review workflows ship out of the box. Either or both can run;
@@ -190,21 +245,25 @@ Orchestrator (starts with 1 agent, scales as needed)
 
 | Tool | Install | Required |
 |------|---------|:---:|
-| [Kiro CLI](https://kiro.dev/docs/cli/) | See [downloads](https://kiro.dev/downloads/) | ✅ (one of the two) |
-| [Claude Code](https://docs.claude.com/en/docs/claude-code/quickstart) | `npm i -g @anthropic-ai/claude-code` | ✅ (one of the two) |
+| [Codex CLI](https://developers.openai.com/codex/cli) | See Codex CLI quickstart | ✅ (one of the three) |
+| [Kiro CLI](https://kiro.dev/docs/cli/) | See [downloads](https://kiro.dev/downloads/) | ✅ (one of the three) |
+| [Claude Code](https://docs.claude.com/en/docs/claude-code/quickstart) | `npm i -g @anthropic-ai/claude-code` | ✅ (one of the three) |
 | [zellij](https://zellij.dev/) | `brew install zellij` | ✅ 0.44.1+ |
 | [GitHub CLI](https://cli.github.com/) | `brew install gh` → `gh auth login` | ✅ |
 | [gum](https://github.com/charmbracelet/gum) | `brew install gum` | ✅ (for control panel) |
 | [jq](https://jqlang.github.io/jq/) | `brew install jq` | ✅ |
 | [just](https://just.systems/) | `brew install just` | Optional |
 
-The pipeline can be driven by either runner; pick one with the
-`AI_RUNNER` environment variable (default `kiro`). The legacy
+The pipeline can be driven by Codex, Claude Code, or Kiro CLI; pick one with
+the `AI_RUNNER` environment variable (default `kiro`). The legacy
 `KIRO_AI_RUNNER` name is still honoured.
 
 ```bash
 # Default: Kiro CLI
 just start
+
+# Drive the same pipeline with Codex CLI
+AI_RUNNER=codex just start
 
 # Drive the same pipeline with Claude Code
 AI_RUNNER=claude just start
@@ -217,7 +276,7 @@ backward compatibility:
 
 | Canonical name | Legacy alias | Purpose |
 |---|---|---|
-| `AI_RUNNER` | `KIRO_AI_RUNNER` | `kiro` (default) or `claude` |
+| `AI_RUNNER` | `KIRO_AI_RUNNER` | `kiro` (default), `claude`, or `codex` |
 | `AI_INTEGRATION_BRANCH` | `KIRO_INTEGRATION_BRANCH` | feature PR target (default `develop`) |
 | `AI_STABLE_BRANCH` | `KIRO_STABLE_BRANCH` | promotion target (default `main`) |
 | `AI_E2E_COMMAND` | `KIRO_E2E_COMMAND` | command run by `watch-main` for E2E gating |
@@ -230,7 +289,8 @@ backward compatibility:
 - `.kiro/skills/`  ←→ `.claude/skills/`  (symlink)
 - `AGENTS.md`      ←→ `CLAUDE.md`         (symlink)
 
-so editing the canonical `.kiro/` copy keeps both runners in sync.
+so editing the canonical `.kiro/` copy keeps Kiro and Claude Code in sync,
+while Codex loads the repository rules from `AGENTS.md`.
 
 zellij **0.44.1 or newer is required**. The orchestrator depends on the newer CLI automation APIs: `list-panes --json`, pane IDs, `--tab-id`, and `--close-on-exit`. Older versions such as `0.43.1` cannot run the dynamic pane lifecycle correctly.
 
@@ -282,9 +342,10 @@ The orchestrator pane refreshes on a fixed tick (`ORCH_TICK_INTERVAL`, default `
 | `delivery-pipeline` | Delivery automation |
 | `inception` | INCEPTION workflow |
 
-All skills are available as `/slash-commands` in the interactive Kiro tab,
-and as Claude Code skills under `.claude/skills/` when running with
-`AI_RUNNER=claude`.
+Skills are available as `/slash-commands` in the interactive Kiro tab and as
+Claude Code skills under `.claude/skills/` when running with
+`AI_RUNNER=claude`. Codex uses the shared `AGENTS.md` operating rules and can
+run the same issue-driven loop with `AI_RUNNER=codex`.
 
 ---
 
@@ -318,7 +379,7 @@ scripts/
 ├── start-pipeline.sh              # Launcher (INCEPTION → pipeline)
 ├── orchestrator.sh                # Dynamic role allocation
 ├── agent.sh                       # Agent loop wrapper
-├── lib/runner.sh                  # AI runner abstraction (kiro / claude)
+├── lib/runner.sh                  # AI runner abstraction (kiro / claude / codex)
 ├── control-panel.sh               # TUI control panel (gum)
 ├── dashboard.sh                   # Status dashboard
 └── pipeline.kdl                   # zellij layout

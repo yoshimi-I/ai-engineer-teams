@@ -28,6 +28,10 @@ write_fake_tools() {
     '#!/usr/bin/env bash' \
     'exit 0'
 
+  write_executable "${TS_ROOT}/bin/codex" \
+    '#!/usr/bin/env bash' \
+    'exit 0'
+
   write_executable "${TS_ROOT}/bin/jq" \
     '#!/usr/bin/env bash' \
     'exit 0'
@@ -70,4 +74,11 @@ write_fake_tools() {
   run env AI_RUNNER=kiro bash "${TS_REPO_ROOT}/scripts/preflight.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"kiro-cli is required"* ]]
+}
+
+@test "preflight with AI_RUNNER=codex uses Codex CLI" {
+  run env AI_RUNNER=codex bash "${TS_REPO_ROOT}/scripts/preflight.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"codex found"* ]]
+  [[ "$output" != *"kiro-cli is required"* ]]
 }

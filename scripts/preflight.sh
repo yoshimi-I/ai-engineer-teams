@@ -36,6 +36,7 @@ AI_RUNNER="${AI_RUNNER:-${KIRO_AI_RUNNER:-kiro}}"
 case "$AI_RUNNER" in
   kiro)   RUNNER_BIN="kiro-cli" ;;
   claude) RUNNER_BIN="claude"   ;;
+  codex)  RUNNER_BIN="codex"    ;;
   *)      RUNNER_BIN="kiro-cli" ;;
 esac
 
