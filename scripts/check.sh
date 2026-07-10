@@ -13,7 +13,13 @@ if ! command -v shellcheck >/dev/null 2>&1; then
   echo "error: shellcheck is required. Run 'just setup' or install via your package manager." >&2
   exit 1
 fi
-shellcheck -x -P scripts scripts/*.sh scripts/lib/*.sh
+shellcheck -x -P scripts scripts/*.sh scripts/lib/*.sh scripts/tests/*.bash scripts/tests/*.bats
+
+# Repository hygiene.
+if ! git check-ignore -q .worktrees/test; then
+  echo "error: .worktrees/ must be ignored before creating local agent worktrees." >&2
+  exit 1
+fi
 
 # Unit tests.
 if ! command -v bats >/dev/null 2>&1; then

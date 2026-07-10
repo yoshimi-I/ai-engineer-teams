@@ -36,7 +36,7 @@ jobs:
         run: find scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
 
       - name: Run ShellCheck
-        run: shellcheck -x -P scripts scripts/*.sh scripts/lib/*.sh
+        run: shellcheck -x -P scripts scripts/*.sh scripts/lib/*.sh scripts/tests/*.bash scripts/tests/*.bats
 
       - name: Run BATS unit tests
         run: bats scripts/tests/*.bats

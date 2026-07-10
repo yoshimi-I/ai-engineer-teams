@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# shellcheck disable=SC1091,SC2034
 # Tests for scripts/lib/planner.sh pure functions.
 #
 # We isolate the pure JSON/shape functions from the ones that call out to

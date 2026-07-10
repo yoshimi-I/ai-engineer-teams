@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# shellcheck disable=SC1091
 # Tests for scripts/lib/panes.sh pure registry operations.
 #
 # We test the parts that don't touch zellij: registry parsing, counting,

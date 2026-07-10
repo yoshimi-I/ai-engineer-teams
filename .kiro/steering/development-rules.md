@@ -38,13 +38,13 @@ description: 全タスクに適用されるコアルール
 -->
 
 ```
-# 言語 / フレームワーク: TBD (INCEPTION で決定)
-# パッケージマネージャ: TBD
-# Lint コマンド: TBD
-# Typecheck コマンド: TBD
-# Test コマンド: TBD
-# Build コマンド: TBD
-# Dead code 検出: TBD (任意)
+# 言語 / フレームワーク: Bash scripts + GitHub CLI + zellij orchestration
+# パッケージマネージャ: なし（macOS は Homebrew、Ubuntu CI は apt で shellcheck/bats を導入）
+# Lint コマンド: shellcheck -x -P scripts scripts/*.sh scripts/lib/*.sh scripts/tests/*.bash scripts/tests/*.bats
+# Typecheck コマンド: なし（Bash プロジェクト）
+# Test コマンド: ./scripts/check.sh
+# Build コマンド: なし（スクリプト配布）
+# Dead code 検出: なし（任意）
 # Git: Conventional Commits
 ```
 
@@ -54,10 +54,7 @@ description: 全タスクに適用されるコアルール
 未確定の場合は INCEPTION を先に終わらせること。
 
 ```bash
-# 例: プロジェクト固有設定から読み取ったコマンドを実行
-# $LINT_CMD
-# $TYPECHECK_CMD
-# $TEST_CMD
+./scripts/check.sh
 ```
 
 CI で実行されるチェックは必ずローカルでも通してから push する。CI 失敗 PR は implement エージェントが自身で修正する。

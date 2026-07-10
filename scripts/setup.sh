@@ -37,6 +37,10 @@ version_ge() {
     }'
 }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/github-auth.sh
+source "${SCRIPT_DIR}/lib/github-auth.sh"
+
 # ── Detect package manager ──
 if command -v brew &>/dev/null; then
   PKG="brew"
@@ -106,7 +110,10 @@ fi
 # that combination explicitly so the user gets a clear instruction instead
 # of an opaque "first clear the value from the environment" message that
 # appears mid-prompt and then exits 1.
-if gh auth status &>/dev/null; then
+if gh_auth_status; then
+  info "gh authenticated"
+elif recover_gh_auth_from_env_token; then
+  warn "GITHUB_TOKEN is set but gh cannot authenticate with it; using keychain gh credentials for this setup run."
   info "gh authenticated"
 elif [ -n "${GITHUB_TOKEN:-}" ]; then
   warn "GITHUB_TOKEN is set but gh cannot authenticate with it (token may be invalid or lacks required scopes)."

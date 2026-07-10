@@ -18,6 +18,8 @@ export KIRO_STABLE_BRANCH="$STABLE_BRANCH"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/runner.sh
 source "${SCRIPT_DIR}/lib/runner.sh"
+# shellcheck source=lib/github-auth.sh
+source "${SCRIPT_DIR}/lib/github-auth.sh"
 
 # ── Preflight ──
 RUNNER_BIN="$(ai_runner_binary)"
@@ -202,7 +204,11 @@ if [[ "$IS_UPSTREAM_TEMPLATE" == "true" ]]; then
   }
 fi
 
-if ! gh auth status &>/dev/null; then
+if gh_auth_status; then
+  :
+elif recover_gh_auth_from_env_token; then
+  echo "⚠️  GITHUB_TOKEN is set but invalid; using keychain gh credentials for this pipeline run."
+else
   echo "❌ GitHub CLI is not authenticated"
   echo "   Run: gh auth login"
   exit 1
